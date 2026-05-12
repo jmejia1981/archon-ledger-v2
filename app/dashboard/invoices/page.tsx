@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, Trash2, Eye, Download, FileDown } from 'lucide-react'
 import { SkeletonTable } from '@/app/components/skeleton-loader'
 import { downloadInvoicePDF } from '@/lib/pdf-invoice'
-import { getArchonLogo } from '@/lib/image-utils'
 
 interface Invoice {
   id: string
@@ -850,3 +849,4 @@ export default function InvoicesPage() {
     </div>
   )
 }
+                                                  
