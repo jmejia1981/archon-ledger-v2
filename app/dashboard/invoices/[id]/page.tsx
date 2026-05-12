@@ -139,7 +139,6 @@ export default function InvoiceDetailPage() {
       return
     }
 
-    recordingPayment
     try {
       const newAmountPaid = (invoice.amount_paid || 0) + parseFloat(paymentData.amount)
 
@@ -510,4 +509,3 @@ export default function InvoiceDetailPage() {
     </div>
   )
 }
-                                        
