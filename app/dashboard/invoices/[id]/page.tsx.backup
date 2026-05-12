@@ -1,0 +1,1090 @@
+'use client'
+
+import { useEffect, useState, useRef } from 'react'
+import { useRouter, useParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+
+import { Breadcrumbs } from '@/app/components/breadcrumbs'
+import { downloadInvoicePDF } from '@/lib/pdf-invoice'
+import { Mail, Bell, Download, Printer, Save } from 'lucide-react'
+
+interface Invoice {
+  id: string
+  invoice_number: string
+  client_id: string
+  project_id?: string
+  invoice_date: string
+  due_date: string
+  invoice_amount: number
+  tax?: number
+  retainage?: number
+  amount_paid: number
+  status: string
+  payment_terms: string
+  notes?: string
+  is_recurring?: boolean
+  recurring_frequency?: string
+}
+
+interface LineItem {
+  id: string
+  invoice_id: string
+  description: string
+  quantity: number
+  unit_price: number
+  amount: number
+}
+
+interface Payment {
+  id: string
+  invoice_id: string
+  amount: number
+  payment_date: string
+  payment_method: string
+  notes?: string
+  created_at: string
+}
+
+interface Client {
+  id: string
+  name: string
+  email: string
+  phone: string
+  company_name: string
+  address?: string
+}
+
+interface Project {
+  id: string
+  project_name: string
+  project_number?: string
+}
+
+export default function InvoiceDetailPage() {
+  const router = useRouter()
+  const params = useParams()
+  const invoiceId = params.id as string
+
+  const [invoice, setInvoice] = useState<Invoice | null>(null)
+  const [client, setClient] = useState<Client | null>(null)
+  const [project, setProject] = useState<Project | null>(null)
+  const [lineItems, setLineItems] = useState<LineItem[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState(true) // Auto-open edit form on page load
+  const [recordingPayment, setRecordingPayment] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [sendingReminder, setSendingReminder] = useState(false)
+  const editSectionRef = useRef<HTMLDivElement>(null)
+  const [formData, setFormData] = useState({
+    invoice_date: '',
+    due_date: '',
+    invoice_amount: 0,
+    tax: 0,
+    retainage: 0,
+    amount_paid: 0,
+    status: '',
+    payment_terms: '',
+    notes: '',
+  })
+  const [paymentData, setPaymentData] = useState({
+    amount: 0,
+    payment_date: new Date().toISOString().split('T')[0],
+    payment_method: 'check',
+    notes: '',
+  })
+
+  const supabase = createClient()
+
+  // Load invoice details
+  useEffect(() => {
+    const loadInvoiceDetails = async () => {
+      try {
+        // Load invoice
+        const { data: invoiceData } = await supabase
+          .from('invoices')
+          .select('*')
+          .eq('id', invoiceId)
+          .single()
+
+        if (invoiceData) {
+          setInvoice(invoiceData)
+          setFormData({
+            invoice_date: invoiceData.invoice_date || '',
+            due_date: invoiceData.due_date || '',
+            invoice_amount: invoiceData.invoice_amount || 0,
+            tax: invoiceData.tax || 0,
+            retainage: invoiceData.retainage || 0,
+            amount_paid: invoiceData.amount_paid || 0,
+            status: invoiceData.status || 'draft',
+            payment_terms: invoiceData.payment_terms || 'Net 30',
+            notes: invoiceData.notes || '',
+          })
+
+          // Load client
+          const { data: clientData } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('id', invoiceData.client_id)
+            .single()
+
+          if (clientData) {
+            setClient(clientData)
+          }
+
+          // Load project if exists
+          if (invoiceData.project_id) {
+            const { data: projectData } = await supabase
+              .from('projects')
+              .select('*')
+              .eq('id', invoiceData.project_id)
+              .single()
+
+            if (projectData) {
+              setProject(projectData)
+            }
+          }
+
+          // Load line items
+          try {
+            const { data: itemsData, error: itemsError } = await supabase
+              .from('line_items')
+              .select('*')
+              .eq('invoice_id', invoiceId)
+              .order('created_at', { ascending: true })
+
+            if (itemsError) {
+              console.error('Error fetching line items:', itemsError)
+            } else if (itemsData) {
+              console.log('Line items loaded:', itemsData)
+              setLineItems(itemsData)
+            }
+          } catch (e) {
+            console.error('Line items fetch error:', e)
+          }
+
+          // Load payment history
+          try {
+            const { data: paymentsData } = await supabase
+              .from('payment_history')
+              .select('*')
+              .eq('invoice_id', invoiceId)
+              .order('payment_date', { ascending: false })
+
+            if (paymentsData) {
+              setPayments(paymentsData)
+            }
+          } catch (e) {
+            console.log('Payment history table may not exist yet')
+          }
+        }
+      } catch (error) {
+        console.error('Error loading invoice:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadInvoiceDetails()
+  }, [invoiceId, supabase])
+
+  // Auto-scroll to edit section when page loads
+  useEffect(() => {
+    if (invoice && editSectionRef.current) {
+      setTimeout(() => {
+        editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }, [invoice])
+
+  const handleSaveChanges = async () => {
+    if (!invoice) return
+
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          invoice_date: formData.invoice_date,
+          due_date: formData.due_date,
+          invoice_amount: parseFloat(formData.invoice_amount.toString()) || 0,
+          tax: parseFloat(formData.tax.toString()) || 0,
+          retainage: parseFloat(formData.retainage.toString()) || 0,
+          amount_paid: parseFloat(formData.amount_paid.toString()) || 0,
+          status: formData.status,
+          payment_terms: formData.payment_terms,
+          notes: formData.notes,
+        })
+        .eq('id', invoice.id)
+
+      if (error) throw error
+
+      setInvoice({
+        ...invoice,
+        invoice_date: formData.invoice_date,
+        due_date: formData.due_date,
+        invoice_amount: parseFloat(formData.invoice_amount.toString()) || 0,
+        tax: parseFloat(formData.tax.toString()) || 0,
+        retainage: parseFloat(formData.retainage.toString()) || 0,
+        amount_paid: parseFloat(formData.amount_paid.toString()) || 0,
+        status: formData.status,
+        payment_terms: formData.payment_terms,
+        notes: formData.notes,
+      })
+
+      setEditing(false)
+      alert('Invoice updated successfully!')
+    } catch (error) {
+      console.error('Error saving invoice:', error)
+      alert('Failed to save invoice changes')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRecordPayment = async () => {
+    if (!invoice || !paymentData.amount) {
+      alert('Please enter a payment amount')
+      return
+    }
+
+    setSaving(true)
+    try {
+      // Check if payment_history table exists, if not use invoices table
+      const newAmountPaid = invoice.amount_paid + paymentData.amount
+
+      // Update invoice
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({
+          amount_paid: newAmountPaid,
+          status: newAmountPaid >= (invoice.invoice_amount + (invoice.tax || 0)) ? 'paid' : 'partial',
+        })
+        .eq('id', invoice.id)
+
+      if (updateError) throw updateError
+
+      // Try to record payment in payment_history table
+      try {
+        await supabase
+          .from('payment_history')
+          .insert([
+            {
+              invoice_id: invoice.id,
+              amount: paymentData.amount,
+              payment_date: paymentData.payment_date,
+              payment_method: paymentData.payment_method,
+              notes: paymentData.notes,
+              created_at: new Date().toISOString(),
+            },
+          ])
+
+        // Reload payments
+        const { data: paymentsData } = await supabase
+          .from('payment_history')
+          .select('*')
+          .eq('invoice_id', invoiceId)
+          .order('payment_date', { ascending: false })
+
+        if (paymentsData) {
+          setPayments(paymentsData)
+        }
+      } catch (e) {
+        console.log('Payment history table does not exist yet')
+      }
+
+      // Update invoice state
+      setInvoice({
+        ...invoice,
+        amount_paid: newAmountPaid,
+        status: newAmountPaid >= (invoice.invoice_amount + (invoice.tax || 0)) ? 'paid' : 'partial',
+      })
+
+      // Reset form
+      setPaymentData({
+        amount: 0,
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_method: 'check',
+        notes: '',
+      })
+
+      setRecordingPayment(false)
+      alert('Payment recorded successfully!')
+    } catch (error) {
+      console.error('Error recording payment:', error)
+      alert('Failed to record payment')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!invoice || !client) return
+
+    try {
+      // Fetch and convert header image to base64
+      let logoImage: string | undefined
+      try {
+        const response = await fetch('/images/archon-header.png')
+        const blob = await response.blob()
+        const reader = new FileReader()
+        logoImage = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(blob)
+        })
+      } catch (error) {
+        console.error('Error loading header image:', error)
+      }
+
+      downloadInvoicePDF(
+        {
+          invoiceNumber: invoice.invoice_number,
+          invoiceDate: invoice.invoice_date,
+          dueDate: invoice.due_date,
+          clientName: client.name,
+          clientEmail: client.email,
+          clientPhone: client.phone,
+          clientAddress: client.address,
+          clientCity: (client as any).city,
+          clientState: (client as any).state,
+          clientZip: (client as any).zip,
+          projectName: project?.project_name,
+          projectAddress: undefined,
+          companyName: 'Archon Construction LLC',
+          companyEmail: 'archonconstruction.co',
+          companyPhone: '(551) 212-8820',
+          logoImage: logoImage || undefined,
+          lineItems: lineItems.map((item) => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            amount: item.amount,
+          })),
+          subtotal: invoice.invoice_amount,
+          tax: invoice.tax,
+          retainage: invoice.retainage,
+          amountPaid: invoice.amount_paid,
+          remainingBalance: total - invoice.amount_paid,
+          notes: invoice.notes,
+          paymentTerms: invoice.payment_terms,
+        },
+        `${invoice.invoice_number}.pdf`
+      )
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      alert('Failed to generate PDF')
+    }
+  }
+
+  const handleSendInvoiceEmail = async () => {
+    if (!invoice || !client) return
+
+    setSendingEmail(true)
+    try {
+      // Fetch and convert header image to base64
+      let logoImage: string | undefined
+      try {
+        const response = await fetch('/images/archon-header.png')
+        const blob = await response.blob()
+        const reader = new FileReader()
+        logoImage = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(blob)
+        })
+      } catch (error) {
+        console.error('Error loading header image:', error)
+      }
+
+      // First, download the PDF
+      downloadInvoicePDF(
+        {
+          invoiceNumber: invoice.invoice_number,
+          invoiceDate: invoice.invoice_date,
+          dueDate: invoice.due_date,
+          clientName: client.name,
+          clientEmail: client.email,
+          clientPhone: client.phone,
+          clientAddress: client.address,
+          clientCity: (client as any).city,
+          clientState: (client as any).state,
+          clientZip: (client as any).zip,
+          projectName: project?.project_name,
+          projectAddress: undefined,
+          companyName: 'Archon Construction LLC',
+          companyEmail: 'archonconstruction.co',
+          companyPhone: '(551) 212-8820',
+          logoImage: logoImage || undefined,
+          lineItems: lineItems.map((item) => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            amount: item.amount,
+          })),
+          subtotal: invoice.invoice_amount,
+          tax: invoice.tax,
+          retainage: invoice.retainage,
+          amountPaid: invoice.amount_paid,
+          remainingBalance: total - invoice.amount_paid,
+          notes: invoice.notes,
+          paymentTerms: invoice.payment_terms,
+        },
+        `${invoice.invoice_number}.pdf`
+      )
+
+      // Then open default email client
+      const clientEmail = client.email || ''
+      const subject = encodeURIComponent(`Invoice ${invoice.invoice_number}`)
+      const body = encodeURIComponent(`Hi ${client.name},\n\nPlease find attached the invoice for your recent project.\n\nInvoice Amount: $${invoice.invoice_amount}\nDue Date: ${invoice.due_date}\n\nPlease let us know if you have any questions.\n\nBest regards,\nArchon Construction`)
+
+      window.location.href = `mailto:${clientEmail}?subject=${subject}&body=${body}`
+
+      // Update invoice status to sent
+      if (invoice) {
+        setInvoice({ ...invoice, status: 'sent' })
+      }
+    } catch (error) {
+      console.error('Error sending invoice email:', error)
+      alert('Failed to prepare invoice for email')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  const handleSendReminder = async () => {
+    setSendingReminder(true)
+    try {
+      const response = await fetch('/api/invoices/send-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert(data.message)
+      } else {
+        alert(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      alert('Failed to send reminder')
+      console.error(error)
+    } finally {
+      setSendingReminder(false)
+    }
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value)
+  }
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  }
+
+  const statusColors: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-800',
+    sent: 'bg-blue-100 text-blue-800',
+    partial: 'bg-yellow-100 text-yellow-800',
+    paid: 'bg-green-100 text-green-800',
+    overdue: 'bg-red-100 text-red-800',
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Breadcrumbs items={[{ label: 'Invoices', href: '/dashboard/invoices' }, { label: 'Loading...' }]} />
+        <div className="text-center py-12" style={{ color: 'var(--color-muted)' }}>
+          Loading invoice details...
+        </div>
+      </div>
+    )
+  }
+
+  if (!invoice) {
+    return (
+      <div className="space-y-6">
+        <Breadcrumbs items={[{ label: 'Invoices', href: '/dashboard/invoices' }, { label: 'Not Found' }]} />
+        <div className="rounded-lg p-12 text-center" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+          <p style={{ color: 'var(--color-muted)' }}>Invoice not found</p>
+        </div>
+      </div>
+    )
+  }
+
+  const total = invoice.invoice_amount + (invoice.tax || 0)
+  const outstanding = total - invoice.amount_paid
+
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: 'Invoices', href: '/dashboard/invoices' }, { label: invoice.invoice_number }]} />
+
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-playfair font-bold mb-1" style={{ color: 'var(--color-navy)' }}>
+            {invoice.invoice_number}
+          </h1>
+          <p style={{ color: 'var(--color-muted)' }}>Invoice details and payment tracking</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={handleSendInvoiceEmail}
+            disabled={sendingEmail}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:opacity-80 transition disabled:opacity-50"
+            style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+            title="Send invoice to client email"
+          >
+            <Mail className="w-4 h-4" />
+            {sendingEmail ? 'Sending...' : 'Send Email'}
+          </button>
+          <button
+            onClick={handleSendReminder}
+            disabled={sendingReminder}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:opacity-80 transition disabled:opacity-50"
+            style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+            title="Send payment reminder to client"
+          >
+            <Bell className="w-4 h-4" />
+            {sendingReminder ? 'Sending...' : 'Send Reminder'}
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:opacity-80 transition"
+            style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+            title="Download invoice as PDF"
+          >
+            <Download className="w-4 h-4" />
+            Download PDF
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:opacity-80 transition"
+            style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+            title="Print invoice"
+          >
+            <Printer className="w-4 h-4" />
+            Print
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-3 gap-6">
+        {/* Left Column - Invoice Details */}
+        <div className="col-span-2 space-y-6">
+          {/* Invoice Summary */}
+          <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
+            <div className="grid grid-cols-2 gap-6 mb-6">
+              <div>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-navy)' }}>
+                  Bill From
+                </h3>
+                <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>BuildRight Construction</p>
+                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>info@buildright.com</p>
+                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>(555) 123-4567</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-navy)' }}>
+                  Bill To
+                </h3>
+                {client && (
+                  <>
+                    <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>{client.name}</p>
+                    {client.company_name && (
+                      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>{client.company_name}</p>
+                    )}
+                    <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>{client.email}</p>
+                    {client.phone && (
+                      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>{client.phone}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div style={{ borderTop: `1px solid var(--color-border)`, paddingTop: '1.5rem' }} className="pt-6">
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Invoice Date</p>
+                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    {formatDate(invoice.invoice_date)}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Due Date</p>
+                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    {formatDate(invoice.due_date)}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Payment Terms</p>
+                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    {invoice.payment_terms}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Status</p>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold inline-block ${statusColors[invoice.status]}`}>
+                    {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Line Items */}
+          <div className="bg-white rounded-lg p-6 overflow-hidden" style={{ border: `1px solid var(--color-border)` }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+              Invoice Items
+            </h3>
+            <table className="w-full">
+              <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    Description
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    Qty
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    Unit Price
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    Amount
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.length > 0 ? (
+                  lineItems.map((item) => (
+                    <tr key={item.id} style={{ borderBottom: `1px solid var(--color-border)` }}>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-navy)' }}>
+                        {item.description}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--color-navy)' }}>
+                        {item.quantity}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--color-navy)' }}>
+                        {formatCurrency(item.unit_price)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--color-navy)' }}>
+                        {formatCurrency(item.amount)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr style={{ borderBottom: `1px solid var(--color-border)` }}>
+                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-navy)' }}>
+                      {project ? `Project: ${project.project_name}` : 'Invoice Amount'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--color-navy)' }}>
+                      1
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--color-navy)' }}>
+                      {formatCurrency(invoice.invoice_amount)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--color-navy)' }}>
+                      {formatCurrency(invoice.invoice_amount)}
+                    </td>
+                  </tr>
+                )}
+                {invoice.tax ? (
+                  <tr style={{ borderBottom: `1px solid var(--color-border)` }}>
+                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
+                      Tax
+                    </td>
+                    <td colSpan={2} />
+                    <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--color-muted)' }}>
+                      {formatCurrency(invoice.tax)}
+                    </td>
+                  </tr>
+                ) : null}
+                {invoice.retainage ? (
+                  <tr style={{ borderBottom: `1px solid var(--color-border)` }}>
+                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
+                      Retainage
+                    </td>
+                    <td colSpan={2} />
+                    <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--color-muted)' }}>
+                      -{formatCurrency(invoice.retainage)}
+                    </td>
+                  </tr>
+                ) : null}
+                <tr style={{ backgroundColor: 'var(--color-linen)' }}>
+                  <td colSpan={3} className="px-4 py-3 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    Total
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
+                    {formatCurrency(total)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Notes */}
+          {invoice.notes && (
+            <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
+              <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-navy)' }}>
+                Notes
+              </h3>
+              <p style={{ color: 'var(--color-muted)', whiteSpace: 'pre-wrap' }}>
+                {invoice.notes}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column - Payment Tracking */}
+        <div className="space-y-6">
+          {/* Payment Summary */}
+          <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+              Payment Summary
+            </h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <p style={{ color: 'var(--color-muted)' }}>Invoice Total</p>
+                <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
+                  {formatCurrency(total)}
+                </p>
+              </div>
+              <div className="flex justify-between">
+                <p style={{ color: 'var(--color-muted)' }}>Amount Paid</p>
+                <p className="font-semibold" style={{ color: 'var(--color-success)' }}>
+                  {formatCurrency(invoice.amount_paid)}
+                </p>
+              </div>
+              <div
+                style={{
+                  borderTop: `1px solid var(--color-border)`,
+                  paddingTop: '0.75rem',
+                }}
+                className="pt-3"
+              >
+                <div className="flex justify-between">
+                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
+                    Outstanding
+                  </p>
+                  <p
+                    className="font-bold text-lg"
+                    style={{ color: outstanding > 0 ? 'var(--color-destructive)' : 'var(--color-success)' }}
+                  >
+                    {formatCurrency(outstanding)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Record Payment */}
+          <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+              Record Payment
+            </h3>
+
+            {!recordingPayment ? (
+              <button
+                onClick={() => setRecordingPayment(true)}
+                className="w-full px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
+                style={{ backgroundColor: 'var(--color-success)' }}
+              >
+                + Record Payment
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                    Payment Amount *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={paymentData.amount}
+                    onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                    Payment Date
+                  </label>
+                  <input
+                    type="date"
+                    value={paymentData.payment_date}
+                    onChange={(e) => setPaymentData({ ...paymentData, payment_date: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                    Payment Method
+                  </label>
+                  <select
+                    value={paymentData.payment_method}
+                    onChange={(e) => setPaymentData({ ...paymentData, payment_method: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+                  >
+                    <option value="check">Check</option>
+                    <option value="ach">ACH/Bank Transfer</option>
+                    <option value="wire">Wire Transfer</option>
+                    <option value="credit_card">Credit Card</option>
+                    <option value="cash">Cash</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                    Notes
+                  </label>
+                  <textarea
+                    value={paymentData.notes}
+                    onChange={(e) => setPaymentData({ ...paymentData, notes: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    placeholder="Add payment notes..."
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setRecordingPayment(false)}
+                    className="flex-1 px-4 py-2 rounded-lg hover:opacity-80 transition"
+                    style={{ border: `1px solid var(--color-border)`, backgroundColor: 'white', color: 'var(--color-navy)' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRecordPayment}
+                    disabled={saving}
+                    className="flex-1 px-4 py-2 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                    style={{ backgroundColor: 'var(--color-success)' }}
+                  >
+                    {saving ? 'Recording...' : 'Record Payment'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Payment History */}
+          {payments.length > 0 && (
+            <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+                Payment History
+              </h3>
+              <div className="space-y-3">
+                {payments.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-start gap-3 pb-3"
+                    style={{ borderBottom: `1px solid var(--color-border)` }}
+                  >
+                    <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: 'var(--color-success)' }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <p className="font-medium text-sm" style={{ color: 'var(--color-navy)' }}>
+                            {formatCurrency(payment.amount)}
+                          </p>
+                          <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                            {formatDate(payment.payment_date)} • {payment.payment_method.charAt(0).toUpperCase() + payment.payment_method.slice(1)}
+                          </p>
+                        </div>
+                      </div>
+                      {payment.notes && (
+                        <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                          {payment.notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Edit Invoice Status/Notes */}
+          <div ref={editSectionRef} className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+              Invoice Details
+            </h3>
+
+            {!editing ? (
+              <button
+                onClick={() => setEditing(true)}
+                className="w-full px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
+                style={{ backgroundColor: 'var(--color-navy)' }}
+              >
+                Edit Details
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                      Invoice Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.invoice_date}
+                      onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                      Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.due_date}
+                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                      Invoice Amount
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.invoice_amount}
+                      onChange={(e) => setFormData({ ...formData, invoice_amount: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                      Tax
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.tax}
+                      onChange={(e) => setFormData({ ...formData, tax: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                      Retainage
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.retainage}
+                      onChange={(e) => setFormData({ ...formData, retainage: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                      Amount Paid
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.amount_paid}
+                      onChange={(e) => setFormData({ ...formData, amount_paid: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                      Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="sent">Sent</option>
+                      <option value="partial">Partial</option>
+                      <option value="paid">Paid</option>
+                      <option value="overdue">Overdue</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                      Payment Terms
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.payment_terms}
+                      onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                      placeholder="e.g., Net 30"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                    Notes
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="flex-1 px-4 py-2 rounded-lg hover:opacity-80 transition"
+                    style={{ border: `1px solid var(--color-border)`, backgroundColor: 'white', color: 'var(--color-navy)' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveChanges}
+                    disabled={saving}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                    style={{ backgroundColor: 'var(--color-navy)' }}

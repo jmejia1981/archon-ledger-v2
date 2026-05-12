@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Archon Ledger Color Palette - Luxury Linen Theme */
+    /* Hex Colors */
+    --color-linen: #F2F0EC;
+    --color-linen-dark: #E8E6E2;
+    --color-navy: #1A3A6B;
+    --color-gold: #C8B89A;
+    --color-border: #D4D0C8;
+    --color-muted: #6B7280;
+    --color-sage: #8B9A7D;
+    --color-amber: #D4A574;
+    --color-slate: #7A8B99;
+    --color-success: #22C55E;
+    --color-warning: #F59E0B;
+    --color-destructive: #DC2626;
+
+    /* Tailwind Ring Colors - OkLCH for modern color spaces */
+    --ring: oklch(0.65 0.05 85); /* Gold #C8B89A */
+    --ring-offset-width: 2px;
+    --ring-offset-color: white;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-stone-50 text-gray-900;
+    background-color: var(--color-linen);
+    font-family: var(--font-inter), sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-playfair), serif;
+    color: var(--color-navy);
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg font-semibold transition;
+    background-color: var(--color-navy);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .card {
+    @apply rounded-lg p-6 shadow-sm;
+    background-color: white;
+    border: 1px solid var(--color-border);
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2 rounded-lg focus:outline-none focus:ring-2 transition;
+    border: 1px solid var(--color-border);
+    background-color: white;
+  }
+
+  .input-field:focus {
+    border-color: var(--color-gold);
+    box-shadow: 0 0 0 3px rgba(200, 184, 154, 0.1);
+  }
+
+  .badge-success {
+    @apply px-3 py-1 rounded-full text-xs font-semibold;
+    background-color: rgba(34, 197, 94, 0.1);
+    color: var(--color-success);
+  }
+
+  .badge-warning {
+    @apply px-3 py-1 rounded-full text-xs font-semibold;
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--color-warning);
+  }
+
+  .badge-destructive {
+    @apply px-3 py-1 rounded-full text-xs font-semibold;
+    background-color: rgba(220, 38, 38, 0.1);
+    color: var(--color-destructive);
+  }
+}
