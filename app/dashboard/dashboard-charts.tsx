@@ -19,13 +19,6 @@ import {
 } from 'recharts'
 const COLORS = ['#1A3A6B', '#C8B89A', '#8B9A7D', '#D4A574', '#7A8B99', '#B8A586']
 
-interface ChartDataProps {
-  monthlyRevenueData?: any[]
-  budgetVsActualData?: any[]
-  expenseCategoryData?: any[]
-  cashflowData?: any[]
-}
-
 const formatCurrency = (value: number) => {
   if (value >= 1000000) {
     return `$${(value / 1000000).toFixed(1)}M`
@@ -302,3 +295,4 @@ export function ProfitTrendChart({ monthlyRevenueData = [] }: { monthlyRevenueDa
     </div>
   )
 }
+                                                                                                                                             
