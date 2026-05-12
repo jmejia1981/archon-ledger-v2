@@ -171,11 +171,6 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  const getClientName = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId)
-    return client?.name || clientId
-  }
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -509,3 +504,4 @@ export default function InvoiceDetailPage() {
     </div>
   )
 }
+                                                                                                                                                                                                              
