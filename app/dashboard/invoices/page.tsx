@@ -849,4 +849,3 @@ export default function InvoicesPage() {
     </div>
   )
 }
-                                                  
