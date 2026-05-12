@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Breadcrumbs } from '@/app/components/breadcrumbs'
 import { Edit, Save, Check, DollarSign } from 'lucide-react'
 
 export default function InvoiceDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const invoiceId = params.id as string
   const supabase = createClient()
 
@@ -511,3 +510,4 @@ export default function InvoiceDetailPage() {
     </div>
   )
 }
+                                        
