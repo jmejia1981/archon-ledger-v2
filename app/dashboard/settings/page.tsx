@@ -1,13 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Building2, User, Bell, Palette, Lock, Save, CheckCircle, AlertCircle } from 'lucide-react'
 import { Breadcrumbs } from '@/app/components/breadcrumbs'
+import { createClient } from '@/lib/supabase/client'
+
+interface CompanySettings {
+  name: string
+  email: string
+  phone: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  website: string
+  license_number: string
+}
+
+const defaultCompany: CompanySettings = {
+  name: '',
+  email: '',
+  phone: '',
+  address: '',
+  city: '',
+  state: '',
+  zip: '',
+  website: '',
+  license_number: '',
+}
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('company')
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [company, setCompany] = useState<CompanySettings>(defaultCompany)
+
+  const supabase = createClient()
 
   const settingsTabs = [
     { id: 'company', label: 'Company', icon: Building2 },
@@ -17,13 +46,59 @@ export default function SettingsPage() {
     { id: 'security', label: 'Security', icon: Lock },
   ]
 
-  const saveSettings = async () => {
+  useEffect(() => {
+    const loadCompany = async () => {
+      const { data } = await supabase.from('company_settings').select('*').eq('id', 1).single()
+      if (data) {
+        setCompany({
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          address: data.address || '',
+          city: data.city || '',
+          state: data.state || '',
+          zip: data.zip || '',
+          website: data.website || '',
+          license_number: data.license_number || '',
+        })
+      }
+      setLoading(false)
+    }
+    loadCompany()
+  }, [])
+
+  const saveCompany = async () => {
     setSaving(true)
-    await new Promise(resolve => setTimeout(resolve, 500))
-    setMessage({ type: 'success', text: 'Settings saved successfully!' })
+    const { error } = await supabase
+      .from('company_settings')
+      .upsert({ id: 1, ...company, updated_at: new Date().toISOString() })
+    if (error) {
+      setMessage({ type: 'error', text: 'Failed to save company information.' })
+    } else {
+      setMessage({ type: 'success', text: 'Company information saved successfully!' })
+    }
     setSaving(false)
     setTimeout(() => setMessage(null), 3000)
   }
+
+  const field = (
+    label: string,
+    key: keyof CompanySettings,
+    placeholder?: string,
+    half?: boolean
+  ) => (
+    <div className={half ? 'col-span-1' : 'col-span-2'}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <input
+        type="text"
+        value={company[key]}
+        onChange={(e) => setCompany({ ...company, [key]: e.target.value })}
+        placeholder={placeholder}
+        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+        style={{ borderColor: 'var(--color-border)', focusRingColor: 'var(--color-navy)' } as React.CSSProperties}
+      />
+    </div>
+  )
 
   return (
     <div>
@@ -81,10 +156,32 @@ export default function SettingsPage() {
         <main className="flex-1">
           {activeTab === 'company' && (
             <div className="rounded-lg border p-6" style={{ borderColor: 'var(--color-border)' }}>
-              <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+              <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--color-navy)' }}>
                 Company Information
               </h2>
-              <p className="text-gray-600">Company settings content here</p>
+              <p className="text-sm text-gray-500 mb-6">
+                This information appears on proposals and documents.
+              </p>
+
+              {loading ? (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {field('Company Name', 'name', 'Archon Construction LLC')}
+                  {field('Email Address', 'email', 'info@company.com')}
+                  {field('Phone Number', 'phone', '(555) 000-0000')}
+                  {field('Website', 'website', 'www.company.com')}
+                  {field('Street Address', 'address', '123 Main St')}
+                  {field('City', 'city', 'City', true)}
+                  {field('State', 'state', 'NJ', true)}
+                  {field('ZIP Code', 'zip', '00000')}
+                  {field('License Number', 'license_number', 'LIC-000000')}
+                </div>
+              )}
             </div>
           )}
 
@@ -93,7 +190,7 @@ export default function SettingsPage() {
               <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
                 User Profile
               </h2>
-              <p className="text-gray-600">User profile content here</p>
+              <p className="text-gray-600">User profile settings coming soon.</p>
             </div>
           )}
 
@@ -102,7 +199,7 @@ export default function SettingsPage() {
               <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
                 Notifications
               </h2>
-              <p className="text-gray-600">Notification preferences here</p>
+              <p className="text-gray-600">Notification preferences coming soon.</p>
             </div>
           )}
 
@@ -111,7 +208,7 @@ export default function SettingsPage() {
               <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
                 Appearance
               </h2>
-              <p className="text-gray-600">Appearance settings here</p>
+              <p className="text-gray-600">Appearance settings coming soon.</p>
             </div>
           )}
 
@@ -120,30 +217,32 @@ export default function SettingsPage() {
               <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
                 Security
               </h2>
-              <p className="text-gray-600">Security settings here</p>
+              <p className="text-gray-600">Security settings coming soon.</p>
             </div>
           )}
 
-          <div className="mt-6">
-            <button
-              onClick={saveSettings}
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg text-white font-medium transition disabled:opacity-50"
-              style={{ backgroundColor: 'var(--color-navy)' }}
-            >
-              {saving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-5 h-5" />
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
+          {activeTab === 'company' && !loading && (
+            <div className="mt-6">
+              <button
+                onClick={saveCompany}
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-2 rounded-lg text-white font-medium transition disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-navy)' }}
+              >
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </main>
       </div>
     </div>

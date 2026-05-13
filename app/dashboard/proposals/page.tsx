@@ -375,16 +375,28 @@ export default function ProposalsPage() {
         console.error('Error loading header image:', error)
       }
 
+      // Fetch company settings
+      const { data: companyData } = await supabase
+        .from('company_settings')
+        .select('*')
+        .eq('id', 1)
+        .single()
+
       downloadProposalPDF({
         proposalNumber: proposal.proposal_number,
         proposalDate: proposal.proposal_date,
         expirationDate: proposal.expiration_date,
         clientName: proposal.client_name,
+        clientEmail: fullProposal?.client_email || '',
+        clientPhone: fullProposal?.client_phone || '',
         projectName: proposal.project_name,
         projectAddress: proposal.project_address,
         projectCity: fullProposal?.project_city || '',
         projectState: fullProposal?.project_state || '',
         projectZip: fullProposal?.project_zip || '',
+        companyName: companyData?.name || 'Archon Construction LLC',
+        companyEmail: companyData?.email || '',
+        companyPhone: companyData?.phone || '',
         logoImage: logoImage,
         lineItems: items.map(item => ({
           description: item.description,
