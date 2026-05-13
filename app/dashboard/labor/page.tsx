@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, CheckCircle, Clock, X } from 'lucide-react'
+import { Plus, Search, Trash2, CheckCircle, Clock, X, List, CalendarDays } from 'lucide-react'
 
 interface LaborEntry {
   id: string
@@ -44,6 +44,7 @@ export default function LaborPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editFormData, setEditFormData] = useState<any>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [listView, setListView] = useState<'entries' | 'week'>('entries')
   const [editWeeklyData, setEditWeeklyData] = useState<Record<string, WeeklyDayEntry>>({
     mon: { hours: '', site: '' },
     tue: { hours: '', site: '' },
@@ -427,6 +428,32 @@ export default function LaborPage() {
   const totalHours = filteredEntries.reduce((sum, e) => sum + e.regular_hours + e.overtime_hours, 0)
   const totalCost = filteredEntries.reduce((sum, e) => sum + calculateLaborCost(e), 0)
 
+  // Group entries by ISO week (Mon–Sun)
+  const getWeekStart = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00')
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const mon = new Date(d.setDate(diff))
+    return mon.toISOString().split('T')[0]
+  }
+
+  const groupedByWeek = filteredEntries.reduce<Record<string, LaborEntry[]>>((acc, entry) => {
+    const key = getWeekStart(entry.date)
+    if (!acc[key]) acc[key] = []
+    acc[key].push(entry)
+    return acc
+  }, {})
+
+  const sortedWeekKeys = Object.keys(groupedByWeek).sort((a, b) => b.localeCompare(a))
+
+  const formatWeekRange = (weekStart: string) => {
+    const start = new Date(weekStart + 'T00:00:00')
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return `${fmt(start)} – ${fmt(end)}, ${start.getFullYear()}`
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -800,9 +827,35 @@ export default function LaborPage() {
             <option value="approved">Approved</option>
           </select>
         </div>
+
+        {/* View toggle */}
+        <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid var(--color-border)` }}>
+          <button
+            onClick={() => setListView('entries')}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition"
+            style={{
+              backgroundColor: listView === 'entries' ? 'var(--color-navy)' : 'white',
+              color: listView === 'entries' ? 'white' : 'var(--color-navy)',
+            }}
+          >
+            <List className="w-4 h-4" />
+            Entries
+          </button>
+          <button
+            onClick={() => setListView('week')}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition"
+            style={{
+              backgroundColor: listView === 'week' ? 'var(--color-navy)' : 'white',
+              color: listView === 'week' ? 'white' : 'var(--color-navy)',
+            }}
+          >
+            <CalendarDays className="w-4 h-4" />
+            By Week
+          </button>
+        </div>
       </div>
 
-      {/* Labor Entries Table */}
+      {/* Labor Entries */}
       {loading ? (
         <div className="text-center py-12" style={{ color: 'var(--color-muted)' }}>
           <p>Loading labor entries...</p>
@@ -811,7 +864,7 @@ export default function LaborPage() {
         <div className="rounded-lg p-12 text-center" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
           <p style={{ color: 'var(--color-muted)' }}>No labor entries found. Record hours to get started!</p>
         </div>
-      ) : (
+      ) : listView === 'entries' ? (
         <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
           <table className="w-full">
             <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
@@ -870,6 +923,90 @@ export default function LaborPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : (
+        /* Weekly grouped view */
+        <div className="space-y-4">
+          {sortedWeekKeys.map((weekKey) => {
+            const weekEntries = groupedByWeek[weekKey]
+            const weekRegular = weekEntries.reduce((s, e) => s + e.regular_hours, 0)
+            const weekOvertime = weekEntries.reduce((s, e) => s + e.overtime_hours, 0)
+            const weekCost = weekEntries.reduce((s, e) => s + calculateLaborCost(e), 0)
+            return (
+              <div key={weekKey} className="rounded-lg overflow-hidden" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+                {/* Week header */}
+                <div className="px-6 py-3 flex items-center justify-between" style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4" style={{ color: 'var(--color-navy)' }} />
+                    <span className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>
+                      Week of {formatWeekRange(weekKey)}
+                    </span>
+                  </div>
+                  <div className="flex gap-6 text-sm">
+                    <span style={{ color: 'var(--color-muted)' }}>
+                      Regular: <strong style={{ color: 'var(--color-navy)' }}>{weekRegular.toFixed(1)}h</strong>
+                    </span>
+                    <span style={{ color: 'var(--color-muted)' }}>
+                      Overtime: <strong style={{ color: 'var(--color-navy)' }}>{weekOvertime.toFixed(1)}h</strong>
+                    </span>
+                    <span style={{ color: 'var(--color-muted)' }}>
+                      Total: <strong style={{ color: 'var(--color-navy)' }}>{(weekRegular + weekOvertime).toFixed(1)}h</strong>
+                    </span>
+                    <span style={{ color: 'var(--color-muted)' }}>
+                      Cost: <strong style={{ color: 'var(--color-navy)' }}>{formatCurrency(weekCost)}</strong>
+                    </span>
+                  </div>
+                </div>
+                {/* Entries in this week */}
+                <table className="w-full">
+                  <thead style={{ borderBottom: `1px solid var(--color-border)` }}>
+                    <tr>
+                      <th className="px-6 py-2 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Date</th>
+                      <th className="px-6 py-2 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Employee</th>
+                      <th className="px-6 py-2 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Project</th>
+                      <th className="px-6 py-2 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Reg</th>
+                      <th className="px-6 py-2 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>OT</th>
+                      <th className="px-6 py-2 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Cost</th>
+                      <th className="px-6 py-2 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Status</th>
+                      <th className="px-6 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weekEntries.sort((a, b) => a.date.localeCompare(b.date)).map((entry) => (
+                      <tr
+                        key={entry.id}
+                        style={{ borderBottom: `1px solid var(--color-border)`, cursor: 'pointer' }}
+                        className="hover:opacity-75 transition"
+                        onDoubleClick={() => handleEditLaborEntry(entry)}
+                      >
+                        <td className="px-6 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</td>
+                        <td className="px-6 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</td>
+                        <td className="px-6 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(entry.project_id)}</td>
+                        <td className="px-6 py-3 text-sm text-center" style={{ color: 'var(--color-navy)' }}>{entry.regular_hours.toFixed(2)}</td>
+                        <td className="px-6 py-3 text-sm text-center" style={{ color: 'var(--color-navy)' }}>{entry.overtime_hours.toFixed(2)}</td>
+                        <td className="px-6 py-3 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>{formatCurrency(calculateLaborCost(entry))}</td>
+                        <td className="px-6 py-3 text-sm">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[entry.status]}`}>
+                            {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 text-sm flex gap-2">
+                          {entry.status === 'pending' && (
+                            <button onClick={() => handleApproveLaborEntry(entry.id)} style={{ color: 'var(--color-success)' }} className="hover:opacity-80 transition" title="Approve">
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button onClick={() => handleDeleteLaborEntry(entry.id)} className="hover:opacity-80 transition" style={{ color: 'var(--color-destructive)' }}>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
         </div>
       )}
 
