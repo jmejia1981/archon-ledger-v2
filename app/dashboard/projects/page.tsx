@@ -30,6 +30,7 @@ export default function ProjectsPage() {
     project_number: '',
     project_name: '',
     project_street: '',
+    project_city: '',
     project_state: '',
     project_zip: '',
     client_id: '',
@@ -100,6 +101,7 @@ export default function ProjectsPage() {
       project_number: nextNumber,
       project_name: '',
       project_street: '',
+      project_city: '',
       project_state: '',
       project_zip: '',
       client_id: '',
@@ -113,14 +115,14 @@ export default function ProjectsPage() {
   // Handle create project
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.project_name || !formData.client_id || !formData.contract_budget || !formData.project_street || !formData.project_state || !formData.project_zip) {
-      alert('Project name, street address, state, zip code, client, and contract budget are required')
+    if (!formData.project_name || !formData.client_id || !formData.contract_budget || !formData.project_street || !formData.project_city || !formData.project_state || !formData.project_zip) {
+      alert('Project name, street address, city, state, zip code, client, and contract budget are required')
       return
     }
 
     try {
       // Combine address fields into full address
-      const fullAddress = `${formData.project_street}, ${formData.project_state} ${formData.project_zip}`
+      const fullAddress = `${formData.project_street}, ${formData.project_city}, ${formData.project_state} ${formData.project_zip}`
 
       console.log('Creating project:', formData)
       const { data, error } = await supabase
@@ -146,7 +148,7 @@ export default function ProjectsPage() {
       console.log('Project created successfully:', data)
       if (data) {
         setProjects([...projects, ...data])
-        setFormData({ project_number: '', project_name: '', project_street: '', project_state: '', project_zip: '', client_id: '', contract_budget: '', description: '', external_project_manager: '' })
+        setFormData({ project_number: '', project_name: '', project_street: '', project_city: '', project_state: '', project_zip: '', client_id: '', contract_budget: '', description: '', external_project_manager: '' })
         setShowNewProjectForm(false)
         alert('Project created successfully!')
       }
@@ -268,6 +270,24 @@ export default function ProjectsPage() {
                   value={formData.project_street}
                   onChange={(e) => setFormData({ ...formData, project_street: e.target.value })}
                   placeholder="Enter street address"
+                  className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'white',
+                  }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={formData.project_city}
+                  onChange={(e) => setFormData({ ...formData, project_city: e.target.value })}
+                  placeholder="City"
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
                   style={{
                     borderColor: 'var(--color-border)',
