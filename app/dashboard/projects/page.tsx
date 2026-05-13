@@ -49,7 +49,7 @@ export default function ProjectsPage() {
       try {
         const [projectsData, clientsData] = await Promise.all([
           supabase.from('projects').select('*'),
-          supabase.from('clients').select('id, name').eq('status', 'active'),
+          supabase.from('clients').select('id, name'),
         ])
         console.log('Clients loaded:', clientsData.data)
         setProjects(projectsData.data || [])
@@ -76,6 +76,9 @@ export default function ProjectsPage() {
 
     setFilteredProjects(filtered)
   }, [projects, searchTerm])
+
+  const getClientName = (clientId: string) =>
+    clients.find((c) => c.id === clientId)?.name || '—'
 
   // Generate next project number
   const generateNextProjectNumber = () => {
@@ -533,15 +536,19 @@ export default function ProjectsPage() {
                   </select>
                 </div>
                 <div className="flex justify-between">
+                  <span style={{ color: 'var(--color-muted)' }}>Client:</span>
+                  <span className="font-medium" style={{ color: 'var(--color-navy)' }}>{getClientName(project.client_id)}</span>
+                </div>
+                <div className="flex justify-between">
                   <span style={{ color: 'var(--color-muted)' }}>Budget:</span>
                   <span className="font-semibold" style={{ color: 'var(--color-navy)' }}>
                     ${(project.contract_budget || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
-                {project.description && (
-                  <div>
-                    <span style={{ color: 'var(--color-muted)' }} className="text-xs">Description:</span>
-                    <p style={{ color: 'var(--color-navy)' }} className="text-xs mt-1">{project.description.substring(0, 60)}...</p>
+                {project.external_project_manager && (
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--color-muted)' }}>Ext. PM:</span>
+                    <span className="font-medium" style={{ color: 'var(--color-navy)' }}>{project.external_project_manager}</span>
                   </div>
                 )}
               </div>
@@ -555,9 +562,10 @@ export default function ProjectsPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project #</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Client</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Ext. PM</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Budget</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Description</th>
                 <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Action</th>
               </tr>
             </thead>
@@ -571,6 +579,8 @@ export default function ProjectsPage() {
                 >
                   <td className="px-6 py-4 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{project.project_number}</td>
                   <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{project.project_name}</td>
+                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-navy)' }}>{getClientName(project.client_id)}</td>
+                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{project.external_project_manager || '—'}</td>
                   <td className="px-6 py-4 text-sm">
                     <select
                       value={project.status || 'active'}
@@ -589,9 +599,6 @@ export default function ProjectsPage() {
                   </td>
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-navy)' }}>
                     ${(project.contract_budget || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>
-                    {project.description ? project.description.substring(0, 40) + '...' : '—'}
                   </td>
                   <td className="px-6 py-4 text-sm text-center">
                     <button
