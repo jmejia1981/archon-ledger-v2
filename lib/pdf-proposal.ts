@@ -10,6 +10,7 @@ interface ProposalData {
   proposalDate: string
   expirationDate: string
   clientName: string
+  clientCompany?: string
   clientEmail?: string
   clientPhone?: string
   projectName?: string
@@ -193,6 +194,12 @@ export function generateProposalPDF(data: ProposalData) {
 
   let fromY = yPosition
   let toY = yPosition
+  if (data.clientCompany) {
+    doc.setFont('helvetica', 'italic')
+    doc.text(data.clientCompany, rightColumnX, toY)
+    doc.setFont('helvetica', 'normal')
+    toY += 4
+  }
   if (data.companyPhone) {
     doc.text(data.companyPhone, leftColumnX, fromY)
     fromY += 4

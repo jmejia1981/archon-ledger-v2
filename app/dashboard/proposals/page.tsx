@@ -375,20 +375,22 @@ export default function ProposalsPage() {
         console.error('Error loading header image:', error)
       }
 
-      // Fetch company settings
-      const { data: companyData } = await supabase
-        .from('company_settings')
-        .select('*')
-        .eq('id', 1)
-        .single()
+      // Fetch company settings and client details in parallel
+      const [{ data: companyData }, { data: clientData }] = await Promise.all([
+        supabase.from('company_settings').select('*').eq('id', 1).single(),
+        proposal.client_id
+          ? supabase.from('clients').select('company_name, phone').eq('id', proposal.client_id).single()
+          : Promise.resolve({ data: null }),
+      ])
 
       downloadProposalPDF({
         proposalNumber: proposal.proposal_number,
         proposalDate: proposal.proposal_date,
         expirationDate: proposal.expiration_date,
         clientName: proposal.client_name,
+        clientCompany: (clientData as any)?.company_name || '',
         clientEmail: fullProposal?.client_email || '',
-        clientPhone: fullProposal?.client_phone || '',
+        clientPhone: (clientData as any)?.phone || '',
         projectName: proposal.project_name,
         projectAddress: proposal.project_address,
         projectCity: fullProposal?.project_city || '',
