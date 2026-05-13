@@ -88,14 +88,16 @@ export default function SettingsPage() {
     half?: boolean
   ) => (
     <div className={half ? 'col-span-1' : 'col-span-2'}>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label htmlFor={`company-${key}`} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       <input
+        id={`company-${key}`}
+        name={key}
         type="text"
         value={company[key]}
         onChange={(e) => setCompany({ ...company, [key]: e.target.value })}
         placeholder={placeholder}
         className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-        style={{ borderColor: 'var(--color-border)', focusRingColor: 'var(--color-navy)' } as React.CSSProperties}
+        style={{ borderColor: 'var(--color-border)' }}
       />
     </div>
   )
