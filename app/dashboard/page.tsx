@@ -349,7 +349,7 @@ export default function DashboardPage() {
     return (
       <div className="animate-pulse space-y-6">
         <div className="h-10 w-64 bg-gray-200 rounded"></div>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[...Array(12)].map((_, i) => (
             <div key={i} className="h-24 bg-gray-200 rounded"></div>
           ))}
@@ -424,7 +424,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <RevenueChart monthlyRevenueData={chartData} />
         <BudgetVsActualChart budgetVsActualData={allData ? allData.projects.map((p: any) => ({
           name: p.project_name,
@@ -543,7 +543,7 @@ export default function DashboardPage() {
                 No recurring overhead expenses recorded yet.
               </div>
             ) : (
-              <table className="w-full">
+              <table className="w-full min-w-[640px]">
                 <thead style={{ backgroundColor: 'var(--color-linen)' }}>
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Vendor</th>

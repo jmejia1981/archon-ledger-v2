@@ -237,7 +237,7 @@ export default function ReceivablesPage() {
         </div>
       ) : (
         <div className="bg-white rounded-lg overflow-hidden" style={{ borderColor: 'var(--color-border)', border: '1px solid' }}>
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: '1px solid var(--color-border)' }}>
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Invoice #</th>

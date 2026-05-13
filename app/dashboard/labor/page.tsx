@@ -865,8 +865,8 @@ export default function LaborPage() {
           <p style={{ color: 'var(--color-muted)' }}>No labor entries found. Record hours to get started!</p>
         </div>
       ) : listView === 'entries' ? (
-        <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-          <table className="w-full">
+        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+          <table className="w-full min-w-[640px]">
             <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Date</th>
@@ -933,7 +933,7 @@ export default function LaborPage() {
             const weekOvertime = weekEntries.reduce((s, e) => s + e.overtime_hours, 0)
             const weekCost = weekEntries.reduce((s, e) => s + calculateLaborCost(e), 0)
             return (
-              <div key={weekKey} className="rounded-lg overflow-hidden" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+              <div key={weekKey} className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
                 {/* Week header */}
                 <div className="px-6 py-3 flex items-center justify-between" style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
                   <div className="flex items-center gap-2">
@@ -958,7 +958,7 @@ export default function LaborPage() {
                   </div>
                 </div>
                 {/* Entries in this week */}
-                <table className="w-full">
+                <table className="w-full min-w-[640px]">
                   <thead style={{ borderBottom: `1px solid var(--color-border)` }}>
                     <tr>
                       <th className="px-6 py-2 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Date</th>

@@ -149,6 +149,14 @@ export default function DashboardLayout({
     { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
   ]
 
+  const bottomNavItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+    { icon: Folder, label: 'Projects', href: '/dashboard/projects' },
+    { icon: DollarSign, label: 'Invoices', href: '/dashboard/invoices' },
+    { icon: FileText, label: 'Expenses', href: '/dashboard/expenses' },
+    { icon: Menu, label: 'More', href: null },
+  ]
+
   return (
     <div className="flex h-screen" style={{ backgroundColor: 'var(--color-linen)' }}>
       {/* Sidebar - Desktop */}
@@ -188,31 +196,34 @@ export default function DashboardLayout({
         </nav>
       </aside>
 
-      {/* Sidebar - Mobile Overlay */}
+      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed left-0 top-0 h-screen w-64 shadow-lg flex flex-col z-40 lg:hidden transform transition-transform duration-300 ${
+      {/* Mobile Sidebar Drawer */}
+      <aside className={`fixed left-0 top-0 h-screen w-72 shadow-xl flex flex-col z-40 lg:hidden transform transition-transform duration-300 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`} style={{ backgroundColor: 'var(--color-linen)' }}>
-        {/* Mobile Close Button */}
         <div className="flex justify-between items-center border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: '#C8B89A', padding: '1.1875rem' }}>
-          <Image
-            src="/images/logo-website.png"
-            alt="Archon Logo"
-            width={120}
-            height={48}
-            priority
-            style={{ objectFit: 'contain' }}
-          />
+          <Image src="/images/logo-website.png" alt="Archon Logo" width={120} height={48} priority style={{ objectFit: 'contain' }} />
           <button onClick={() => setSidebarOpen(false)} className="p-2">
             <X className="w-5 h-5" style={{ color: 'var(--color-navy)' }} />
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+        {/* User info in sidebar */}
+        <div className="px-4 py-4 border-b flex items-center gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0" style={{ backgroundColor: 'var(--color-navy)' }}>
+            {(user?.user_metadata?.name || user?.user_metadata?.username || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+          </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{user?.user_metadata?.name || user?.user_metadata?.username || 'User'}</p>
+            <p className="text-xs" style={{ color: 'var(--color-muted)' }}>Admin</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -220,150 +231,189 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 px-4 py-2 rounded-full text-sm transition-all"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
                 style={{
                   color: '#1A3A6B',
                   backgroundColor: isActive ? '#C8B89A' : 'transparent',
                 }}
                 onClick={() => setSidebarOpen(false)}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-5 h-5 flex-shrink-0" />
                 <span>{item.label}</span>
               </Link>
             )
           })}
         </nav>
+
+        {/* Sign out in sidebar */}
+        <div className="p-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+          <button
+            onClick={async () => {
+              sessionStorage.removeItem('archon_active')
+              await supabase.auth.signOut()
+              router.push('/auth/login')
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:opacity-80"
+            style={{ color: 'var(--color-destructive)', backgroundColor: 'rgba(220,38,38,0.05)' }}
+          >
+            <X className="w-5 h-5" />
+            Sign Out
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-white px-4 md:px-8 py-4 flex items-center justify-between gap-4" style={{ borderBottom: `1px solid var(--color-border)` }}>
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2"
-            style={{ color: 'var(--color-navy)' }}
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+        <header className="bg-white px-4 md:px-8 py-3 flex items-center justify-between gap-4" style={{ borderBottom: `1px solid var(--color-border)` }}>
 
-          {/* Search */}
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
-              <input
-                type="text"
-                placeholder="Search projects, clients, invoices..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2"
-                style={{
-                  border: `1px solid var(--color-border)`,
-                  backgroundColor: 'white',
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(200, 184, 154, 0.1)'
-                  e.currentTarget.style.borderColor = 'var(--color-gold)'
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.boxShadow = 'none'
-                  e.currentTarget.style.borderColor = 'var(--color-border)'
-                }}
-              />
+          {/* Mobile: logo centered + bell + avatar */}
+          <div className="flex lg:hidden items-center justify-between w-full">
+            <Image src="/images/logo-website.png" alt="Archon" width={100} height={40} style={{ objectFit: 'contain' }} />
+            <div className="flex items-center gap-3">
+              {/* Notifications */}
+              <div className="relative" ref={notificationsRef}>
+                <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative hover:opacity-75 transition p-1">
+                  <Bell className="w-6 h-6" style={{ color: 'var(--color-muted)' }} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style={{ backgroundColor: 'var(--color-warning)' }}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {notificationsOpen && (
+                  <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-lg shadow-lg z-50" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+                    <div className="p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                      <h3 className="font-semibold" style={{ color: 'var(--color-navy)' }}>Notifications</h3>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center"><p className="text-sm text-gray-500">No notifications yet</p></div>
+                      ) : notifications.map((n) => (
+                        <div key={n.id} className="p-4 border-b hover:bg-gray-50 transition cursor-pointer" style={{ borderColor: 'var(--color-border)' }} onClick={() => markNotificationAsRead(n.id)}>
+                          <p className="text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{n.title}</p>
+                          <p className="text-xs text-gray-500 mt-1">{n.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Avatar opens sidebar */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                style={{ backgroundColor: 'var(--color-navy)' }}
+              >
+                {(user?.user_metadata?.name || user?.user_metadata?.username || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+              </button>
             </div>
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center gap-3 md:gap-6 md:ml-8">
-            {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="relative hover:opacity-75 transition"
-              >
-                <Bell className="w-6 h-6" style={{ color: 'var(--color-muted)' }} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style={{ backgroundColor: 'var(--color-warning)' }}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+          {/* Desktop: search + notifications + user */}
+          <div className="hidden lg:flex flex-1 items-center justify-between gap-4">
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Search projects, clients, invoices..."
+                  className="w-full pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2"
+                  style={{ border: `1px solid var(--color-border)`, backgroundColor: 'white' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-gold)' }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
+                />
+              </div>
+            </div>
 
-              {/* Notifications Dropdown */}
-              {notificationsOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-80 rounded-lg shadow-lg z-50"
-                  style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}
-                >
-                  <div className="p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    <h3 className="font-semibold" style={{ color: 'var(--color-navy)' }}>Notifications</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <p className="text-sm text-gray-500">No notifications yet</p>
-                      </div>
-                    ) : (
-                      notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className="p-4 border-b hover:bg-gray-50 transition cursor-pointer"
-                          style={{ borderColor: 'var(--color-border)', backgroundColor: !notification.is_read ? '#f5f5f5' : 'transparent' }}
-                          onClick={() => markNotificationAsRead(notification.id)}
-                        >
+            <div className="flex items-center gap-6">
+              <div className="relative" ref={notificationsRef}>
+                <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative hover:opacity-75 transition">
+                  <Bell className="w-6 h-6" style={{ color: 'var(--color-muted)' }} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style={{ backgroundColor: 'var(--color-warning)' }}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {notificationsOpen && (
+                  <div className="absolute right-0 mt-2 w-80 rounded-lg shadow-lg z-50" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+                    <div className="p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                      <h3 className="font-semibold" style={{ color: 'var(--color-navy)' }}>Notifications</h3>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center"><p className="text-sm text-gray-500">No notifications yet</p></div>
+                      ) : notifications.map((notification) => (
+                        <div key={notification.id} className="p-4 border-b hover:bg-gray-50 transition cursor-pointer" style={{ borderColor: 'var(--color-border)', backgroundColor: !notification.is_read ? '#f5f5f5' : 'transparent' }} onClick={() => markNotificationAsRead(notification.id)}>
                           <div className="flex items-start gap-3">
-                            <div
-                              className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
-                              style={{
-                                backgroundColor: notification.type === 'error' ? '#dc2626' : notification.type === 'warning' ? '#f59e0b' : notification.type === 'success' ? '#10b981' : 'var(--color-navy)',
-                                opacity: notification.is_read ? 0 : 1,
-                              }}
-                            />
+                            <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor: notification.type === 'error' ? '#dc2626' : notification.type === 'warning' ? '#f59e0b' : notification.type === 'success' ? '#10b981' : 'var(--color-navy)', opacity: notification.is_read ? 0 : 1 }} />
                             <div className="flex-1">
                               <p className="text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{notification.title}</p>
                               <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {new Date(notification.created_at).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </p>
+                              <p className="text-xs text-gray-500 mt-1">{new Date(notification.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                             </div>
                           </div>
                         </div>
-                      ))
-                    )}
+                      ))}
+                    </div>
+                    <div className="p-4 border-t text-center" style={{ borderColor: 'var(--color-border)' }}>
+                      <button className="text-sm font-medium hover:opacity-75 transition" style={{ color: 'var(--color-navy)' }}>View All Notifications</button>
+                    </div>
                   </div>
-                  <div className="p-4 border-t text-center" style={{ borderColor: 'var(--color-border)' }}>
-                    <button
-                      className="text-sm font-medium hover:opacity-75 transition"
-                      style={{ color: 'var(--color-navy)' }}
-                    >
-                      View All Notifications
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* User Profile */}
-            <div className="flex items-center gap-3 pl-6" style={{ borderLeft: `1px solid var(--color-border)` }}>
-              <div className="text-right">
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{user?.user_metadata?.name || user?.user_metadata?.username || 'User'}</p>
-                <p className="text-xs" style={{ color: 'var(--color-muted)' }}>Admin</p>
+                )}
               </div>
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: 'var(--color-navy)' }}>
-                {(user?.user_metadata?.name || user?.user_metadata?.username || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+
+              <div className="flex items-center gap-3 pl-6" style={{ borderLeft: `1px solid var(--color-border)` }}>
+                <div className="text-right">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{user?.user_metadata?.name || user?.user_metadata?.username || 'User'}</p>
+                  <p className="text-xs" style={{ color: 'var(--color-muted)' }}>Admin</p>
+                </div>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: 'var(--color-navy)' }}>
+                  {(user?.user_metadata?.name || user?.user_metadata?.username || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                </div>
               </div>
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-4 md:p-8">
+        <main className="flex-1 overflow-auto p-4 md:p-8 pb-20 lg:pb-8">
           {children}
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex border-t" style={{ backgroundColor: 'white', borderColor: 'var(--color-border)' }}>
+          {bottomNavItems.map((item) => {
+            const Icon = item.icon
+            const isActive = item.href ? pathname === item.href : false
+            if (item.href === null) {
+              return (
+                <button
+                  key="more"
+                  onClick={() => setSidebarOpen(true)}
+                  className="flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-all"
+                  style={{ color: 'var(--color-muted)' }}
+                >
+                  <Icon className="w-6 h-6" />
+                  <span className="text-xs font-medium">More</span>
+                </button>
+              )
+            }
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-all"
+                style={{ color: isActive ? 'var(--color-navy)' : 'var(--color-muted)' }}
+              >
+                <Icon className="w-6 h-6" />
+                <span className="text-xs font-medium">{item.label}</span>
+                {isActive && <div className="absolute bottom-0 w-8 h-0.5 rounded-full" style={{ backgroundColor: 'var(--color-navy)' }} />}
+              </Link>
+            )
+          })}
+        </nav>
       </div>
     </div>
   )

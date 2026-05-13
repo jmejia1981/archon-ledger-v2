@@ -353,7 +353,7 @@ export default function PaymentsPage() {
       {/* Payments Table */}
       {!loading && (
         <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <thead style={{ backgroundColor: 'var(--color-linen)' }}>
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>

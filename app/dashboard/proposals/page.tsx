@@ -1045,8 +1045,8 @@ export default function ProposalsPage() {
           <p style={{ color: 'var(--color-muted)' }}>No proposals found. Create your first proposal to get started!</p>
         </div>
       ) : (
-        <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-          <table className="w-full">
+        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+          <table className="w-full min-w-[640px]">
             <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Proposal #</th>
