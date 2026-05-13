@@ -314,6 +314,9 @@ export default function ClientsPage() {
                   Email
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                  Address
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
                   Status
                 </th>
                 <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
@@ -324,7 +327,7 @@ export default function ClientsPage() {
             <tbody>
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     {searchTerm || statusFilter !== 'all'
                       ? 'No clients match your filters'
                       : 'No clients yet. Add one to get started.'}
@@ -341,6 +344,11 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {client.email}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {[client.address, client.city, client.state, client.zip]
+                        .filter(Boolean)
+                        .join(', ') || '—'}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
