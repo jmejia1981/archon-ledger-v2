@@ -26,6 +26,7 @@ interface DashboardMetrics {
   revisedContractValue: number
   totalExpenses: number
   laborCosts: number
+  mileageCosts: number
   totalInvoiced: number
   totalCollected: number
   accountsReceivable: number
@@ -47,6 +48,7 @@ export default function DashboardPage() {
     revisedContractValue: 0,
     totalExpenses: 0,
     laborCosts: 0,
+    mileageCosts: 0,
     totalInvoiced: 0,
     totalCollected: 0,
     accountsReceivable: 0,
@@ -72,10 +74,11 @@ export default function DashboardPage() {
       try {
         console.log('Starting dashboard data load...')
         // Fetch all necessary data
-        const [projectsRes, expensesRes, laborRes, invoicesRes, clientsRes] = await Promise.all([
+        const [projectsRes, expensesRes, laborRes, mileageRes, invoicesRes, clientsRes] = await Promise.all([
           supabase.from('projects').select('*'),
           supabase.from('expenses').select('*'),
           supabase.from('labor_entries').select('*'),
+          supabase.from('mileage_entries').select('*'),
           supabase.from('invoices').select('*'),
           supabase.from('clients').select('*'),
         ])
@@ -86,6 +89,7 @@ export default function DashboardPage() {
         if (projectsRes.error) console.error('Projects error:', projectsRes.error)
         if (expensesRes.error) console.error('Expenses error:', expensesRes.error)
         if (laborRes.error) console.error('Labor error:', laborRes.error)
+        if (mileageRes.error) console.error('Mileage error:', mileageRes.error)
         if (invoicesRes.error) console.error('Invoices error:', invoicesRes.error)
         if (clientsRes.error) console.error('Clients error:', clientsRes.error)
         if (employeesRes.error) console.error('Employees error:', employeesRes.error)
@@ -94,12 +98,14 @@ export default function DashboardPage() {
         console.log('Projects:', projectsRes.data?.length, 'items')
         console.log('Expenses:', expensesRes.data?.length, 'items')
         console.log('Labor:', laborRes.data?.length, 'items')
+        console.log('Mileage:', mileageRes.data?.length, 'items')
         console.log('Invoices:', invoicesRes.data?.length, 'items')
         console.log('Employees:', employeesRes.data?.length, 'items')
 
         const projects = projectsRes
         const expenses = expensesRes
         const labor = laborRes
+        const mileage = mileageRes
         const invoices = invoicesRes
         const clients = clientsRes
         const employees = employeesRes.data || []
@@ -130,6 +136,15 @@ export default function DashboardPage() {
           console.log('Total labor costs calculated:', laborCosts)
         }
 
+        let mileageCosts = 0
+        if (mileage.data) {
+          console.log('Calculating mileage costs from entries:', mileage.data.length)
+          mileage.data.forEach((entry: any) => {
+            mileageCosts += (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
+          })
+          console.log('Total mileage costs calculated:', mileageCosts)
+        }
+
         const totalInvoiced = invoices.data?.reduce((sum, inv) => sum + (inv.invoice_amount || inv.amount || 0), 0) || 0
         const totalCollected = invoices.data?.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0) || 0
         const accountsReceivable = totalInvoiced - totalCollected
@@ -139,7 +154,7 @@ export default function DashboardPage() {
 
         console.log('Totals - Invoiced:', totalInvoiced, 'Collected:', totalCollected, 'Receivable:', accountsReceivable)
 
-        const totalCosts = totalExpenses + laborCosts
+        const totalCosts = totalExpenses + laborCosts + mileageCosts
         const netProfit = revisedContractValue - totalCosts
         const profitMargin = revisedContractValue > 0 ? (netProfit / revisedContractValue) * 100 : 0
 
@@ -187,6 +202,7 @@ export default function DashboardPage() {
           projects: projects.data || [],
           expenses: expenses.data || [],
           labor: labor.data || [],
+          mileage: mileage.data || [],
           invoices: invoices.data || [],
           clients: clients.data || [],
           employees: employees || [],
@@ -199,6 +215,7 @@ export default function DashboardPage() {
           revisedContractValue,
           totalExpenses,
           laborCosts,
+          mileageCosts,
           totalInvoiced,
           totalCollected,
           accountsReceivable,
@@ -233,6 +250,7 @@ export default function DashboardPage() {
 
     const filteredExpenses = filterByProject(allData.expenses, 'project_id')
     const filteredLabor = filterByProject(allData.labor, 'project_id')
+    const filteredMileage = filterByProject(allData.mileage, 'project_id')
     const filteredInvoices = filterByProject(allData.invoices, 'project_id')
 
     // Recalculate all metrics
@@ -247,6 +265,11 @@ export default function DashboardPage() {
       laborCosts += (entry.overtime_hours || 0) * empRate * 1.5
     })
 
+    let mileageCosts = 0
+    filteredMileage.forEach((entry: any) => {
+      mileageCosts += (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
+    })
+
     const totalInvoiced = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.invoice_amount || inv.amount || 0), 0)
     const totalCollected = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.amount_paid || 0), 0)
     const accountsReceivable = totalInvoiced - totalCollected
@@ -254,7 +277,7 @@ export default function DashboardPage() {
       .filter((inv: any) => inv.status !== 'paid' && (inv.invoice_amount || inv.amount || 0) > (inv.amount_paid || 0) && (inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < new Date())))
       .reduce((sum: number, inv: any) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0)
 
-    const totalCosts = totalExpenses + laborCosts
+    const totalCosts = totalExpenses + laborCosts + mileageCosts
     const netProfit = revisedContractValue - totalCosts
     const profitMargin = revisedContractValue > 0 ? (netProfit / revisedContractValue) * 100 : 0
 
@@ -268,6 +291,7 @@ export default function DashboardPage() {
       revisedContractValue,
       totalExpenses,
       laborCosts,
+      mileageCosts,
       totalInvoiced,
       totalCollected,
       accountsReceivable,
@@ -297,6 +321,7 @@ export default function DashboardPage() {
     { label: 'Revised Contract Value', key: 'revisedContractValue', icon: TrendingUp, color: 'text-green-600', href: '/dashboard/projects' },
     { label: 'Total Expenses', key: 'totalExpenses', icon: AlertCircle, color: 'text-red-600', href: '/dashboard/expenses' },
     { label: 'Labor Costs', key: 'laborCosts', icon: Users, color: 'text-orange-600', href: '/dashboard/labor' },
+    { label: 'Mileage Costs', key: 'mileageCosts', icon: Clock, color: 'text-purple-600', href: '/dashboard/mileage' },
     { label: 'Total Invoiced', key: 'totalInvoiced', icon: Briefcase, color: 'text-indigo-600', href: '/dashboard/invoices' },
     { label: 'Total Collected', key: 'totalCollected', icon: DollarSign, color: 'text-emerald-600', href: '/dashboard/payments' },
     { label: 'Accounts Receivable', key: 'accountsReceivable', icon: AlertCircle, color: 'text-yellow-600', href: '/dashboard/receivables' },
@@ -308,6 +333,7 @@ export default function DashboardPage() {
         { label: 'Revised Contract Value', value: formatCurrency(metrics.revisedContractValue) },
         { label: 'Total Expenses', value: `− ${formatCurrency(metrics.totalExpenses)}` },
         { label: 'Labor Costs', value: `− ${formatCurrency(metrics.laborCosts)}` },
+        { label: 'Mileage Costs', value: `− ${formatCurrency(metrics.mileageCosts)}` },
         { label: 'Net Profit', value: formatCurrency(metrics.netProfit), sub: `${metrics.profitMargin.toFixed(1)}% margin` },
       ]),
     },
