@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [pin, setPin] = useState(['', '', '', ''])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
   const pinRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null])
   const router = useRouter()
   const supabase = createClient()
@@ -61,6 +62,8 @@ export default function LoginPage() {
       setError('Invalid username or PIN')
       setLoading(false)
     } else {
+      localStorage.setItem('archon_remember', rememberMe ? 'true' : 'false')
+      if (!rememberMe) sessionStorage.setItem('archon_active', '1')
       router.push('/dashboard')
     }
   }
@@ -133,6 +136,21 @@ export default function LoginPage() {
                   />
                 ))}
               </div>
+            </div>
+
+            {/* Keep me logged in */}
+            <div className="flex items-center gap-2">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded cursor-pointer"
+                style={{ accentColor: 'var(--color-navy)' }}
+              />
+              <label htmlFor="rememberMe" className="text-sm cursor-pointer" style={{ color: 'var(--color-navy)' }}>
+                Keep me logged in
+              </label>
             </div>
 
             {error && (

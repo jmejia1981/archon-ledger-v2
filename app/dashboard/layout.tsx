@@ -51,6 +51,16 @@ export default function DashboardLayout({
         return
       }
 
+      // If user chose not to be remembered, sign out when browser is reopened
+      if (
+        localStorage.getItem('archon_remember') === 'false' &&
+        !sessionStorage.getItem('archon_active')
+      ) {
+        await supabase.auth.signOut()
+        router.push('/auth/login')
+        return
+      }
+
       setUser(user)
       setLoading(false)
 
