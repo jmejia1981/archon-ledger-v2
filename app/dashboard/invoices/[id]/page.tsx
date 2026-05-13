@@ -51,7 +51,7 @@ export default function InvoiceDetailPage() {
         const [invoiceRes, clientsRes, projectsRes] = await Promise.all([
           supabase.from('invoices').select('*').eq('id', invoiceId).single(),
           supabase.from('clients').select('id, name, email, phone'),
-          supabase.from('projects').select('id, project_name, project_address'),
+          supabase.from('projects').select('id, project_name, project_address, external_project_manager'),
         ])
 
         if (invoiceRes.error) throw invoiceRes.error
@@ -512,6 +512,12 @@ export default function InvoiceDetailPage() {
               <p style={{ color: 'var(--color-muted)' }}>Payment Terms</p>
               <p className="font-medium mt-1">{invoice.payment_terms || '—'}</p>
             </div>
+            {project?.external_project_manager && (
+              <div>
+                <p style={{ color: 'var(--color-muted)' }}>External Project Manager</p>
+                <p className="font-medium mt-1">{project.external_project_manager}</p>
+              </div>
+            )}
             {invoice.tax > 0 && (
               <div>
                 <p style={{ color: 'var(--color-muted)' }}>Tax</p>

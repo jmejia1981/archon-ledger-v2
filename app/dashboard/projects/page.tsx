@@ -14,6 +14,7 @@ interface Project {
   contract_budget?: number
   description?: string
   status?: string
+  external_project_manager?: string | null
   created_at?: string
 }
 
@@ -34,6 +35,7 @@ export default function ProjectsPage() {
     client_id: '',
     contract_budget: '',
     description: '',
+    external_project_manager: '',
   })
 
   const [clients, setClients] = useState<any[]>([])
@@ -103,6 +105,7 @@ export default function ProjectsPage() {
       client_id: '',
       contract_budget: '',
       description: '',
+      external_project_manager: '',
     })
     setShowNewProjectForm(true)
   }
@@ -130,6 +133,7 @@ export default function ProjectsPage() {
             client_id: formData.client_id,
             contract_budget: parseFloat(formData.contract_budget),
             description: formData.description,
+            external_project_manager: formData.external_project_manager || null,
           },
         ])
         .select()
@@ -142,7 +146,7 @@ export default function ProjectsPage() {
       console.log('Project created successfully:', data)
       if (data) {
         setProjects([...projects, ...data])
-        setFormData({ project_number: '', project_name: '', project_street: '', project_state: '', project_zip: '', client_id: '', contract_budget: '', description: '' })
+        setFormData({ project_number: '', project_name: '', project_street: '', project_state: '', project_zip: '', client_id: '', contract_budget: '', description: '', external_project_manager: '' })
         setShowNewProjectForm(false)
         alert('Project created successfully!')
       }
@@ -368,6 +372,23 @@ export default function ProjectsPage() {
                     backgroundColor: 'white',
                   }}
                   rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                  External Project Manager <span className="font-normal text-xs">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.external_project_manager}
+                  onChange={(e) => setFormData({ ...formData, external_project_manager: e.target.value })}
+                  placeholder="Enter name"
+                  className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'white',
+                  }}
                 />
               </div>
 
