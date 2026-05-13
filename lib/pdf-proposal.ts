@@ -125,7 +125,7 @@ export function generateProposalPDF(data: ProposalData) {
   // Draw a bullet list; handles page breaks mid-list
   const drawBulletList = (items: string[]) => {
     items.forEach((item) => {
-      const lines = doc.splitTextToSize(`• ${item}`, contentWidth - 4)
+      const lines = doc.splitTextToSize(item, contentWidth - 4)
       const lineHeight = lines.length * 3.5 + 1
       checkPageBreak(lineHeight)
       doc.text(lines, margin + 2, yPosition)
