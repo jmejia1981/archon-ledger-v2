@@ -82,19 +82,12 @@ export default function ProjectsPage() {
 
   // Generate next project number
   const generateNextProjectNumber = () => {
-    if (projects.length === 0) {
-      return '1000'
-    }
-
     const numbers = projects
-      .map((proj) => {
-        const projNum = parseInt(proj.project_name.match(/\d+/)?.[0] || proj.id)
-        return isNaN(projNum) ? 0 : projNum
-      })
+      .map((proj) => parseInt(proj.project_number))
+      .filter((n) => !isNaN(n))
       .sort((a, b) => b - a)
 
-    const nextNumber = (numbers[0] || 999) + 1
-    return nextNumber.toString()
+    return ((numbers[0] ?? 999) + 1).toString()
   }
 
   // Handle open new project form
