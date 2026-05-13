@@ -40,7 +40,6 @@ export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showNewInvoiceForm, setShowNewInvoiceForm] = useState(false)
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [formData, setFormData] = useState({
     invoice_number: '',
     client_id: '',
