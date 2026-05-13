@@ -319,6 +319,8 @@ export default function PaymentsPage() {
             />
             <input
               type="text"
+              id="payments-search"
+              name="search"
               placeholder="Search by invoice, client, or method..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -332,6 +334,8 @@ export default function PaymentsPage() {
 
         {/* Status Filter */}
         <select
+          id="payments-statusFilter"
+          name="statusFilter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as any)}
           className="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -473,6 +477,8 @@ export default function PaymentsPage() {
                   Select Invoice *
                 </label>
                 <select
+                  id="payments-invoice_id"
+                  name="invoice_id"
                   value={formData.invoice_id}
                   onChange={(e) => setFormData({ ...formData, invoice_id: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -539,6 +545,8 @@ export default function PaymentsPage() {
                     </label>
                     <input
                       type="number"
+                      id="payments-amount"
+                      name="amount"
                       value={formData.amount}
                       onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -554,6 +562,8 @@ export default function PaymentsPage() {
                     </label>
                     <input
                       type="date"
+                      id="payments-payment_date"
+                      name="payment_date"
                       value={formData.payment_date}
                       onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -565,6 +575,8 @@ export default function PaymentsPage() {
                       Payment Method
                     </label>
                     <select
+                      id="payments-payment_method"
+                      name="payment_method"
                       value={formData.payment_method}
                       onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -583,6 +595,8 @@ export default function PaymentsPage() {
                       Notes
                     </label>
                     <textarea
+                      id="payments-notes"
+                      name="notes"
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"

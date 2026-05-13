@@ -231,6 +231,8 @@ export default function ProjectsPage() {
                 </label>
                 <input
                   type="text"
+                  id="projects-project_number"
+                  name="project_number"
                   value={formData.project_number}
                   readOnly
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition bg-gray-50"
@@ -245,6 +247,8 @@ export default function ProjectsPage() {
                 </label>
                 <input
                   type="text"
+                  id="projects-project_name"
+                  name="project_name"
                   value={formData.project_name}
                   onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
                   placeholder="Enter project name"
@@ -263,6 +267,8 @@ export default function ProjectsPage() {
                 </label>
                 <input
                   type="text"
+                  id="projects-project_street"
+                  name="project_street"
                   value={formData.project_street}
                   onChange={(e) => setFormData({ ...formData, project_street: e.target.value })}
                   placeholder="Enter street address"
@@ -281,6 +287,8 @@ export default function ProjectsPage() {
                 </label>
                 <input
                   type="text"
+                  id="projects-project_city"
+                  name="project_city"
                   value={formData.project_city}
                   onChange={(e) => setFormData({ ...formData, project_city: e.target.value })}
                   placeholder="City"
@@ -300,6 +308,8 @@ export default function ProjectsPage() {
                   </label>
                   <input
                     type="text"
+                    id="projects-project_state"
+                    name="project_state"
                     value={formData.project_state}
                     onChange={(e) => setFormData({ ...formData, project_state: e.target.value })}
                     placeholder="State"
@@ -318,6 +328,8 @@ export default function ProjectsPage() {
                   </label>
                   <input
                     type="text"
+                    id="projects-project_zip"
+                    name="project_zip"
                     value={formData.project_zip}
                     onChange={(e) => setFormData({ ...formData, project_zip: e.target.value })}
                     placeholder="Zip code"
@@ -336,6 +348,8 @@ export default function ProjectsPage() {
                   Client
                 </label>
                 <select
+                  id="projects-client_id"
+                  name="client_id"
                   value={formData.client_id}
                   onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -361,6 +375,8 @@ export default function ProjectsPage() {
                 </label>
                 <input
                   type="number"
+                  id="projects-contract_budget"
+                  name="contract_budget"
                   step="0.01"
                   value={formData.contract_budget}
                   onChange={(e) => setFormData({ ...formData, contract_budget: e.target.value })}
@@ -379,6 +395,8 @@ export default function ProjectsPage() {
                   Description
                 </label>
                 <textarea
+                  id="projects-description"
+                  name="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Enter project description"
@@ -397,6 +415,8 @@ export default function ProjectsPage() {
                 </label>
                 <input
                   type="text"
+                  id="projects-external_project_manager"
+                  name="external_project_manager"
                   value={formData.external_project_manager}
                   onChange={(e) => setFormData({ ...formData, external_project_manager: e.target.value })}
                   placeholder="Enter name"
@@ -440,6 +460,8 @@ export default function ProjectsPage() {
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
             type="text"
+            id="projects-search"
+            name="search"
             placeholder="Search projects..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -514,6 +536,8 @@ export default function ProjectsPage() {
                 <div className="flex justify-between items-center">
                   <span style={{ color: 'var(--color-muted)' }}>Status:</span>
                   <select
+                    id={`projects-status-${project.id}`}
+                    name={`status-${project.id}`}
                     value={project.status || 'active'}
                     onChange={(e) => handleUpdateStatus(project.id, e.target.value)}
                     className="px-2 py-1 rounded border text-xs"
@@ -576,6 +600,8 @@ export default function ProjectsPage() {
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{project.external_project_manager || '—'}</td>
                   <td className="px-6 py-4 text-sm">
                     <select
+                      id={`projects-list-status-${project.id}`}
+                      name={`status-${project.id}`}
                       value={project.status || 'active'}
                       onChange={(e) => handleUpdateStatus(project.id, e.target.value)}
                       className="px-2 py-1 rounded border text-xs"

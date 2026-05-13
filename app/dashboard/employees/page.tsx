@@ -315,6 +315,8 @@ export default function EmployeesPage() {
             />
             <input
               type="text"
+              id="employees-search"
+              name="search"
               placeholder="Search by name, email, or job title..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -330,6 +332,8 @@ export default function EmployeesPage() {
         <div className="flex gap-2">
           {/* Status Filter */}
           <select
+            id="employees-status"
+            name="status"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
             className="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -603,6 +607,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="text"
+                      id="employees-first_name"
+                      name="first_name"
                       value={formData.first_name}
                       onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -616,6 +622,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="text"
+                      id="employees-last_name"
+                      name="last_name"
                       value={formData.last_name}
                       onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -638,6 +646,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="email"
+                      id="employees-email"
+                      name="email"
                       value={formData.email ?? ''}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value || null })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -651,6 +661,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="tel"
+                      id="employees-phone"
+                      name="phone"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -673,6 +685,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="text"
+                      id="employees-job_title"
+                      name="job_title"
                       value={formData.job_title}
                       onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -686,6 +700,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="text"
+                      id="employees-department"
+                      name="department"
                       value={formData.department}
                       onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -699,6 +715,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="date"
+                      id="employees-hire_date"
+                      name="hire_date"
                       value={formData.hire_date}
                       onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -710,6 +728,8 @@ export default function EmployeesPage() {
                       Employment Type
                     </label>
                     <select
+                      id="employees-employment_type"
+                      name="employment_type"
                       value={formData.employment_type}
                       onChange={(e) => setFormData({ ...formData, employment_type: e.target.value as any })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -735,6 +755,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="number"
+                      id="employees-salary"
+                      name="salary"
                       value={formData.salary}
                       onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -749,6 +771,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="number"
+                      id="employees-hourly_rate"
+                      name="hourly_rate"
                       value={formData.hourly_rate}
                       onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -772,6 +796,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="text"
+                      id="employees-address"
+                      name="address"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -782,6 +808,8 @@ export default function EmployeesPage() {
                   <div className="grid md:grid-cols-3 gap-4">
                     <input
                       type="text"
+                      id="employees-city"
+                      name="city"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -790,6 +818,8 @@ export default function EmployeesPage() {
                     />
                     <input
                       type="text"
+                      id="employees-state"
+                      name="state"
                       value={formData.state}
                       onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -798,6 +828,8 @@ export default function EmployeesPage() {
                     />
                     <input
                       type="text"
+                      id="employees-zip"
+                      name="zip"
                       value={formData.zip}
                       onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -820,6 +852,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="text"
+                      id="employees-emergency_contact"
+                      name="emergency_contact"
                       value={formData.emergency_contact}
                       onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -833,6 +867,8 @@ export default function EmployeesPage() {
                     </label>
                     <input
                       type="tel"
+                      id="employees-emergency_contact_phone"
+                      name="emergency_contact_phone"
                       value={formData.emergency_contact_phone}
                       onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -849,6 +885,8 @@ export default function EmployeesPage() {
                   Status
                 </h3>
                 <select
+                  id="employees-form_status"
+                  name="form_status"
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                   className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"

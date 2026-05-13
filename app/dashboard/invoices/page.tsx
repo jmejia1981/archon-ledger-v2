@@ -441,6 +441,8 @@ export default function InvoicesPage() {
                 </label>
                 <input
                   type="text"
+                  id="invoices-invoice_number"
+                  name="invoice_number"
                   value={formData.invoice_number}
                   readOnly
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition bg-gray-50"
@@ -454,6 +456,8 @@ export default function InvoicesPage() {
                   Client *
                 </label>
                 <select
+                  id="invoices-client_id"
+                  name="client_id"
                   value={formData.client_id}
                   onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -474,6 +478,8 @@ export default function InvoicesPage() {
                   Project
                 </label>
                 <select
+                  id="invoices-project_id"
+                  name="project_id"
                   value={formData.project_id}
                   onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -495,6 +501,8 @@ export default function InvoicesPage() {
                   </label>
                   <input
                     type="date"
+                    id="invoices-invoice_date"
+                    name="invoice_date"
                     value={formData.invoice_date}
                     onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -507,6 +515,8 @@ export default function InvoicesPage() {
                   </label>
                   <input
                     type="date"
+                    id="invoices-due_date"
+                    name="due_date"
                     value={formData.due_date}
                     onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -524,6 +534,8 @@ export default function InvoicesPage() {
                     <div key={index} className="grid grid-cols-12 gap-2">
                       <input
                         type="text"
+                        id={`invoices-line_description-${index}`}
+                        name={`line_description-${index}`}
                         value={item.description}
                         onChange={(e) => {
                           const newItems = [...lineItems]
@@ -536,6 +548,8 @@ export default function InvoicesPage() {
                       />
                       <input
                         type="number"
+                        id={`invoices-line_amount-${index}`}
+                        name={`line_amount-${index}`}
                         step="0.01"
                         value={item.amount}
                         onChange={(e) => {
@@ -574,6 +588,8 @@ export default function InvoicesPage() {
                   </label>
                   <input
                     type="number"
+                    id="invoices-invoice_amount"
+                    name="invoice_amount"
                     step="0.01"
                     value={formData.invoice_amount}
                     readOnly
@@ -587,6 +603,8 @@ export default function InvoicesPage() {
                   </label>
                   <input
                     type="number"
+                    id="invoices-tax"
+                    name="tax"
                     step="0.01"
                     value={formData.tax}
                     onChange={(e) => setFormData({ ...formData, tax: e.target.value })}
@@ -601,6 +619,8 @@ export default function InvoicesPage() {
                   </label>
                   <input
                     type="number"
+                    id="invoices-total"
+                    name="total"
                     step="0.01"
                     value={(parseFloat(formData.invoice_amount) || 0) + (parseFloat(formData.tax) || 0)}
                     readOnly
@@ -616,6 +636,8 @@ export default function InvoicesPage() {
                 </label>
                 <input
                   type="number"
+                  id="invoices-retainage"
+                  name="retainage"
                   step="0.01"
                   value={formData.retainage}
                   onChange={(e) => setFormData({ ...formData, retainage: e.target.value })}
@@ -630,6 +652,8 @@ export default function InvoicesPage() {
                   Payment Terms
                 </label>
                 <select
+                  id="invoices-payment_terms"
+                  name="payment_terms"
                   value={formData.payment_terms}
                   onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -648,6 +672,8 @@ export default function InvoicesPage() {
                   Status
                 </label>
                 <select
+                  id="invoices-status"
+                  name="status"
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -665,6 +691,8 @@ export default function InvoicesPage() {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
+                    id="invoices-is_recurring"
+                    name="is_recurring"
                     checked={formData.is_recurring}
                     onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
                     className="w-4 h-4 rounded"
@@ -682,6 +710,8 @@ export default function InvoicesPage() {
                     Frequency
                   </label>
                   <select
+                    id="invoices-recurring_frequency"
+                    name="recurring_frequency"
                     value={formData.recurring_frequency}
                     onChange={(e) => setFormData({ ...formData, recurring_frequency: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -725,6 +755,8 @@ export default function InvoicesPage() {
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
             type="text"
+            id="invoices-search"
+            name="search"
             placeholder="Search invoices..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -735,6 +767,8 @@ export default function InvoicesPage() {
 
         <div className="relative">
           <select
+            id="invoices-statusFilter"
+            name="statusFilter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-4 py-2 rounded-lg border appearance-none pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"

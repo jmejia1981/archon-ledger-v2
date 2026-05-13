@@ -533,6 +533,8 @@ export default function LaborPage() {
                           Employee
                         </label>
                         <select
+                          id="labor-employee_id"
+                          name="employee_id"
                           value={formData.employee_id}
                           onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -552,6 +554,8 @@ export default function LaborPage() {
                           Project
                         </label>
                         <select
+                          id="labor-project_id"
+                          name="project_id"
                           value={formData.project_id}
                           onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -575,6 +579,8 @@ export default function LaborPage() {
                         </label>
                         <input
                           type="number"
+                          id="labor-regular_hours"
+                          name="regular_hours"
                           step="0.25"
                           value={formData.regular_hours}
                           onChange={(e) => setFormData({ ...formData, regular_hours: e.target.value })}
@@ -589,6 +595,8 @@ export default function LaborPage() {
                         </label>
                         <input
                           type="date"
+                          id="labor-date"
+                          name="date"
                           value={formData.date}
                           onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -602,6 +610,8 @@ export default function LaborPage() {
                         Task Description
                       </label>
                       <textarea
+                        id="labor-task_description"
+                        name="task_description"
                         value={formData.task_description}
                         onChange={(e) => setFormData({ ...formData, task_description: e.target.value })}
                         placeholder="Describe the work performed..."
@@ -637,6 +647,8 @@ export default function LaborPage() {
                           Employee
                         </label>
                         <select
+                          id="labor-week-employee_id"
+                          name="employee_id"
                           value={formData.employee_id}
                           onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -656,6 +668,8 @@ export default function LaborPage() {
                           Project
                         </label>
                         <select
+                          id="labor-week-project_id"
+                          name="project_id"
                           value={formData.project_id}
                           onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -678,6 +692,8 @@ export default function LaborPage() {
                       </label>
                       <input
                         type="date"
+                        id="labor-weekStartDate"
+                        name="weekStartDate"
                         value={weekStartDate}
                         onChange={(e) => {
                           setWeekStartDate(e.target.value)
@@ -707,6 +723,8 @@ export default function LaborPage() {
                           </p>
                           <input
                             type="number"
+                            id={`labor-week_hours-${day.key}`}
+                            name={`week_hours-${day.key}`}
                             step="0.25"
                             min="0"
                             value={weeklyData[day.key].hours}
@@ -721,6 +739,8 @@ export default function LaborPage() {
                             style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
                           />
                           <select
+                            id={`labor-week_site-${day.key}`}
+                            name={`week_site-${day.key}`}
                             value={weeklyData[day.key].site}
                             onChange={(e) =>
                               setWeeklyData({
@@ -749,6 +769,8 @@ export default function LaborPage() {
                         Task Description
                       </label>
                       <textarea
+                        id="labor-week-task_description"
+                        name="task_description"
                         value={formData.task_description}
                         onChange={(e) => setFormData({ ...formData, task_description: e.target.value })}
                         placeholder="Describe the work performed..."
@@ -807,6 +829,8 @@ export default function LaborPage() {
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
             type="text"
+            id="labor-search"
+            name="search"
             placeholder="Search labor entries..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -817,6 +841,8 @@ export default function LaborPage() {
 
         <div className="relative">
           <select
+            id="labor-statusFilter"
+            name="statusFilter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-4 py-2 rounded-lg border appearance-none pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -1034,6 +1060,8 @@ export default function LaborPage() {
                       </label>
                       <input
                         type="text"
+                        id="labor-edit-employee_name"
+                        name="employee_name"
                         value={getEmployeeName(editFormData.employee_id)}
                         disabled
                         className="w-full px-4 py-2 rounded-lg border bg-gray-100"
@@ -1046,6 +1074,8 @@ export default function LaborPage() {
                       </label>
                       <input
                         type="text"
+                        id="labor-edit-project_name"
+                        name="project_name"
                         value={getProjectName(editFormData.project_id)}
                         disabled
                         className="w-full px-4 py-2 rounded-lg border bg-gray-100"
@@ -1065,6 +1095,8 @@ export default function LaborPage() {
                         </p>
                         <input
                           type="number"
+                          id={`labor-edit-week_hours-${day.key}`}
+                          name={`week_hours-${day.key}`}
                           step="0.25"
                           min="0"
                           value={editWeeklyData[day.key].hours}
@@ -1093,6 +1125,8 @@ export default function LaborPage() {
                       Status
                     </label>
                     <select
+                      id="labor-edit-week-status"
+                      name="status"
                       value={editFormData.status}
                       onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
                       className="w-full px-4 py-2 rounded-lg border"
@@ -1108,6 +1142,8 @@ export default function LaborPage() {
                       Task Description
                     </label>
                     <textarea
+                      id="labor-edit-week-task_description"
+                      name="task_description"
                       value={editFormData.task_description}
                       onChange={(e) => setEditFormData({ ...editFormData, task_description: e.target.value })}
                       className="w-full px-4 py-2 rounded-lg border"
@@ -1125,6 +1161,8 @@ export default function LaborPage() {
                         Employee
                       </label>
                       <select
+                        id="labor-edit-employee_id"
+                        name="employee_id"
                         value={editFormData.employee_id}
                         onChange={(e) => setEditFormData({ ...editFormData, employee_id: e.target.value })}
                         className="w-full px-4 py-2 rounded-lg border"
@@ -1142,6 +1180,8 @@ export default function LaborPage() {
                         Project
                       </label>
                       <select
+                        id="labor-edit-project_id"
+                        name="project_id"
                         value={editFormData.project_id}
                         onChange={(e) => setEditFormData({ ...editFormData, project_id: e.target.value })}
                         className="w-full px-4 py-2 rounded-lg border"
@@ -1163,6 +1203,8 @@ export default function LaborPage() {
                       </label>
                       <input
                         type="date"
+                        id="labor-edit-date"
+                        name="date"
                         value={editFormData.date}
                         onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
                         className="w-full px-4 py-2 rounded-lg border"
@@ -1174,6 +1216,8 @@ export default function LaborPage() {
                         Status
                       </label>
                       <select
+                        id="labor-edit-status"
+                        name="status"
                         value={editFormData.status}
                         onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
                         className="w-full px-4 py-2 rounded-lg border"
@@ -1192,6 +1236,8 @@ export default function LaborPage() {
                       </label>
                       <input
                         type="number"
+                        id="labor-edit-regular_hours"
+                        name="regular_hours"
                         step="0.25"
                         value={editFormData.regular_hours}
                         onChange={(e) => setEditFormData({ ...editFormData, regular_hours: e.target.value })}
@@ -1205,6 +1251,8 @@ export default function LaborPage() {
                       </label>
                       <input
                         type="number"
+                        id="labor-edit-overtime_hours"
+                        name="overtime_hours"
                         step="0.25"
                         value={editFormData.overtime_hours}
                         onChange={(e) => setEditFormData({ ...editFormData, overtime_hours: e.target.value })}
@@ -1219,6 +1267,8 @@ export default function LaborPage() {
                       Task Description
                     </label>
                     <textarea
+                      id="labor-edit-task_description"
+                      name="task_description"
                       value={editFormData.task_description}
                       onChange={(e) => setEditFormData({ ...editFormData, task_description: e.target.value })}
                       className="w-full px-4 py-2 rounded-lg border"

@@ -97,6 +97,8 @@ export default function LoginPage() {
                 Username
               </label>
               <input
+                id="username"
+                name="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -120,6 +122,8 @@ export default function LoginPage() {
                 {pin.map((digit, i) => (
                   <input
                     key={i}
+                    id={`pin-${i}`}
+                    name={`pin-${i}`}
                     ref={(el) => { pinRefs.current[i] = el }}
                     type="password"
                     inputMode="numeric"

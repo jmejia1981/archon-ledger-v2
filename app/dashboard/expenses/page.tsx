@@ -341,6 +341,8 @@ export default function ExpensesPage() {
                 </label>
                 <input
                   type="date"
+                  id="expenses-date"
+                  name="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -354,6 +356,8 @@ export default function ExpensesPage() {
                 </label>
                 <input
                   type="text"
+                  id="expenses-vendor"
+                  name="vendor"
                   value={formData.vendor}
                   onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
                   placeholder="Supplier name"
@@ -368,6 +372,8 @@ export default function ExpensesPage() {
                   Category Group *
                 </label>
                 <select
+                  id="expenses-categoryGroup"
+                  name="categoryGroup"
                   value={formData.categoryGroup}
                   onChange={(e) => {
                     setFormData({
@@ -390,6 +396,8 @@ export default function ExpensesPage() {
                   Project {formData.categoryGroup === 'direct-project-costs' && '*'}
                 </label>
                 <select
+                  id="expenses-projectId"
+                  name="projectId"
                   value={formData.projectId}
                   onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -410,6 +418,8 @@ export default function ExpensesPage() {
                   Category *
                 </label>
                 <select
+                  id="expenses-category"
+                  name="category"
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -430,6 +440,8 @@ export default function ExpensesPage() {
                   Subcategory
                 </label>
                 <select
+                  id="expenses-subcategory"
+                  name="subcategory"
                   value={formData.subcategory}
                   onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -449,6 +461,8 @@ export default function ExpensesPage() {
                   Description *
                 </label>
                 <textarea
+                  id="expenses-description"
+                  name="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Describe the expense"
@@ -465,6 +479,8 @@ export default function ExpensesPage() {
                 </label>
                 <input
                   type="number"
+                  id="expenses-amount"
+                  name="amount"
                   step="0.01"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
@@ -480,6 +496,8 @@ export default function ExpensesPage() {
                   Approval Status
                 </label>
                 <select
+                  id="expenses-approvalStatus"
+                  name="approvalStatus"
                   value={formData.approvalStatus}
                   onChange={(e) => setFormData({ ...formData, approvalStatus: e.target.value as 'pending' | 'approved' | 'rejected' })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -511,6 +529,8 @@ export default function ExpensesPage() {
                   </label>
                   <input
                     type="date"
+                    id="expenses-monthlyEndDate"
+                    name="monthlyEndDate"
                     value={formData.monthlyEndDate}
                     onChange={(e) => setFormData({ ...formData, monthlyEndDate: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -525,6 +545,8 @@ export default function ExpensesPage() {
                 </label>
                 <input
                   type="url"
+                  id="expenses-receiptUrl"
+                  name="receiptUrl"
                   value={formData.receiptUrl}
                   onChange={(e) => setFormData({ ...formData, receiptUrl: e.target.value })}
                   placeholder="https://example.com/receipt.pdf"
@@ -538,6 +560,8 @@ export default function ExpensesPage() {
                   Notes
                 </label>
                 <textarea
+                  id="expenses-notes"
+                  name="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Additional notes"
@@ -595,6 +619,8 @@ export default function ExpensesPage() {
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
             type="text"
+            id="expenses-search"
+            name="search"
             placeholder="Search expenses..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -605,6 +631,8 @@ export default function ExpensesPage() {
 
         <div className="relative">
           <select
+            id="expenses-categoryFilter"
+            name="categoryFilter"
             value={categoryFilter}
             onChange={(e) => setcategoryFilter(e.target.value)}
             className="px-4 py-2 rounded-lg border appearance-none pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -621,6 +649,8 @@ export default function ExpensesPage() {
 
         <div className="relative">
           <select
+            id="expenses-statusFilter"
+            name="statusFilter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-4 py-2 rounded-lg border appearance-none pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -710,25 +740,25 @@ export default function ExpensesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Date</label>
-                  <input type="date" value={editFormData.date} onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                  <input type="date" id="expenses-edit-date" name="date" value={editFormData.date} onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Amount *</label>
-                  <input type="number" step="0.01" value={editFormData.amount} onChange={(e) => setEditFormData({ ...editFormData, amount: e.target.value })}
+                  <input type="number" id="expenses-edit-amount" name="amount" step="0.01" value={editFormData.amount} onChange={(e) => setEditFormData({ ...editFormData, amount: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} required />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Vendor *</label>
-                <input type="text" value={editFormData.vendor} onChange={(e) => setEditFormData({ ...editFormData, vendor: e.target.value })}
+                <input type="text" id="expenses-edit-vendor" name="vendor" value={editFormData.vendor} onChange={(e) => setEditFormData({ ...editFormData, vendor: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} required />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Category Group</label>
-                <select value={editFormData.categoryGroup} onChange={(e) => setEditFormData({ ...editFormData, categoryGroup: e.target.value as any, category: 'Materials' })}
+                <select id="expenses-edit-categoryGroup" name="categoryGroup" value={editFormData.categoryGroup} onChange={(e) => setEditFormData({ ...editFormData, categoryGroup: e.target.value as any, category: 'Materials' })}
                   className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
                   <option value="direct-project-costs">Direct Project Costs</option>
                   <option value="company-overhead">Company Overhead</option>
@@ -738,7 +768,7 @@ export default function ExpensesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Category</label>
-                  <select value={editFormData.category} onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                  <select id="expenses-edit-category" name="category" value={editFormData.category} onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
                     {categoryGroups[editFormData.categoryGroup]?.map((cat) => (
                       <option key={cat} value={cat}>{cat}</option>
@@ -747,7 +777,7 @@ export default function ExpensesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Subcategory</label>
-                  <select value={editFormData.subcategory} onChange={(e) => setEditFormData({ ...editFormData, subcategory: e.target.value })}
+                  <select id="expenses-edit-subcategory" name="subcategory" value={editFormData.subcategory} onChange={(e) => setEditFormData({ ...editFormData, subcategory: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
                     <option value="">None</option>
                     {categoryOptions[editFormData.category]?.map((s) => (
@@ -759,7 +789,7 @@ export default function ExpensesPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Project</label>
-                <select value={editFormData.projectId} onChange={(e) => setEditFormData({ ...editFormData, projectId: e.target.value })}
+                <select id="expenses-edit-projectId" name="projectId" value={editFormData.projectId} onChange={(e) => setEditFormData({ ...editFormData, projectId: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
                   <option value="">No project (overhead)</option>
                   {projects.map((p) => (
@@ -770,13 +800,13 @@ export default function ExpensesPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Description *</label>
-                <textarea value={editFormData.description} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                <textarea id="expenses-edit-description" name="description" value={editFormData.description} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor: 'var(--color-border)' }} rows={2} required />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Approval Status</label>
-                <select value={editFormData.approvalStatus} onChange={(e) => setEditFormData({ ...editFormData, approvalStatus: e.target.value as any })}
+                <select id="expenses-edit-approvalStatus" name="approvalStatus" value={editFormData.approvalStatus} onChange={(e) => setEditFormData({ ...editFormData, approvalStatus: e.target.value as any })}
                   className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
@@ -792,20 +822,20 @@ export default function ExpensesPage() {
               {editFormData.isMonthly && (
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Monthly End Date</label>
-                  <input type="date" value={editFormData.monthlyEndDate} onChange={(e) => setEditFormData({ ...editFormData, monthlyEndDate: e.target.value })}
+                  <input type="date" id="expenses-edit-monthlyEndDate" name="monthlyEndDate" value={editFormData.monthlyEndDate} onChange={(e) => setEditFormData({ ...editFormData, monthlyEndDate: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} />
                 </div>
               )}
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Receipt URL</label>
-                <input type="url" value={editFormData.receiptUrl} onChange={(e) => setEditFormData({ ...editFormData, receiptUrl: e.target.value })}
+                <input type="url" id="expenses-edit-receiptUrl" name="receiptUrl" value={editFormData.receiptUrl} onChange={(e) => setEditFormData({ ...editFormData, receiptUrl: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} placeholder="https://" />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Notes</label>
-                <textarea value={editFormData.notes} onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                <textarea id="expenses-edit-notes" name="notes" value={editFormData.notes} onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor: 'var(--color-border)' }} rows={2} />
               </div>
 

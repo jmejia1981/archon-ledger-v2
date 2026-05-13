@@ -265,6 +265,8 @@ export default function PayrollPage() {
                   Employee *
                 </label>
                 <select
+                  id="payroll-employee_id"
+                  name="employee_id"
                   value={formData.employee_id}
                   onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -287,6 +289,8 @@ export default function PayrollPage() {
                   </label>
                   <input
                     type="date"
+                    id="payroll-payroll_period_start"
+                    name="payroll_period_start"
                     value={formData.payroll_period_start}
                     onChange={(e) => setFormData({ ...formData, payroll_period_start: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -300,6 +304,8 @@ export default function PayrollPage() {
                   </label>
                   <input
                     type="date"
+                    id="payroll-payroll_period_end"
+                    name="payroll_period_end"
                     value={formData.payroll_period_end}
                     onChange={(e) => setFormData({ ...formData, payroll_period_end: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -315,6 +321,8 @@ export default function PayrollPage() {
                   </label>
                   <input
                     type="number"
+                    id="payroll-regular_hours"
+                    name="regular_hours"
                     step="0.25"
                     value={formData.regular_hours}
                     onChange={(e) => setFormData({ ...formData, regular_hours: e.target.value })}
@@ -329,6 +337,8 @@ export default function PayrollPage() {
                   </label>
                   <input
                     type="number"
+                    id="payroll-overtime_hours"
+                    name="overtime_hours"
                     step="0.25"
                     value={formData.overtime_hours}
                     onChange={(e) => setFormData({ ...formData, overtime_hours: e.target.value })}
@@ -345,6 +355,8 @@ export default function PayrollPage() {
                 </label>
                 <input
                   type="number"
+                  id="payroll-gross_pay"
+                  name="gross_pay"
                   step="0.01"
                   value={formData.gross_pay}
                   onChange={(e) => setFormData({ ...formData, gross_pay: e.target.value })}
@@ -361,6 +373,8 @@ export default function PayrollPage() {
                   </label>
                   <input
                     type="number"
+                    id="payroll-taxes"
+                    name="taxes"
                     step="0.01"
                     value={formData.taxes}
                     onChange={(e) => setFormData({ ...formData, taxes: e.target.value })}
@@ -375,6 +389,8 @@ export default function PayrollPage() {
                   </label>
                   <input
                     type="number"
+                    id="payroll-benefits"
+                    name="benefits"
                     step="0.01"
                     value={formData.benefits}
                     onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
@@ -389,6 +405,8 @@ export default function PayrollPage() {
                   </label>
                   <input
                     type="number"
+                    id="payroll-reimbursements"
+                    name="reimbursements"
                     step="0.01"
                     value={formData.reimbursements}
                     onChange={(e) => setFormData({ ...formData, reimbursements: e.target.value })}
@@ -404,6 +422,8 @@ export default function PayrollPage() {
                   Status
                 </label>
                 <select
+                  id="payroll-status"
+                  name="status"
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -461,6 +481,8 @@ export default function PayrollPage() {
           <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
           <input
             type="text"
+            id="payroll-search"
+            name="search"
             placeholder="Search payroll records..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -470,6 +492,8 @@ export default function PayrollPage() {
 
         <div className="relative">
           <select
+            id="payroll-statusFilter"
+            name="statusFilter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-10"

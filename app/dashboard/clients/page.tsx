@@ -251,6 +251,8 @@ export default function ClientsPage() {
               style={{ color: 'var(--color-muted)' }}
             />
             <input
+              id="clients-search"
+              name="search"
               type="text"
               placeholder="Search by name, company, or email..."
               value={searchTerm}
@@ -267,6 +269,8 @@ export default function ClientsPage() {
         <div className="flex gap-2">
           {/* Status Filter */}
           <select
+            id="clients-status-filter"
+            name="status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
             className="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2"
@@ -516,6 +520,8 @@ export default function ClientsPage() {
                       Client / Company Name *
                     </label>
                     <input
+                      id="client-name"
+                      name="name"
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value, company_name: e.target.value })}
@@ -538,6 +544,8 @@ export default function ClientsPage() {
                       Email
                     </label>
                     <input
+                      id="client-email"
+                      name="email"
                       type="email"
                       value={formData.email ?? ''}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value || null })}
@@ -551,6 +559,8 @@ export default function ClientsPage() {
                       Phone
                     </label>
                     <input
+                      id="client-phone"
+                      name="phone"
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -564,6 +574,8 @@ export default function ClientsPage() {
                       Contact Person
                     </label>
                     <input
+                      id="client-contact-person"
+                      name="contact_person"
                       type="text"
                       value={formData.contact_person}
                       onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
@@ -586,6 +598,8 @@ export default function ClientsPage() {
                       Street Address
                     </label>
                     <input
+                      id="client-address"
+                      name="address"
                       type="text"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -596,6 +610,8 @@ export default function ClientsPage() {
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
                     <input
+                      id="client-city"
+                      name="city"
                       type="text"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
@@ -604,6 +620,8 @@ export default function ClientsPage() {
                       placeholder="City"
                     />
                     <input
+                      id="client-state"
+                      name="state"
                       type="text"
                       value={formData.state}
                       onChange={(e) => setFormData({ ...formData, state: e.target.value })}
@@ -614,6 +632,8 @@ export default function ClientsPage() {
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
                     <input
+                      id="client-zip"
+                      name="zip"
                       type="text"
                       value={formData.zip}
                       onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
@@ -622,6 +642,8 @@ export default function ClientsPage() {
                       placeholder="ZIP Code"
                     />
                     <input
+                      id="client-country"
+                      name="country"
                       type="text"
                       value={formData.country}
                       onChange={(e) => setFormData({ ...formData, country: e.target.value })}
@@ -644,6 +666,8 @@ export default function ClientsPage() {
                       Payment Terms
                     </label>
                     <input
+                      id="client-payment-terms"
+                      name="payment_terms"
                       type="text"
                       value={formData.payment_terms}
                       onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
@@ -657,6 +681,8 @@ export default function ClientsPage() {
                       Status
                     </label>
                     <select
+                      id="client-status"
+                      name="status"
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"

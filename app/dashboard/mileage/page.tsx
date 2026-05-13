@@ -216,6 +216,8 @@ export default function MileagePage() {
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Employee *</label>
                 <select
+                  id="mileage-employee_id"
+                  name="employee_id"
                   value={formData.employee_id}
                   onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -232,6 +234,8 @@ export default function MileagePage() {
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Project</label>
                 <select
+                  id="mileage-project_id"
+                  name="project_id"
                   value={formData.project_id}
                   onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -248,6 +252,8 @@ export default function MileagePage() {
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Date</label>
                 <input
                   type="date"
+                  id="mileage-date"
+                  name="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -259,6 +265,8 @@ export default function MileagePage() {
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Starting Location</label>
                 <input
                   type="text"
+                  id="mileage-starting_location"
+                  name="starting_location"
                   value={formData.starting_location}
                   onChange={(e) => setFormData({ ...formData, starting_location: e.target.value })}
                   placeholder="Office address"
@@ -271,6 +279,8 @@ export default function MileagePage() {
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Destination</label>
                 <input
                   type="text"
+                  id="mileage-destination"
+                  name="destination"
                   value={formData.destination}
                   onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
                   placeholder="Project site address"
@@ -284,6 +294,8 @@ export default function MileagePage() {
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Miles Driven *</label>
                   <input
                     type="number"
+                    id="mileage-miles_driven"
+                    name="miles_driven"
                     step="0.1"
                     value={formData.miles_driven}
                     onChange={(e) => setFormData({ ...formData, miles_driven: e.target.value })}
@@ -297,6 +309,8 @@ export default function MileagePage() {
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Rate ($/mi)</label>
                   <input
                     type="number"
+                    id="mileage-reimbursement_rate"
+                    name="reimbursement_rate"
                     step="0.01"
                     value={formData.reimbursement_rate}
                     onChange={(e) => setFormData({ ...formData, reimbursement_rate: e.target.value })}
@@ -310,6 +324,8 @@ export default function MileagePage() {
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Notes</label>
                 <textarea
+                  id="mileage-notes"
+                  name="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Trip details or notes"
@@ -365,6 +381,8 @@ export default function MileagePage() {
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
             type="text"
+            id="mileage-search"
+            name="search"
             placeholder="Search by location..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

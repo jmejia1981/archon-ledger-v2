@@ -206,6 +206,8 @@ export default function ReceivablesPage() {
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
             type="text"
+            id="receivables-search"
+            name="search"
             placeholder="Search invoices..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -215,6 +217,8 @@ export default function ReceivablesPage() {
 
         <div className="relative">
           <select
+            id="receivables-statusFilter"
+            name="statusFilter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-4 py-2 rounded-lg appearance-none pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)', border: '1px solid' }}

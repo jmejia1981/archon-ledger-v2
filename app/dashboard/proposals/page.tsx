@@ -500,6 +500,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-proposal_number"
+                    name="proposal_number"
                     value={formData.proposal_number}
                     readOnly
                     className="w-full px-4 py-2 rounded-lg border bg-gray-50"
@@ -512,6 +514,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="date"
+                    id="proposals-proposal_date"
+                    name="proposal_date"
                     value={formData.proposal_date}
                     onChange={(e) => setFormData({ ...formData, proposal_date: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border"
@@ -530,6 +534,8 @@ export default function ProposalsPage() {
                   Select Existing Client or Create New
                 </label>
                 <select
+                  id="proposals-client_id"
+                  name="client_id"
                   value={formData.client_id}
                   onChange={(e) => {
                     const selectedId = e.target.value
@@ -593,6 +599,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-client_name"
+                    name="client_name"
                     value={formData.client_name}
                     onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
                     placeholder="John Doe"
@@ -607,6 +615,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-client_company_name"
+                    name="client_company_name"
                     value={formData.client_company_name}
                     onChange={(e) => setFormData({ ...formData, client_company_name: e.target.value })}
                     placeholder="Acme Corp"
@@ -623,6 +633,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="email"
+                    id="proposals-client_email"
+                    name="client_email"
                     value={formData.client_email}
                     onChange={(e) => setFormData({ ...formData, client_email: e.target.value })}
                     placeholder="john@example.com"
@@ -636,6 +648,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="tel"
+                    id="proposals-client_phone"
+                    name="client_phone"
                     value={formData.client_phone}
                     onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
                     placeholder="(555) 123-4567"
@@ -651,6 +665,8 @@ export default function ProposalsPage() {
                 </label>
                 <input
                   type="text"
+                  id="proposals-client_contact_person"
+                  name="client_contact_person"
                   value={formData.client_contact_person}
                   onChange={(e) => setFormData({ ...formData, client_contact_person: e.target.value })}
                   placeholder="Jane Smith"
@@ -665,6 +681,8 @@ export default function ProposalsPage() {
                 </label>
                 <input
                   type="text"
+                  id="proposals-client_street_address"
+                  name="client_street_address"
                   value={formData.client_street_address}
                   onChange={(e) => setFormData({ ...formData, client_street_address: e.target.value })}
                   placeholder="123 Main St"
@@ -680,6 +698,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-client_city"
+                    name="client_city"
                     value={formData.client_city}
                     onChange={(e) => setFormData({ ...formData, client_city: e.target.value })}
                     placeholder="New York"
@@ -693,6 +713,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-client_state"
+                    name="client_state"
                     value={formData.client_state}
                     onChange={(e) => setFormData({ ...formData, client_state: e.target.value })}
                     placeholder="NY"
@@ -706,6 +728,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-client_zip"
+                    name="client_zip"
                     value={formData.client_zip}
                     onChange={(e) => setFormData({ ...formData, client_zip: e.target.value })}
                     placeholder="10001"
@@ -721,6 +745,8 @@ export default function ProposalsPage() {
                 </label>
                 <input
                   type="text"
+                  id="proposals-client_country"
+                  name="client_country"
                   value={formData.client_country}
                   onChange={(e) => setFormData({ ...formData, client_country: e.target.value })}
                   placeholder="USA"
@@ -736,6 +762,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-client_payment_terms"
+                    name="client_payment_terms"
                     value={formData.client_payment_terms}
                     onChange={(e) => setFormData({ ...formData, client_payment_terms: e.target.value })}
                     placeholder="Net 30"
@@ -748,6 +776,8 @@ export default function ProposalsPage() {
                     Status
                   </label>
                   <select
+                    id="proposals-client_status"
+                    name="client_status"
                     value={formData.client_status}
                     onChange={(e) => setFormData({ ...formData, client_status: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border"
@@ -770,6 +800,8 @@ export default function ProposalsPage() {
                 </label>
                 <input
                   type="text"
+                  id="proposals-project_name"
+                  name="project_name"
                   value={formData.project_name}
                   onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
                   placeholder="Enter project name"
@@ -784,6 +816,8 @@ export default function ProposalsPage() {
                 </label>
                 <input
                   type="text"
+                  id="proposals-project_address"
+                  name="project_address"
                   value={formData.project_address}
                   onChange={(e) => setFormData({ ...formData, project_address: e.target.value })}
                   placeholder="Enter project address"
@@ -799,6 +833,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-project_city"
+                    name="project_city"
                     value={formData.project_city}
                     onChange={(e) => setFormData({ ...formData, project_city: e.target.value })}
                     placeholder="New York"
@@ -812,6 +848,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-project_state"
+                    name="project_state"
                     value={formData.project_state}
                     onChange={(e) => setFormData({ ...formData, project_state: e.target.value })}
                     placeholder="NY"
@@ -825,6 +863,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-project_zip"
+                    name="project_zip"
                     value={formData.project_zip}
                     onChange={(e) => setFormData({ ...formData, project_zip: e.target.value })}
                     placeholder="10001"
@@ -841,6 +881,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="date"
+                    id="proposals-expiration_date"
+                    name="expiration_date"
                     value={formData.expiration_date}
                     onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border"
@@ -853,6 +895,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="text"
+                    id="proposals-valid_for"
+                    name="valid_for"
                     value={formData.valid_for}
                     onChange={(e) => setFormData({ ...formData, valid_for: e.target.value })}
                     placeholder="30 Days from Date Issued"
@@ -867,6 +911,8 @@ export default function ProposalsPage() {
                   Scope of Work
                 </label>
                 <textarea
+                  id="proposals-scope_of_work"
+                  name="scope_of_work"
                   value={formData.scope_of_work}
                   onChange={(e) => setFormData({ ...formData, scope_of_work: e.target.value })}
                   placeholder="Enter scope items, one per line&#10;Example:&#10;1st Floor Bathroom renovation — 72 SF&#10;2nd Floor Bathroom renovation — 72 SF"
@@ -881,6 +927,8 @@ export default function ProposalsPage() {
                   Inclusions
                 </label>
                 <textarea
+                  id="proposals-inclusions"
+                  name="inclusions"
                   value={formData.inclusions}
                   onChange={(e) => setFormData({ ...formData, inclusions: e.target.value })}
                   placeholder="Enter inclusion items, one per line&#10;Example:&#10;Demolition of existing bathroom finishes and vanity&#10;Supply and install porcelain tile on floors"
@@ -895,6 +943,8 @@ export default function ProposalsPage() {
                   Exclusions
                 </label>
                 <textarea
+                  id="proposals-exclusions"
+                  name="exclusions"
                   value={formData.exclusions}
                   onChange={(e) => setFormData({ ...formData, exclusions: e.target.value })}
                   placeholder="Enter exclusion items, one per line&#10;Example:&#10;Bathtub replacement&#10;Light fixture replacement"
@@ -913,6 +963,8 @@ export default function ProposalsPage() {
                     <div key={index} className="grid grid-cols-12 gap-2">
                       <input
                         type="text"
+                        id={`proposals-line_description-${index}`}
+                        name={`line_description-${index}`}
                         value={item.description}
                         onChange={(e) => {
                           const newItems = [...lineItems]
@@ -925,6 +977,8 @@ export default function ProposalsPage() {
                       />
                       <input
                         type="number"
+                        id={`proposals-line_amount-${index}`}
+                        name={`line_amount-${index}`}
                         step="0.01"
                         value={item.amount}
                         onChange={(e) => {
@@ -963,6 +1017,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="number"
+                    id="proposals-subtotal"
+                    name="subtotal"
                     step="0.01"
                     value={formData.subtotal}
                     readOnly
@@ -976,6 +1032,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="number"
+                    id="proposals-tax"
+                    name="tax"
                     step="0.01"
                     value={formData.tax}
                     onChange={(e) => setFormData({ ...formData, tax: e.target.value })}
@@ -990,6 +1048,8 @@ export default function ProposalsPage() {
                   </label>
                   <input
                     type="number"
+                    id="proposals-total"
+                    name="total"
                     step="0.01"
                     value={(parseFloat(formData.subtotal) || 0) + (parseFloat(formData.tax) || 0)}
                     readOnly
@@ -1004,6 +1064,8 @@ export default function ProposalsPage() {
                   Terms & Conditions
                 </label>
                 <textarea
+                  id="proposals-terms"
+                  name="terms"
                   value={formData.terms}
                   onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
                   placeholder="Enter proposal terms..."
@@ -1018,6 +1080,8 @@ export default function ProposalsPage() {
                   Notes
                 </label>
                 <textarea
+                  id="proposals-notes"
+                  name="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Add any additional notes..."
@@ -1055,6 +1119,8 @@ export default function ProposalsPage() {
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
             type="text"
+            id="proposals-search"
+            name="search"
             placeholder="Search proposals..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -1064,6 +1130,8 @@ export default function ProposalsPage() {
         </div>
 
         <select
+          id="proposals-statusFilter"
+          name="statusFilter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-4 py-2 rounded-lg border appearance-none pr-10"
