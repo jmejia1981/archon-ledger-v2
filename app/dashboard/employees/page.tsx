@@ -20,7 +20,7 @@ interface Employee {
   id: string
   first_name: string
   last_name: string
-  email: string
+  email: string | null
   phone: string | null
   job_title: string
   department: string | null
@@ -42,7 +42,7 @@ interface Employee {
 interface FormData {
   first_name: string
   last_name: string
-  email: string
+  email: string | null
   phone: string
   job_title: string
   department: string
@@ -62,7 +62,7 @@ interface FormData {
 const initialFormData: FormData = {
   first_name: '',
   last_name: '',
-  email: '',
+  email: null,
   phone: '',
   job_title: '',
   department: '',
@@ -120,7 +120,7 @@ export default function EmployeesPage() {
     const fullName = `${employee.first_name} ${employee.last_name}`.toLowerCase()
     const matchesSearch =
       fullName.includes(searchTerm.toLowerCase()) ||
-      employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (employee.email?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
       employee.job_title.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = statusFilter === 'all' || employee.status === statusFilter
@@ -134,7 +134,7 @@ export default function EmployeesPage() {
       setFormData({
         first_name: employee.first_name,
         last_name: employee.last_name,
-        email: employee.email,
+        email: employee.email ?? null,
         phone: employee.phone || '',
         job_title: employee.job_title,
         department: employee.department || '',
@@ -174,11 +174,7 @@ export default function EmployeesPage() {
       setFormError('Last name is required')
       return false
     }
-    if (!formData.email.trim()) {
-      setFormError('Email is required')
-      return false
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       setFormError('Invalid email format')
       return false
     }
@@ -199,7 +195,7 @@ export default function EmployeesPage() {
       const submitData = {
         first_name: formData.first_name,
         last_name: formData.last_name,
-        email: formData.email,
+        email: formData.email || null,
         phone: formData.phone || null,
         job_title: formData.job_title,
         department: formData.department || null,
@@ -411,7 +407,7 @@ export default function EmployeesPage() {
                       {employee.job_title}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {employee.email}
+                      {employee.email ?? '—'}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
@@ -638,12 +634,12 @@ export default function EmployeesPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-navy)' }}>
-                      Email *
+                      Email
                     </label>
                     <input
                       type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      value={formData.email ?? ''}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value || null })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
                       style={{ borderColor: 'var(--color-border)' }}
                       placeholder="john@example.com"
