@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   title: 'Archon Ledger | Construction Financial Management',
   description: 'Premium construction financial management platform',
   icons: {
-    icon: '/icon.svg',
-    apple: '/apple-icon.png',
+    icon: '/favicon.png',
+    apple: '/favicon.png',
   },
 }
 
