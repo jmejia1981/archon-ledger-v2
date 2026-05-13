@@ -21,6 +21,10 @@ interface ProposalData {
   companyName?: string
   companyEmail?: string
   companyPhone?: string
+  companyAddress?: string
+  companyCity?: string
+  companyState?: string
+  companyZip?: string
   logoImage?: string
   lineItems: LineItemData[]
   subtotal: number
@@ -206,6 +210,11 @@ export function generateProposalPDF(data: ProposalData) {
   }
   if (data.companyEmail) {
     doc.text(data.companyEmail, leftColumnX, fromY)
+    fromY += 4
+  }
+  const companyAddrLine = [data.companyAddress, data.companyCity, data.companyState, data.companyZip].filter(Boolean).join(', ')
+  if (companyAddrLine) {
+    doc.text(companyAddrLine, leftColumnX, fromY)
     fromY += 4
   }
   if (data.clientEmail) {

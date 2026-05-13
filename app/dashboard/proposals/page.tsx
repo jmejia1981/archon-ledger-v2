@@ -375,30 +375,68 @@ export default function ProposalsPage() {
         console.error('Error loading header image:', error)
       }
 
-      // Fetch company settings and client details in parallel
-      const [{ data: companyData }, { data: clientData }] = await Promise.all([
-        supabase.from('company_settings').select('*').eq('id', 1).single(),
-        proposal.client_id
-          ? supabase.from('clients').select('company_name, phone').eq('id', proposal.client_id).single()
-          : Promise.resolve({ data: null }),
-      ])
+      // Fetch company settings
+      let companyName = 'Archon Construction LLC'
+      let companyEmail = ''
+      let companyPhone = ''
+      let companyAddress = ''
+      let companyCity = ''
+      let companyState = ''
+      let companyZip = ''
+      const { data: companyData, error: companyError } = await supabase
+        .from('company_settings')
+        .select('name, email, phone, address, city, state, zip')
+        .eq('id', 1)
+        .single()
+      if (companyError) {
+        console.error('company_settings fetch error:', companyError)
+      } else if (companyData) {
+        companyName = (companyData as any).name || companyName
+        companyEmail = (companyData as any).email || ''
+        companyPhone = (companyData as any).phone || ''
+        companyAddress = (companyData as any).address || ''
+        companyCity = (companyData as any).city || ''
+        companyState = (companyData as any).state || ''
+        companyZip = (companyData as any).zip || ''
+      }
+
+      // Fetch client details
+      let clientCompany = ''
+      let clientPhone = ''
+      if (proposal.client_id) {
+        const { data: clientData, error: clientError } = await supabase
+          .from('clients')
+          .select('company_name, phone, email')
+          .eq('id', proposal.client_id)
+          .single()
+        if (clientError) {
+          console.error('client fetch error:', clientError)
+        } else if (clientData) {
+          clientCompany = (clientData as any).company_name || ''
+          clientPhone = (clientData as any).phone || ''
+        }
+      }
 
       downloadProposalPDF({
         proposalNumber: proposal.proposal_number,
         proposalDate: proposal.proposal_date,
         expirationDate: proposal.expiration_date,
         clientName: proposal.client_name,
-        clientCompany: (clientData as any)?.company_name || '',
+        clientCompany,
         clientEmail: fullProposal?.client_email || '',
-        clientPhone: (clientData as any)?.phone || '',
+        clientPhone,
         projectName: proposal.project_name,
         projectAddress: proposal.project_address,
         projectCity: fullProposal?.project_city || '',
         projectState: fullProposal?.project_state || '',
         projectZip: fullProposal?.project_zip || '',
-        companyName: companyData?.name || 'Archon Construction LLC',
-        companyEmail: companyData?.email || '',
-        companyPhone: companyData?.phone || '',
+        companyName,
+        companyEmail,
+        companyPhone,
+        companyAddress,
+        companyCity,
+        companyState,
+        companyZip,
         logoImage: logoImage,
         lineItems: items.map(item => ({
           description: item.description,
