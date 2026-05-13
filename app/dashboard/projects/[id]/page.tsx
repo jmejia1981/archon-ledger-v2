@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Download, Edit2, Save, X } from 'lucide-react'
+import { Edit2, Save } from 'lucide-react'
 import { Breadcrumbs } from '@/app/components/breadcrumbs'
 
 interface Project {
@@ -42,7 +42,6 @@ interface Expense {
 }
 
 export default function ProjectDetailPage() {
-  const router = useRouter()
   const params = useParams()
   const projectId = params.id as string
 

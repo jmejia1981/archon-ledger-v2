@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Download, FileText, CheckCircle, Plus, Mail } from 'lucide-react'
 import { SkeletonTable } from '@/app/components/skeleton-loader'
 import { downloadProposalPDF } from '@/lib/pdf-proposal'
-import { downloadInvoicePDF } from '@/lib/pdf-invoice'
 
 interface Proposal {
   id: string
@@ -65,7 +64,7 @@ export default function ProposalDetailPage() {
   const [newClientPhone, setNewClientPhone] = useState('')
 
   const [formData, setFormData] = useState<Partial<Proposal>>({})
-  const [editLineItems, setEditLineItems] = useState<LineItem[]>([])
+  const [, setEditLineItems] = useState<LineItem[]>([])
 
   const supabase = createClient()
   const editFormRef = useRef<HTMLDivElement>(null)
@@ -142,7 +141,7 @@ export default function ProposalDetailPage() {
     setIsApproving(true)
     try {
       // Create new project from proposal
-      const { data: projectData, error: projectError } = await supabase
+      const { error: projectError } = await supabase
         .from('projects')
         .insert([
           {

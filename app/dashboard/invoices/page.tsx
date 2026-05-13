@@ -16,6 +16,9 @@ interface Invoice {
   due_date: string
   invoice_amount: number
   amount_paid: number
+  tax?: number
+  retainage?: number
+  notes?: string
   status: string
   payment_terms: string
 }
@@ -23,6 +26,8 @@ interface Invoice {
 interface Client {
   id: string
   name: string
+  email?: string
+  phone?: string
 }
 
 interface Project {
@@ -336,7 +341,6 @@ export default function InvoicesPage() {
           remainingBalance: total - invoice.amount_paid,
           notes: invoice.notes,
           paymentTerms: invoice.payment_terms,
-          logoImage: logoImage || undefined,
         },
         `${invoice.invoice_number}.pdf`
       )

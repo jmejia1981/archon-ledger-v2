@@ -42,18 +42,17 @@ interface LineItemData {
   amount: number
 }
 
-const COLORS = {
-  // Brand colors - Archon Construction
-  primary: [26, 58, 107], // #1A3A6B - Primary brand blue
-  secondary: [143, 163, 184], // #8FA3B8 - Secondary blue-gray
-  lightBg: [245, 248, 252], // #F5F8FC - Very light background
-  darkText: [33, 47, 61], // #212F3D - Dark text
-  borderGray: [200, 210, 220], // #C8D2DC - Soft border
-  accent: [200, 184, 154], // #C8B89A - Accent tan color
-  white: [255, 255, 255], // White
+const COLORS: { [key: string]: [number, number, number] } = {
+  primary: [26, 58, 107],
+  secondary: [143, 163, 184],
+  lightBg: [245, 248, 252],
+  darkText: [33, 47, 61],
+  borderGray: [200, 210, 220],
+  accent: [200, 184, 154],
+  white: [255, 255, 255],
 }
 
-export function generateInvoicePDF(data: InvoiceData, filename: string = 'invoice.pdf') {
+export function generateInvoicePDF(data: InvoiceData) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -228,7 +227,7 @@ export function generateInvoicePDF(data: InvoiceData, filename: string = 'invoic
       textColor: COLORS.darkText,
       fontStyle: 'bold',
       fontSize: 10,
-      padding: 4,
+      cellPadding: 4,
       halign: 'left',
       valign: 'middle',
       lineColor: COLORS.accent,
@@ -237,7 +236,7 @@ export function generateInvoicePDF(data: InvoiceData, filename: string = 'invoic
     },
     bodyStyles: {
       fontSize: 10,
-      padding: 3,
+      cellPadding: 3,
       textColor: COLORS.darkText,
       lineColor: COLORS.borderGray,
       lineWidth: 0.2,
@@ -293,7 +292,7 @@ export function generateInvoicePDF(data: InvoiceData, filename: string = 'invoic
 
   // Amount Paid (if any)
   if (data.amountPaid && data.amountPaid > 0) {
-    doc.setTextColor([200, 100, 100]) // Reddish for paid
+    doc.setTextColor(200, 100, 100)
     doc.text('Amount Paid', labelX, yPosition)
     doc.text(`-${formatCurrency(data.amountPaid)}`, amountX, yPosition, { align: 'right' })
     yPosition += 6
@@ -331,7 +330,7 @@ export function generateInvoicePDF(data: InvoiceData, filename: string = 'invoic
 }
 
 export function downloadInvoicePDF(data: InvoiceData, filename?: string) {
-  const doc = generateInvoicePDF(data, filename)
+  const doc = generateInvoicePDF(data)
   const finalFilename = filename || `invoice-${data.invoiceNumber}.pdf`
   doc.save(finalFilename)
 }

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(python -c ' *)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\mejia\\\\OneDrive\\\\Documents\\\\Claude\\\\Projects\\\\Archon\\\\archon-ledger-v2\\\\.claude\\\\worktrees\\\\confident-grothendieck-fc0838\\\\lib\\\\supabase\\\\mock-client.ts\")",
+      "Bash(rm \"C:\\\\Users\\\\mejia\\\\OneDrive\\\\Documents\\\\Claude\\\\Projects\\\\Archon\\\\archon-ledger-v2\\\\.claude\\\\worktrees\\\\confident-grothendieck-fc0838\\\\lib\\\\supabase\\\\mock-client.ts\")",
+      "Bash(git add *)"
+    ]
+  }
+}

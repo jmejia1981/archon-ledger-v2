@@ -15,7 +15,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts'
 import { Calendar } from 'lucide-react'
 
