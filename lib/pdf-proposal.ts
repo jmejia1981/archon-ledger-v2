@@ -159,11 +159,60 @@ export function generateProposalPDF(data: ProposalData) {
   doc.setFontSize(10)
   doc.setTextColor(...COLORS.secondary)
   doc.text(data.projectAddress || '', pageWidth / 2, yPosition, { align: 'center' })
-  yPosition += 6
+  yPosition += 8
 
-  // Two-column info block
+  // ── Letter-format contact block ────────────────────────────────────────────
+  doc.setDrawColor(...COLORS.borderGray)
+  doc.setLineWidth(0.2)
+  doc.line(margin, yPosition, pageWidth - margin, yPosition)
+  yPosition += 5
+
   const leftColumnX = margin
   const rightColumnX = margin + contentWidth * 0.52
+
+  // FROM — company
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.setTextColor(...COLORS.secondary)
+  doc.text('FROM', leftColumnX, yPosition)
+
+  // TO — client
+  doc.text('PREPARED FOR', rightColumnX, yPosition)
+  yPosition += 4
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(...COLORS.darkText)
+  doc.text(data.companyName || 'Archon Construction LLC', leftColumnX, yPosition)
+  doc.text(data.clientName, rightColumnX, yPosition)
+  yPosition += 4
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...COLORS.darkText)
+
+  let fromY = yPosition
+  let toY = yPosition
+  if (data.companyPhone) {
+    doc.text(data.companyPhone, leftColumnX, fromY)
+    fromY += 4
+  }
+  if (data.companyEmail) {
+    doc.text(data.companyEmail, leftColumnX, fromY)
+    fromY += 4
+  }
+  if (data.clientEmail) {
+    doc.text(data.clientEmail, rightColumnX, toY)
+    toY += 4
+  }
+  if (data.clientPhone) {
+    doc.text(data.clientPhone, rightColumnX, toY)
+    toY += 4
+  }
+
+  yPosition = Math.max(fromY, toY) + 3
+  doc.line(margin, yPosition, pageWidth - margin, yPosition)
+  yPosition += 8
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
