@@ -41,6 +41,18 @@ interface Expense {
   created_at: string
 }
 
+interface LaborEntry {
+  id: string
+  employee_id: string
+  regular_hours: number
+  overtime_hours: number
+}
+
+interface Employee {
+  id: string
+  hourly_rate: number | null
+}
+
 export default function ProjectDetailPage() {
   const params = useParams()
   const projectId = params.id as string
@@ -49,6 +61,8 @@ export default function ProjectDetailPage() {
   const [client, setClient] = useState<Client | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [laborEntries, setLaborEntries] = useState<LaborEntry[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -110,6 +124,25 @@ export default function ProjectDetailPage() {
 
           if (expensesData) {
             setExpenses(expensesData)
+          }
+
+          // Load labor entries for this project
+          const { data: laborData } = await supabase
+            .from('labor_entries')
+            .select('id, employee_id, regular_hours, overtime_hours')
+            .eq('project_id', projectId)
+
+          if (laborData) {
+            setLaborEntries(laborData)
+          }
+
+          // Load employees for rate lookup
+          const { data: employeesData } = await supabase
+            .from('employees')
+            .select('id, hourly_rate')
+
+          if (employeesData) {
+            setEmployees(employeesData)
           }
         }
       } catch (error) {
@@ -205,7 +238,13 @@ export default function ProjectDetailPage() {
   const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.invoice_amount, 0)
   const totalPaid = invoices.reduce((sum, inv) => sum + inv.amount_paid, 0)
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0)
-  const totalProfit = totalInvoiced - totalExpenses
+  const totalLaborCost = laborEntries.reduce((sum, entry) => {
+    const rate = employees.find((e) => e.id === entry.employee_id)?.hourly_rate || 0
+    return sum + entry.regular_hours * rate + entry.overtime_hours * rate * 1.5
+  }, 0)
+  const totalLaborHours = laborEntries.reduce((sum, e) => sum + e.regular_hours + e.overtime_hours, 0)
+  const totalCosts = totalExpenses + totalLaborCost
+  const totalProfit = totalInvoiced - totalCosts
 
   return (
     <div className="space-y-6">
@@ -470,6 +509,23 @@ export default function ProjectDetailPage() {
                   </p>
                 </div>
 
+                <div className="mt-3">
+                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
+                    Labor Cost
+                    <span className="ml-2 font-normal text-xs">({totalLaborHours.toFixed(1)} hrs)</span>
+                  </p>
+                  <p className="text-lg font-bold" style={{ color: 'var(--color-destructive)' }}>
+                    {formatCurrency(totalLaborCost)}
+                  </p>
+                </div>
+
+                <div style={{ borderTop: `1px solid var(--color-border)`, marginTop: '0.75rem', paddingTop: '0.75rem' }} className="mt-3 pt-3">
+                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Total Costs</p>
+                  <p className="text-lg font-bold" style={{ color: 'var(--color-destructive)' }}>
+                    {formatCurrency(totalCosts)}
+                  </p>
+                </div>
+
                 <div style={{ borderTop: `1px solid var(--color-border)`, marginTop: '0.75rem', paddingTop: '0.75rem' }} className="mt-3 pt-3">
                   <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Net Profit</p>
                   <p
@@ -490,18 +546,19 @@ export default function ProjectDetailPage() {
             </h3>
             <div className="space-y-3">
               <div>
-                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Expenses vs Budget</p>
+                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Total Costs vs Budget</p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                   <div
                     className="h-2 rounded-full"
                     style={{
-                      width: `${Math.min((totalExpenses / project.contract_budget) * 100, 100)}%`,
-                      backgroundColor: totalExpenses > project.contract_budget ? 'var(--color-destructive)' : 'var(--color-success)',
+                      width: `${Math.min((totalCosts / project.contract_budget) * 100, 100)}%`,
+                      backgroundColor: totalCosts > project.contract_budget ? 'var(--color-destructive)' : 'var(--color-success)',
                     }}
                   />
                 </div>
                 <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }} className="mt-2">
-                  {Math.round((totalExpenses / project.contract_budget) * 100)}% utilized
+                  {project.contract_budget > 0 ? Math.round((totalCosts / project.contract_budget) * 100) : 0}% utilized
+                  <span className="ml-2">({formatCurrency(totalCosts)} of {formatCurrency(project.contract_budget)})</span>
                 </p>
               </div>
             </div>
