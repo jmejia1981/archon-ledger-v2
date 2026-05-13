@@ -174,7 +174,6 @@ export default function InvoicesPage() {
       }
 
       const tax = parseFloat(formData.tax) || 0
-      const total = invoiceAmount + tax
 
       const { data, error } = await supabase
         .from('invoices')
