@@ -433,6 +433,24 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Tax Estimate */}
+      <div className="bg-white rounded-lg p-6 shadow-sm" style={{ border: `1px solid var(--color-border)` }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--color-navy)' }}>Estimated Taxes</h2>
+            <p className="text-sm" style={{ color: 'var(--color-muted)' }}>30% of net profit — set aside for tax obligations</p>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-bold" style={{ color: metrics.netProfit > 0 ? '#dc2626' : 'var(--color-muted)' }}>
+              {formatCurrency(Math.max(metrics.netProfit * 0.3, 0))}
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+              Based on {formatCurrency(metrics.netProfit)} net profit
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Recurring Overhead Expenses */}
       {allData && (() => {
         const recurring = (allData.expenses || []).filter(
