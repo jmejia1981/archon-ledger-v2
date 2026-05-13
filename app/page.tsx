@@ -21,7 +21,7 @@ export default function DashboardPage() {
     activeProjects: 0,
   })
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [, setUser] = useState<any>(null)
 
   const supabase = createClient()
 

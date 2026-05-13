@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Eye, Trash2, Download, FileDown } from 'lucide-react'
+import { Plus, Search, Eye, Trash2, FileDown } from 'lucide-react'
 import { SkeletonTable } from '@/app/components/skeleton-loader'
 import { downloadProposalPDF } from '@/lib/pdf-proposal'
 
@@ -13,15 +13,22 @@ interface Proposal {
   client_id: string
   client_name: string
   project_name: string
+  project_address?: string
   proposal_date: string
   expiration_date: string
+  subtotal?: number
+  tax?: number
   total_amount: number
+  terms?: string
+  notes?: string
   status: string
 }
 
 interface Client {
   id: string
   name: string
+  email?: string
+  phone?: string
 }
 
 export default function ProposalsPage() {
@@ -76,9 +83,6 @@ export default function ProposalsPage() {
       const amount = parseFloat(item.amount) || 0
       return sum + amount
     }, 0)
-
-    const tax = parseFloat(formData.tax) || 0
-    const total = subtotal + tax
 
     setFormData(prev => ({
       ...prev,
@@ -346,16 +350,16 @@ export default function ProposalsPage() {
       // Parse scope, inclusions, exclusions from newline-separated text
       const scopeOfWork = (fullProposal?.scope_of_work || '')
         .split('\n')
-        .map(s => s.trim())
-        .filter(s => s)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s)
       const inclusions = (fullProposal?.inclusions || '')
         .split('\n')
-        .map(s => s.trim())
-        .filter(s => s)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s)
       const exclusions = (fullProposal?.exclusions || '')
         .split('\n')
-        .map(s => s.trim())
-        .filter(s => s)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s)
 
       // Fetch and convert header image to base64
       let logoImage: string | undefined

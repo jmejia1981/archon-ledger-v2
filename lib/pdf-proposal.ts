@@ -41,18 +41,17 @@ interface LineItemData {
   amount: number
 }
 
-const COLORS = {
-  // Brand colors - Archon Construction
-  primary: [26, 58, 107], // #1A3A6B - Primary brand blue
-  secondary: [143, 163, 184], // #8FA3B8 - Secondary blue-gray
-  lightBg: [245, 248, 252], // #F5F8FC - Very light background
-  darkText: [33, 47, 61], // #212F3D - Dark text
-  borderGray: [200, 210, 220], // #C8D2DC - Soft border
-  accent: [200, 184, 154], // #C8B89A - Accent tan color
-  white: [255, 255, 255], // White
+const COLORS: { [key: string]: [number, number, number] } = {
+  primary: [26, 58, 107],
+  secondary: [143, 163, 184],
+  lightBg: [245, 248, 252],
+  darkText: [33, 47, 61],
+  borderGray: [200, 210, 220],
+  accent: [200, 184, 154],
+  white: [255, 255, 255],
 }
 
-export function generateProposalPDF(data: ProposalData, filename: string = 'proposal.pdf') {
+export function generateProposalPDF(data: ProposalData) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -254,7 +253,7 @@ export function generateProposalPDF(data: ProposalData, filename: string = 'prop
       textColor: COLORS.darkText,
       fontStyle: 'bold',
       fontSize: 9,
-      padding: 3,
+      cellPadding: 3,
       halign: 'center',
       valign: 'middle',
       lineColor: COLORS.accent,
@@ -263,7 +262,7 @@ export function generateProposalPDF(data: ProposalData, filename: string = 'prop
     },
     bodyStyles: {
       fontSize: 9,
-      padding: 2.5,
+      cellPadding: 2.5,
       textColor: COLORS.darkText,
       lineColor: COLORS.borderGray,
       lineWidth: 0.3,
@@ -397,7 +396,7 @@ export function generateProposalPDF(data: ProposalData, filename: string = 'prop
 }
 
 export function downloadProposalPDF(data: ProposalData, filename?: string) {
-  const doc = generateProposalPDF(data, filename)
+  const doc = generateProposalPDF(data)
   const finalFilename = filename || `proposal-${data.proposalNumber}.pdf`
   doc.save(finalFilename)
 }

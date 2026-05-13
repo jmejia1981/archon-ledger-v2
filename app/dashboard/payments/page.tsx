@@ -5,9 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Plus,
   Search,
-  Filter,
-  Eye,
-  Download,
   AlertCircle,
   CheckCircle,
   X,
@@ -32,7 +29,7 @@ interface Invoice {
   id: string
   invoice_number: string
   client_id: string
-  clients: { name: string; email: string }
+  clients: { name: string; email: string }[]
   invoice_amount: number
   amount_paid: number
   status: string
@@ -486,7 +483,7 @@ export default function PaymentsPage() {
                     const outstanding = calculateOutstanding(invoice)
                     return (
                       <option key={invoice.id} value={invoice.id}>
-                        {invoice.invoice_number} - {invoice.clients.name} - Outstanding: {formatCurrency(outstanding)}
+                        {invoice.invoice_number} - {invoice.clients[0]?.name} - Outstanding: {formatCurrency(outstanding)}
                       </option>
                     )
                   })}

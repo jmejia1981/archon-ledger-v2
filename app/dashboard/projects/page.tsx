@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Grid3x3, List, ChevronDown, Trash2 } from 'lucide-react'
+import { Plus, Search, Grid3x3, List, Trash2 } from 'lucide-react'
 
 interface Project {
   id: string
@@ -23,7 +23,6 @@ export default function ProjectsPage() {
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showNewProjectForm, setShowNewProjectForm] = useState(false)
   const [formData, setFormData] = useState({
@@ -198,16 +197,6 @@ export default function ProjectsPage() {
       console.error('Error updating status:', error)
       alert(`Error: ${error instanceof Error ? error.message : 'Failed to update status'}`)
     }
-  }
-
-  const statusColors: Record<string, string> = {
-    active: 'bg-green-100 text-green-800',
-    completed: 'bg-gray-100 text-gray-800',
-    'on-hold': 'bg-yellow-100 text-yellow-800',
-  }
-
-  const getStatusLabel = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')
   }
 
   return (
