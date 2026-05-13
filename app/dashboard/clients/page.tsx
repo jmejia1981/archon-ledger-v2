@@ -20,7 +20,7 @@ interface Client {
   id: string
   name: string
   company_name: string | null
-  email: string
+  email: string | null
   phone: string | null
   address: string | null
   city: string | null
@@ -37,7 +37,7 @@ interface Client {
 interface FormData {
   name: string
   company_name: string
-  email: string
+  email: string | null
   phone: string
   address: string
   city: string
@@ -52,7 +52,7 @@ interface FormData {
 const initialFormData: FormData = {
   name: '',
   company_name: '',
-  email: '',
+  email: null,
   phone: '',
   address: '',
   city: '',
@@ -105,7 +105,7 @@ export default function ClientsPage() {
     const matchesSearch =
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
 
     const matchesStatus = statusFilter === 'all' || client.status === statusFilter
 
@@ -118,7 +118,7 @@ export default function ClientsPage() {
       setFormData({
         name: client.name,
         company_name: client.company_name || '',
-        email: client.email,
+        email: client.email || null,
         phone: client.phone || '',
         address: client.address || '',
         city: client.city || '',
@@ -149,11 +149,7 @@ export default function ClientsPage() {
       setFormError('Client name is required')
       return false
     }
-    if (!formData.email.trim()) {
-      setFormError('Email is required')
-      return false
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (formData.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       setFormError('Invalid email format')
       return false
     }
@@ -531,12 +527,12 @@ export default function ClientsPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-navy)' }}>
-                      Email *
+                      Email
                     </label>
                     <input
                       type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      value={formData.email ?? ''}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value || null })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
                       style={{ borderColor: 'var(--color-border)' }}
                       placeholder="john@example.com"
