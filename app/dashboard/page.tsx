@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   TrendingUp,
@@ -9,6 +10,8 @@ import {
   Briefcase,
   AlertCircle,
   Clock,
+  X,
+  ChevronRight,
 } from 'lucide-react'
 import {
   RevenueChart,
@@ -59,7 +62,9 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState<any[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all')
+  const [detailModal, setDetailModal] = useState<{ title: string; rows: { label: string; value: string; sub?: string }[] } | null>(null)
   const supabase = createClient()
+  const router = useRouter()
 
   // Store all data for filtering
   const [allData, setAllData] = useState<any>(null)
@@ -307,20 +312,37 @@ export default function DashboardPage() {
     }).format(value)
   }
 
+  const openDetail = (title: string, rows: { label: string; value: string; sub?: string }[]) => {
+    setDetailModal({ title, rows })
+  }
+
   const kpiCards = [
-    { label: 'Total Contracted Revenue', key: 'totalContractedRevenue', icon: DollarSign, color: 'text-blue-600' },
-    { label: 'Revised Contract Value', key: 'revisedContractValue', icon: TrendingUp, color: 'text-green-600' },
-    { label: 'Total Expenses', key: 'totalExpenses', icon: AlertCircle, color: 'text-red-600' },
-    { label: 'Labor Costs', key: 'laborCosts', icon: Users, color: 'text-orange-600' },
-    { label: 'Mileage Costs', key: 'mileageCosts', icon: Clock, color: 'text-purple-600' },
-    { label: 'Total Invoiced', key: 'totalInvoiced', icon: Briefcase, color: 'text-indigo-600' },
-    { label: 'Total Collected', key: 'totalCollected', icon: DollarSign, color: 'text-emerald-600' },
-    { label: 'Accounts Receivable', key: 'accountsReceivable', icon: AlertCircle, color: 'text-yellow-600' },
-    { label: 'Overdue Receivables', key: 'overdueReceivables', icon: AlertCircle, color: 'text-red-700' },
-    { label: 'Net Profit', key: 'netProfit', icon: TrendingUp, color: metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600' },
-    { label: 'Profit Margin %', key: 'profitMargin', icon: TrendingUp, color: 'text-cyan-600', isPercent: true },
-    { label: 'Active Projects', key: 'activeProjects', icon: Briefcase, color: 'text-slate-600', isCount: true },
-    { label: 'Active Clients', key: 'activeClients', icon: Users, color: 'text-slate-600', isCount: true },
+    { label: 'Total Contracted Revenue', key: 'totalContractedRevenue', icon: DollarSign, color: 'text-blue-600', href: '/dashboard/projects' },
+    { label: 'Revised Contract Value', key: 'revisedContractValue', icon: TrendingUp, color: 'text-green-600', href: '/dashboard/projects' },
+    { label: 'Total Expenses', key: 'totalExpenses', icon: AlertCircle, color: 'text-red-600', href: '/dashboard/expenses' },
+    { label: 'Labor Costs', key: 'laborCosts', icon: Users, color: 'text-orange-600', href: '/dashboard/labor' },
+    { label: 'Mileage Costs', key: 'mileageCosts', icon: Clock, color: 'text-purple-600', href: '/dashboard/mileage' },
+    { label: 'Total Invoiced', key: 'totalInvoiced', icon: Briefcase, color: 'text-indigo-600', href: '/dashboard/invoices' },
+    { label: 'Total Collected', key: 'totalCollected', icon: DollarSign, color: 'text-emerald-600', href: '/dashboard/payments' },
+    { label: 'Accounts Receivable', key: 'accountsReceivable', icon: AlertCircle, color: 'text-yellow-600', href: '/dashboard/receivables' },
+    { label: 'Overdue Receivables', key: 'overdueReceivables', icon: AlertCircle, color: 'text-red-700', href: '/dashboard/receivables' },
+    {
+      label: 'Net Profit', key: 'netProfit', icon: TrendingUp,
+      color: metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600',
+      onDetail: () => openDetail('Net Profit Breakdown', [
+        { label: 'Revised Contract Value', value: formatCurrency(metrics.revisedContractValue) },
+        { label: 'Total Expenses', value: `− ${formatCurrency(metrics.totalExpenses)}` },
+        { label: 'Labor Costs', value: `− ${formatCurrency(metrics.laborCosts)}` },
+        { label: 'Mileage Costs', value: `− ${formatCurrency(metrics.mileageCosts)}` },
+        { label: 'Net Profit', value: formatCurrency(metrics.netProfit), sub: `${metrics.profitMargin.toFixed(1)}% margin` },
+      ]),
+    },
+    {
+      label: 'Profit Margin %', key: 'profitMargin', icon: TrendingUp, color: 'text-cyan-600', isPercent: true,
+      href: '/dashboard/reports',
+    },
+    { label: 'Active Projects', key: 'activeProjects', icon: Briefcase, color: 'text-slate-600', isCount: true, href: '/dashboard/projects' },
+    { label: 'Active Clients', key: 'activeClients', icon: Users, color: 'text-slate-600', isCount: true, href: '/dashboard/clients' },
   ]
 
   if (loading) {
@@ -375,8 +397,13 @@ export default function DashboardPage() {
             ? `${metricValue.toFixed(1)}%`
             : formatCurrency(metricValue)
 
+          const handleClick = () => {
+            if ((kpi as any).onDetail) (kpi as any).onDetail()
+            else if ((kpi as any).href) router.push((kpi as any).href)
+          }
+
           return (
-            <div key={idx} className="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition cursor-pointer" style={{ border: `1px solid var(--color-border)` }}>
+            <div key={idx} onClick={handleClick} className="bg-white rounded-lg p-5 shadow-sm hover:shadow-md hover:border-opacity-60 transition cursor-pointer group" style={{ border: `1px solid var(--color-border)` }}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--color-muted)' }}>
@@ -386,7 +413,10 @@ export default function DashboardPage() {
                     {displayValue}
                   </p>
                 </div>
-                <Icon className={`w-6 h-6 ${kpi.color} opacity-20`} style={{ color: 'var(--color-gold)' }} />
+                <div className="flex flex-col items-end gap-2">
+                  <Icon className={`w-6 h-6 opacity-20`} style={{ color: 'var(--color-gold)' }} />
+                  <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-40 transition" style={{ color: 'var(--color-navy)' }} />
+                </div>
               </div>
             </div>
           )
@@ -434,11 +464,23 @@ export default function DashboardPage() {
       </div>
 
       {/* Tax Estimate */}
-      <div className="bg-white rounded-lg p-6 shadow-sm" style={{ border: `1px solid var(--color-border)` }}>
+      <div
+        onClick={() => openDetail('Estimated Taxes Breakdown', [
+          { label: 'Net Profit', value: formatCurrency(metrics.netProfit) },
+          { label: 'Tax Rate', value: '30%' },
+          { label: 'Estimated Tax', value: formatCurrency(Math.max(metrics.netProfit * 0.3, 0)), sub: 'Set aside this amount' },
+          { label: 'After-Tax Profit', value: formatCurrency(Math.max(metrics.netProfit * 0.7, 0)) },
+        ])}
+        className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition cursor-pointer group"
+        style={{ border: `1px solid var(--color-border)` }}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--color-navy)' }}>Estimated Taxes</h2>
-            <p className="text-sm" style={{ color: 'var(--color-muted)' }}>30% of net profit — set aside for tax obligations</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>Estimated Taxes</h2>
+              <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-40 transition" style={{ color: 'var(--color-navy)' }} />
+            </div>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>30% of net profit — set aside for tax obligations</p>
           </div>
           <div className="text-right">
             <p className="text-3xl font-bold" style={{ color: metrics.netProfit > 0 ? '#dc2626' : 'var(--color-muted)' }}>
@@ -450,6 +492,31 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Detail Modal */}
+      {detailModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={() => setDetailModal(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>{detailModal.title}</h2>
+              <button onClick={() => setDetailModal(null)} className="p-1 hover:bg-black/10 rounded transition">
+                <X className="w-5 h-5" style={{ color: 'var(--color-navy)' }} />
+              </button>
+            </div>
+            <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+              {detailModal.rows.map((row, i) => (
+                <div key={i} className="flex items-center justify-between px-6 py-4">
+                  <span className="text-sm" style={{ color: 'var(--color-muted)' }}>{row.label}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{row.value}</span>
+                    {row.sub && <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>{row.sub}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recurring Overhead Expenses */}
       {allData && (() => {
