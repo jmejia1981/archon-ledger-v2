@@ -432,6 +432,70 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Recurring Overhead Expenses */}
+      {allData && (() => {
+        const recurring = (allData.expenses || []).filter(
+          (e: any) => e.is_monthly && e.category_group === 'company-overhead'
+        )
+        const monthlyTotal = recurring.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+
+        return (
+          <div className="bg-white rounded-lg shadow-sm" style={{ border: `1px solid var(--color-border)` }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+              <div>
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>Recurring Overhead Expenses</h2>
+                <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>Monthly fixed costs</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-wide mb-0.5" style={{ color: 'var(--color-muted)' }}>Monthly Total</p>
+                <p className="text-xl font-bold" style={{ color: 'var(--color-navy)' }}>{formatCurrency(monthlyTotal)}</p>
+              </div>
+            </div>
+
+            {recurring.length === 0 ? (
+              <div className="px-6 py-8 text-center" style={{ color: 'var(--color-muted)' }}>
+                No recurring overhead expenses recorded yet.
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead style={{ backgroundColor: 'var(--color-linen)' }}>
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Vendor</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Category</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Description</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>End Date</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Monthly</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recurring.map((e: any) => (
+                    <tr key={e.id} className="border-t hover:bg-gray-50 transition" style={{ borderColor: 'var(--color-border)' }}>
+                      <td className="px-6 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{e.vendor}</td>
+                      <td className="px-6 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>{e.category}</td>
+                      <td className="px-6 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>{e.description}</td>
+                      <td className="px-6 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
+                        {e.monthly_end_date
+                          ? new Date(e.monthly_end_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                          : <span className="italic">Ongoing</span>}
+                      </td>
+                      <td className="px-6 py-3 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
+                        {formatCurrency(e.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot style={{ borderTop: `2px solid var(--color-border)` }}>
+                  <tr>
+                    <td colSpan={4} className="px-6 py-3 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Total / month</td>
+                    <td className="px-6 py-3 text-sm font-bold text-right" style={{ color: 'var(--color-navy)' }}>{formatCurrency(monthlyTotal)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
