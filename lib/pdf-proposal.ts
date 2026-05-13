@@ -1,6 +1,5 @@
 /**
  * Professional PDF Proposal Generator - Archon Construction Template
- * Generates proposals matching the modern Archon Construction template design
  */
 
 import jsPDF from 'jspdf'
@@ -21,7 +20,7 @@ interface ProposalData {
   companyName?: string
   companyEmail?: string
   companyPhone?: string
-  logoImage?: string // Base64 encoded image or data URL
+  logoImage?: string
   lineItems: LineItemData[]
   subtotal: number
   tax?: number
@@ -31,7 +30,7 @@ interface ProposalData {
   scopeOfWork?: string[]
   inclusions?: string[]
   exclusions?: string[]
-  validFor?: string // e.g., "30 Days from Date Issued"
+  validFor?: string
 }
 
 interface LineItemData {
@@ -60,27 +59,96 @@ export function generateProposalPDF(data: ProposalData) {
 
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
-  const margin = 12 // 0.5" margin for wider content
+  const margin = 12
   const contentWidth = pageWidth - 2 * margin
+  const footerHeight = 18   // reserved at bottom of every page
+  const usableBottom = pageHeight - footerHeight
   let yPosition = margin
 
-  // Add header image if available
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  const addFooter = () => {
+    const totalPages = doc.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      doc.setDrawColor(...COLORS.borderGray)
+      doc.setLineWidth(0.5)
+      doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12)
+      const footerText = 'Archon Construction LLC  ·  Teaneck, NJ  ·  Licensed & Insured          archonconstruction.co  ·  (551) 212-8820'
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(...COLORS.secondary)
+      doc.text(footerText, pageWidth / 2, pageHeight - 8, { align: 'center' })
+    }
+  }
+
+  // Add a new page and reset yPosition with optional header banner
+  const addNewPage = () => {
+    doc.addPage()
+    yPosition = margin + 5
+    // Repeat header image on new pages if available
+    if (data.logoImage) {
+      try {
+        doc.addImage(data.logoImage, 'PNG', 0, 0, pageWidth, 15)
+        yPosition = 22
+      } catch (_) {}
+    }
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(...COLORS.darkText)
+  }
+
+  // Check if `needed` mm fits on the current page; add a new one if not
+  const checkPageBreak = (needed: number) => {
+    if (yPosition + needed > usableBottom) {
+      addNewPage()
+    }
+  }
+
+  // Draw a section header with separator line (returns height consumed)
+  const drawSectionHeader = (title: string): number => {
+    checkPageBreak(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(...COLORS.primary)
+    doc.text(title, margin, yPosition)
+    doc.setDrawColor(...COLORS.borderGray)
+    doc.setLineWidth(0.2)
+    doc.line(margin, yPosition + 1.5, pageWidth - margin, yPosition + 1.5)
+    yPosition += 5
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...COLORS.darkText)
+    return 5
+  }
+
+  // Draw a bullet list; handles page breaks mid-list
+  const drawBulletList = (items: string[]) => {
+    items.forEach((item) => {
+      const lines = doc.splitTextToSize(`• ${item}`, contentWidth - 4)
+      const lineHeight = lines.length * 3.5 + 1
+      checkPageBreak(lineHeight)
+      doc.text(lines, margin + 2, yPosition)
+      yPosition += lineHeight
+    })
+  }
+
+  // ── Page 1 header ──────────────────────────────────────────────────────────
+
   if (data.logoImage) {
     try {
-      // Image dimensions: 192mm wide (page width - margins), 15mm tall
       doc.addImage(data.logoImage, 'PNG', 0, 0, pageWidth, 15)
-      yPosition = 27 // Start content after header image
+      yPosition = 27
     } catch (error) {
       console.error('Error adding header image:', error)
     }
   }
 
-  // Set default font
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(...COLORS.darkText)
 
-  // TITLE SECTION
+  // Title
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
   doc.setTextColor(...COLORS.primary)
@@ -93,11 +161,10 @@ export function generateProposalPDF(data: ProposalData) {
   doc.text(data.projectAddress || '', pageWidth / 2, yPosition, { align: 'center' })
   yPosition += 6
 
-  // TWO COLUMN SECTION: PROPOSAL DETAILS (left) and PROJECT LOCATION (right)
+  // Two-column info block
   const leftColumnX = margin
   const rightColumnX = margin + contentWidth * 0.52
 
-  // PROPOSAL DETAILS (Left)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(...COLORS.primary)
@@ -117,7 +184,6 @@ export function generateProposalPDF(data: ProposalData) {
   detailY += 4
   doc.text(`Valid For: ${data.validFor || '30 Days from Date Issued'}`, leftColumnX, detailY)
 
-  // PROJECT LOCATION (Right)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(...COLORS.primary)
@@ -137,111 +203,42 @@ export function generateProposalPDF(data: ProposalData) {
 
   yPosition += 28
 
-  // SCOPE OF WORK SECTION
+  // ── Sections ───────────────────────────────────────────────────────────────
+
   if (data.scopeOfWork && data.scopeOfWork.length > 0) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.setTextColor(...COLORS.primary)
-    doc.text('SCOPE OF WORK', margin, yPosition)
-
-    // Separator line under section title
-    doc.setDrawColor(...COLORS.borderGray)
-    doc.setLineWidth(0.2)
-    doc.line(margin, yPosition + 1.5, pageWidth - margin, yPosition + 1.5)
-    yPosition += 5
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(...COLORS.darkText)
-
-    data.scopeOfWork.forEach((item) => {
-      const lines = doc.splitTextToSize(`• ${item}`, contentWidth - 4)
-      doc.text(lines, margin + 2, yPosition)
-      yPosition += lines.length * 3.5 + 1
-    })
-    yPosition += 10
+    drawSectionHeader('SCOPE OF WORK')
+    drawBulletList(data.scopeOfWork)
+    yPosition += 6
   }
 
-  // INCLUSIONS SECTION
   if (data.inclusions && data.inclusions.length > 0) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.setTextColor(...COLORS.primary)
-    doc.text('INCLUSIONS', margin, yPosition)
-
-    // Separator line under section title
-    doc.setDrawColor(...COLORS.borderGray)
-    doc.setLineWidth(0.2)
-    doc.line(margin, yPosition + 1.5, pageWidth - margin, yPosition + 1.5)
-    yPosition += 5
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(...COLORS.darkText)
-
-    data.inclusions.forEach((item) => {
-      const lines = doc.splitTextToSize(`• ${item}`, contentWidth - 4)
-      doc.text(lines, margin + 2, yPosition)
-      yPosition += lines.length * 3.5 + 1
-    })
-    yPosition += 2
+    drawSectionHeader('INCLUSIONS')
+    drawBulletList(data.inclusions)
+    yPosition += 4
   }
 
-  // EXCLUSIONS SECTION
   if (data.exclusions && data.exclusions.length > 0) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.setTextColor(...COLORS.primary)
-    doc.text('EXCLUSIONS', margin, yPosition)
-
-    // Separator line under section title
-    doc.setDrawColor(...COLORS.borderGray)
-    doc.setLineWidth(0.2)
-    doc.line(margin, yPosition + 1.5, pageWidth - margin, yPosition + 1.5)
-    yPosition += 5
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(...COLORS.darkText)
-
-    data.exclusions.forEach((item) => {
-      const lines = doc.splitTextToSize(`• ${item}`, contentWidth - 4)
-      doc.text(lines, margin + 2, yPosition)
-      yPosition += lines.length * 3.5 + 1
-    })
-    yPosition += 3
+    drawSectionHeader('EXCLUSIONS')
+    drawBulletList(data.exclusions)
+    yPosition += 4
   }
 
-  // PRICING SUMMARY SECTION
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(...COLORS.primary)
-  doc.text('PRICING SUMMARY', margin, yPosition)
+  // ── Pricing table ──────────────────────────────────────────────────────────
 
-  // Separator line under section title
-  doc.setDrawColor(...COLORS.borderGray)
-  doc.setLineWidth(0.2)
-  doc.line(margin, yPosition + 1.5, pageWidth - margin, yPosition + 1.5)
-  yPosition += 5
+  checkPageBreak(20)
+  drawSectionHeader('PRICING SUMMARY')
 
-  // Pricing table
   const tableColumns = [
     { header: 'DESCRIPTION', dataKey: 'description' },
     { header: 'QTY', dataKey: 'quantity' },
     { header: 'AMOUNT', dataKey: 'amount' },
   ]
 
-  const tableBody: any[] = []
-
-  if (data.lineItems && data.lineItems.length > 0) {
-    data.lineItems.forEach((item) => {
-      tableBody.push({
-        description: item.description,
-        quantity: item.quantity.toString(),
-        amount: formatCurrency(item.amount),
-      })
-    })
-  }
+  const tableBody: any[] = (data.lineItems || []).map((item) => ({
+    description: item.description,
+    quantity: item.quantity.toString(),
+    amount: formatCurrency(item.amount),
+  }))
 
   autoTable(doc, {
     columns: tableColumns,
@@ -270,110 +267,79 @@ export function generateProposalPDF(data: ProposalData) {
       font: 'helvetica',
     },
     columnStyles: {
-      0: {
-        halign: 'left',
-        cellWidth: contentWidth * 0.6,
-      },
-      1: {
-        halign: 'center',
-        cellWidth: contentWidth * 0.15,
-      },
-      2: {
-        halign: 'right',
-        cellWidth: contentWidth * 0.25,
-      },
+      0: { halign: 'left', cellWidth: contentWidth * 0.6 },
+      1: { halign: 'center', cellWidth: contentWidth * 0.15 },
+      2: { halign: 'right', cellWidth: contentWidth * 0.25 },
     },
     didDrawPage: () => {
       doc.setFont('helvetica', 'normal')
     },
+    // Respect our usable area so autoTable doesn't overlap the footer
+    pageBreak: 'auto',
+    rowPageBreak: 'avoid',
   })
 
   yPosition = (doc as any).lastAutoTable.finalY + 3
 
-  // TOTAL CONTRACT PRICE ROW
+  // Total contract price row
+  checkPageBreak(10)
   doc.setFillColor(...COLORS.accent)
   doc.rect(margin, yPosition, contentWidth, 6, 'F')
-
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(...COLORS.darkText)
   doc.text('TOTAL CONTRACT PRICE', margin + 2, yPosition + 4.5)
   doc.text(formatCurrency(data.totalAmount), pageWidth - margin - 2, yPosition + 4.5, { align: 'right' })
-
   yPosition += 14
 
-  // TERMS & CONDITIONS SECTION
+  // ── Terms ──────────────────────────────────────────────────────────────────
+
   if (data.terms) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.setTextColor(...COLORS.primary)
-    doc.text('TERMS & CONDITIONS', margin, yPosition)
-
-    // Separator line under section title
-    doc.setDrawColor(...COLORS.borderGray)
-    doc.setLineWidth(0.2)
-    doc.line(margin, yPosition + 1.5, pageWidth - margin, yPosition + 1.5)
-    yPosition += 5
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(...COLORS.darkText)
+    drawSectionHeader('TERMS & CONDITIONS')
     const termsLines = doc.splitTextToSize(data.terms, contentWidth)
-    doc.text(termsLines, margin, yPosition)
-    yPosition += termsLines.length * 3.5 + 5
+    // Draw line by line with page break checks
+    termsLines.forEach((line: string) => {
+      checkPageBreak(4)
+      doc.text(line, margin, yPosition)
+      yPosition += 3.5
+    })
+    yPosition += 5
   }
 
-  // ACCEPTANCE OF PROPOSAL SECTION
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(...COLORS.primary)
-  doc.text('ACCEPTANCE OF PROPOSAL', margin, yPosition)
+  // ── Acceptance / Signature ─────────────────────────────────────────────────
 
-  // Separator line under section title
-  doc.setDrawColor(...COLORS.borderGray)
-  doc.setLineWidth(0.2)
-  doc.line(margin, yPosition + 1.5, pageWidth - margin, yPosition + 1.5)
-  yPosition += 5
+  // Keep the whole acceptance block together (signature needs ~40mm)
+  checkPageBreak(50)
+  drawSectionHeader('ACCEPTANCE OF PROPOSAL')
 
-  // Acceptance text
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.setTextColor(...COLORS.darkText)
   const acceptanceText = 'By signing below, the customer accepts this proposal and authorizes the contractor to proceed with the outlined scope of work at the agreed price.'
   const acceptanceLines = doc.splitTextToSize(acceptanceText, contentWidth)
   doc.text(acceptanceLines, margin, yPosition)
   yPosition += acceptanceLines.length * 3.5 + 5
 
-  // Signature fields - two columns
   const signatureY = yPosition
   const leftColX = margin
   const rightColX = margin + contentWidth / 2 + 5
 
-  // Customer Signature section
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(...COLORS.darkText)
 
-  // Signature line
   doc.line(leftColX, signatureY, leftColX + contentWidth / 2 - 5, signatureY)
   doc.text('Customer Signature', leftColX, signatureY + 3)
-
-  // Date field
   doc.line(leftColX, signatureY + 10, leftColX + contentWidth / 2 - 5, signatureY + 10)
   doc.text('Date', leftColX, signatureY + 13)
 
-  // Contractor Signature section
-  // Signature line
   doc.line(rightColX, signatureY, rightColX + contentWidth / 2 - 5, signatureY)
   doc.text('Contractor Signature', rightColX, signatureY + 3)
-
-  // Date field
   doc.line(rightColX, signatureY + 10, rightColX + contentWidth / 2 - 5, signatureY + 10)
   doc.text('Date', rightColX, signatureY + 13)
 
-  yPosition += 18
+  yPosition += 22
 
-  // Thank you message
+  // ── Thank you ──────────────────────────────────────────────────────────────
+
+  checkPageBreak(12)
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(9)
   doc.setTextColor(...COLORS.secondary)
@@ -381,35 +347,24 @@ export function generateProposalPDF(data: ProposalData) {
   const thankYouLines = doc.splitTextToSize(thankYouText, contentWidth)
   doc.text(thankYouLines, pageWidth / 2, yPosition, { align: 'center' })
 
-  // Footer
-  doc.setDrawColor(...COLORS.borderGray)
-  doc.setLineWidth(0.5)
-  doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12)
-
-  const footerText = 'Archon Construction LLC  ·  Teaneck, NJ  ·  Licensed & Insured          archonconstruction.co  ·  (551) 212-8820'
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(...COLORS.secondary)
-  doc.text(footerText, pageWidth / 2, pageHeight - 8, { align: 'center' })
+  // ── Footer on all pages ────────────────────────────────────────────────────
+  addFooter()
 
   return doc
 }
 
 export function downloadProposalPDF(data: ProposalData, filename?: string) {
   const doc = generateProposalPDF(data)
-  const finalFilename = filename || `proposal-${data.proposalNumber}.pdf`
-  doc.save(finalFilename)
+  doc.save(filename || `proposal-${data.proposalNumber}.pdf`)
 }
 
 export async function generateProposalPDFBlob(data: ProposalData): Promise<Blob> {
   const doc = generateProposalPDF(data)
-  const pdf = doc.output('blob')
-  return pdf
+  return doc.output('blob')
 }
 
 function formatDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
