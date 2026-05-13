@@ -31,7 +31,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-linen)' }}>
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="rounded-2xl shadow-lg p-8" style={{ backgroundColor: '#C8B89A' }}>
           {/* Logo */}
           <div className="flex justify-center mb-8">
             <Image
