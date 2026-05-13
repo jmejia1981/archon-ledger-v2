@@ -58,17 +58,19 @@ export default function ReceivablesPage() {
     // Filter by receivable status
     if (statusFilter === 'outstanding') {
       filtered = filtered.filter((inv) => {
+        if (inv.status === 'paid') return false
         const outstanding = inv.invoice_amount - inv.amount_paid
         return outstanding > 0
       })
     } else if (statusFilter === 'overdue') {
       filtered = filtered.filter((inv) => {
+        if (inv.status === 'paid') return false
         const outstanding = inv.invoice_amount - inv.amount_paid
         const dueDate = new Date(inv.due_date)
         return outstanding > 0 && dueDate < new Date()
       })
     } else if (statusFilter === 'paid') {
-      filtered = filtered.filter((inv) => inv.amount_paid >= inv.invoice_amount)
+      filtered = filtered.filter((inv) => inv.status === 'paid' || inv.amount_paid >= inv.invoice_amount)
     }
 
     // Search filter

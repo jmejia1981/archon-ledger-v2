@@ -149,7 +149,7 @@ export default function DashboardPage() {
         const totalCollected = invoices.data?.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0) || 0
         const accountsReceivable = totalInvoiced - totalCollected
         const overdueReceivables = invoices.data
-          ?.filter((inv: any) => inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < new Date()))
+          ?.filter((inv: any) => inv.status !== 'paid' && (inv.invoice_amount || inv.amount || 0) > (inv.amount_paid || 0) && (inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < new Date())))
           .reduce((sum, inv) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0) || 0
 
         console.log('Totals - Invoiced:', totalInvoiced, 'Collected:', totalCollected, 'Receivable:', accountsReceivable)
@@ -274,7 +274,7 @@ export default function DashboardPage() {
     const totalCollected = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.amount_paid || 0), 0)
     const accountsReceivable = totalInvoiced - totalCollected
     const overdueReceivables = filteredInvoices
-      .filter((inv: any) => inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < new Date()))
+      .filter((inv: any) => inv.status !== 'paid' && (inv.invoice_amount || inv.amount || 0) > (inv.amount_paid || 0) && (inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < new Date())))
       .reduce((sum: number, inv: any) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0)
 
     const totalCosts = totalExpenses + laborCosts + mileageCosts
