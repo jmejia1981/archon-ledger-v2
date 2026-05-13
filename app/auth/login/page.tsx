@@ -15,12 +15,7 @@ export default function LoginPage() {
   const [pin, setPin] = useState(['', '', '', ''])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const pinRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ]
+  const pinRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null])
   const router = useRouter()
   const supabase = createClient()
 
@@ -30,13 +25,13 @@ export default function LoginPage() {
     newPin[index] = value.slice(-1)
     setPin(newPin)
     if (value && index < 3) {
-      pinRefs[index + 1].current?.focus()
+      pinRefs.current[index + 1]?.focus()
     }
   }
 
   const handlePinKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !pin[index] && index > 0) {
-      pinRefs[index - 1].current?.focus()
+      pinRefs.current[index - 1]?.focus()
     }
   }
 
@@ -122,7 +117,7 @@ export default function LoginPage() {
                 {pin.map((digit, i) => (
                   <input
                     key={i}
-                    ref={pinRefs[i]}
+                    ref={(el) => { pinRefs.current[i] = el }}
                     type="password"
                     inputMode="numeric"
                     maxLength={1}
