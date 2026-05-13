@@ -507,27 +507,14 @@ export default function ClientsPage() {
                   Basic Information
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="md:col-span-2">
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-navy)' }}>
-                      Client Name *
+                      Client / Company Name *
                     </label>
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
-                      style={{ borderColor: 'var(--color-border)' }}
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-navy)' }}>
-                      Company Name
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.company_name}
-                      onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value, company_name: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
                       style={{ borderColor: 'var(--color-border)' }}
                       placeholder="Acme Corp"
