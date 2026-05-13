@@ -122,10 +122,6 @@ export default function InvoicesPage() {
 
   // Generate next invoice number
   const generateNextInvoiceNumber = () => {
-    if (invoices.length === 0) {
-      return 'INV-000'
-    }
-
     const numbers = invoices
       .map((inv) => {
         const match = inv.invoice_number.match(/INV-(\d+)/)
@@ -133,7 +129,7 @@ export default function InvoicesPage() {
       })
       .sort((a, b) => b - a)
 
-    const nextNumber = (numbers[0] || 0) + 1
+    const nextNumber = Math.max(numbers[0] || 0, 2) + 1
     return `INV-${nextNumber.toString().padStart(3, '0')}`
   }
 
