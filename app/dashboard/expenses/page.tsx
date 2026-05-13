@@ -652,6 +652,7 @@ export default function ExpensesPage() {
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Vendor</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Category</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Description</th>
                 <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Amount</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
@@ -666,6 +667,9 @@ export default function ExpensesPage() {
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>
                     <div>{expense.category_group}</div>
                     <div className="text-xs">{expense.category}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)', maxWidth: '200px' }}>
+                    <span className="line-clamp-2">{expense.description}</span>
                   </td>
                   <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
                     {formatCurrency(expense.amount)}
