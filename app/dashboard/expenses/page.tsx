@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, Eye } from 'lucide-react'
+import { Plus, Search, Trash2, X, Save } from 'lucide-react'
 
 interface Expense {
   id: string
@@ -36,6 +36,9 @@ export default function ExpensesPage() {
   const [categoryFilter, setcategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showNewExpenseForm, setShowNewExpenseForm] = useState(false)
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
+  const [editFormData, setEditFormData] = useState<typeof formData | null>(null)
+  const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     vendor: '',
@@ -201,6 +204,81 @@ export default function ExpensesPage() {
     } catch (error) {
       console.error('Error deleting expense:', error)
       alert(`Error: ${error instanceof Error ? error.message : 'Failed to delete expense'}`)
+    }
+  }
+
+  const handleOpenExpense = (expense: Expense) => {
+    setSelectedExpense(expense)
+    setEditFormData({
+      date: expense.date,
+      vendor: expense.vendor,
+      projectId: expense.project_id || '',
+      categoryGroup: expense.category_group,
+      category: expense.category,
+      subcategory: expense.subcategory || '',
+      amount: expense.amount.toString(),
+      receiptUrl: expense.receipt_url || '',
+      approvalStatus: expense.approval_status,
+      description: expense.description,
+      notes: expense.notes || '',
+      isMonthly: expense.is_monthly || false,
+      monthlyEndDate: expense.monthly_end_date || '',
+    })
+  }
+
+  const handleUpdateExpense = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedExpense || !editFormData) return
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          vendor: editFormData.vendor,
+          project_id: editFormData.projectId || null,
+          category_group: editFormData.categoryGroup,
+          category: editFormData.category,
+          subcategory: editFormData.subcategory || null,
+          amount: parseFloat(editFormData.amount),
+          date: editFormData.date,
+          receipt_url: editFormData.receiptUrl || null,
+          approval_status: editFormData.approvalStatus,
+          description: editFormData.description,
+          notes: editFormData.notes || null,
+          is_monthly: editFormData.isMonthly,
+          monthly_end_date: editFormData.isMonthly ? editFormData.monthlyEndDate : null,
+        })
+        .eq('id', selectedExpense.id)
+
+      if (error) throw error
+
+      setExpenses(expenses.map((exp) =>
+        exp.id === selectedExpense.id
+          ? {
+              ...exp,
+              vendor: editFormData.vendor,
+              project_id: editFormData.projectId || '',
+              category_group: editFormData.categoryGroup,
+              category: editFormData.category,
+              subcategory: editFormData.subcategory || undefined,
+              amount: parseFloat(editFormData.amount),
+              date: editFormData.date,
+              receipt_url: editFormData.receiptUrl || undefined,
+              approval_status: editFormData.approvalStatus,
+              description: editFormData.description,
+              notes: editFormData.notes || undefined,
+              is_monthly: editFormData.isMonthly,
+              monthly_end_date: editFormData.monthlyEndDate || undefined,
+            }
+          : exp
+      ))
+      setSelectedExpense(null)
+      setEditFormData(null)
+    } catch (error) {
+      console.error('Error updating expense:', error)
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to update expense'}`)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -581,7 +659,7 @@ export default function ExpensesPage() {
             </thead>
             <tbody>
               {filteredExpenses.map((expense) => (
-                <tr key={expense.id} style={{ borderBottom: `1px solid var(--color-border)` }} className="hover:opacity-75">
+                <tr key={expense.id} style={{ borderBottom: `1px solid var(--color-border)` }} className="hover:bg-gray-50 cursor-pointer" onDoubleClick={() => handleOpenExpense(expense)}>
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(expense.date)}</td>
                   <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{expense.vendor}</td>
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(expense.project_id)}</td>
@@ -597,13 +675,10 @@ export default function ExpensesPage() {
                       {expense.approval_status.charAt(0).toUpperCase() + expense.approval_status.slice(1)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm flex gap-2">
-                    <button style={{ color: 'var(--color-navy)' }} className="hover:opacity-80 transition">
-                      <Eye className="w-4 h-4" />
-                    </button>
+                  <td className="px-6 py-4 text-sm">
                     <button
-                      onClick={() => handleDeleteExpense(expense.id)}
-                      className="hover:opacity-80 transition"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteExpense(expense.id) }}
+                      className="hover:opacity-80 transition p-1"
                       style={{ color: 'var(--color-destructive)' }}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -613,6 +688,138 @@ export default function ExpensesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Edit Expense Modal */}
+      {selectedExpense && editFormData && (
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <div className="bg-white rounded-lg p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ border: `1px solid var(--color-border)` }}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold" style={{ color: 'var(--color-navy)' }}>Edit Expense</h2>
+              <button onClick={() => { setSelectedExpense(null); setEditFormData(null) }} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateExpense} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Date</label>
+                  <input type="date" value={editFormData.date} onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Amount *</label>
+                  <input type="number" step="0.01" value={editFormData.amount} onChange={(e) => setEditFormData({ ...editFormData, amount: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} required />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Vendor *</label>
+                <input type="text" value={editFormData.vendor} onChange={(e) => setEditFormData({ ...editFormData, vendor: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} required />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Category Group</label>
+                <select value={editFormData.categoryGroup} onChange={(e) => setEditFormData({ ...editFormData, categoryGroup: e.target.value as any, category: 'Materials' })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                  <option value="direct-project-costs">Direct Project Costs</option>
+                  <option value="company-overhead">Company Overhead</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Category</label>
+                  <select value={editFormData.category} onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                    {categoryGroups[editFormData.categoryGroup]?.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Subcategory</label>
+                  <select value={editFormData.subcategory} onChange={(e) => setEditFormData({ ...editFormData, subcategory: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                    <option value="">None</option>
+                    {categoryOptions[editFormData.category]?.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Project</label>
+                <select value={editFormData.projectId} onChange={(e) => setEditFormData({ ...editFormData, projectId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                  <option value="">No project (overhead)</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.project_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Description *</label>
+                <textarea value={editFormData.description} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor: 'var(--color-border)' }} rows={2} required />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Approval Status</label>
+                <select value={editFormData.approvalStatus} onChange={(e) => setEditFormData({ ...editFormData, approvalStatus: e.target.value as any })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="editIsMonthly" checked={editFormData.isMonthly} onChange={(e) => setEditFormData({ ...editFormData, isMonthly: e.target.checked })} className="rounded" />
+                <label htmlFor="editIsMonthly" className="text-sm font-medium" style={{ color: 'var(--color-muted)' }}>Recurring Monthly</label>
+              </div>
+
+              {editFormData.isMonthly && (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Monthly End Date</label>
+                  <input type="date" value={editFormData.monthlyEndDate} onChange={(e) => setEditFormData({ ...editFormData, monthlyEndDate: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Receipt URL</label>
+                <input type="url" value={editFormData.receiptUrl} onChange={(e) => setEditFormData({ ...editFormData, receiptUrl: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} placeholder="https://" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Notes</label>
+                <textarea value={editFormData.notes} onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor: 'var(--color-border)' }} rows={2} />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => { setSelectedExpense(null); setEditFormData(null) }}
+                  className="flex-1 px-4 py-2 rounded-lg border font-medium hover:bg-gray-50 transition"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={saving}
+                  className="flex-1 px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: 'var(--color-navy)' }}>
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
