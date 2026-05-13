@@ -340,11 +340,11 @@ export default function DashboardLayout({
             {/* User Profile */}
             <div className="flex items-center gap-3 pl-6" style={{ borderLeft: `1px solid var(--color-border)` }}>
               <div className="text-right">
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{user?.user_metadata?.full_name || 'Juan'}</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{user?.user_metadata?.name || user?.user_metadata?.username || 'User'}</p>
                 <p className="text-xs" style={{ color: 'var(--color-muted)' }}>Admin</p>
               </div>
               <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: 'var(--color-navy)' }}>
-                {(user?.user_metadata?.full_name || 'Juan').split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                {(user?.user_metadata?.name || user?.user_metadata?.username || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()}
               </div>
             </div>
           </div>
