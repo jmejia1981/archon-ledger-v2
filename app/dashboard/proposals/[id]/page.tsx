@@ -208,25 +208,14 @@ export default function ProposalDetailPage() {
     }
   }
 
-  // Handle export to PDF
-  const handleExportPDF = async () => {
-    if (!proposal) return
+  // Shared helper: fetch company + client data and logo for PDF
+  const buildPDFPayload = async () => {
+    if (!proposal) return null
 
-    // Parse scope, inclusions, exclusions from newline-separated text
-    const scopeOfWork = (proposal.scope_of_work || '')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s)
-    const inclusions = (proposal.inclusions || '')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s)
-    const exclusions = (proposal.exclusions || '')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s)
+    const scopeOfWork = (proposal.scope_of_work || '').split('\n').map(s => s.trim()).filter(s => s)
+    const inclusions = (proposal.inclusions || '').split('\n').map(s => s.trim()).filter(s => s)
+    const exclusions = (proposal.exclusions || '').split('\n').map(s => s.trim()).filter(s => s)
 
-    // Fetch and convert header image to base64
     let logoImage: string | undefined
     try {
       const response = await fetch('/images/archon-header.png')
@@ -240,18 +229,67 @@ export default function ProposalDetailPage() {
       console.error('Error loading header image:', error)
     }
 
-    downloadProposalPDF({
+    let companyName = 'Archon Construction LLC'
+    let companyEmail = ''
+    let companyPhone = ''
+    let companyAddress = ''
+    let companyCity = ''
+    let companyState = ''
+    let companyZip = ''
+    const { data: companyData, error: companyError } = await supabase
+      .from('company_settings')
+      .select('name, email, phone, address, city, state, zip')
+      .eq('id', 1)
+      .single()
+    if (companyError) {
+      console.error('company_settings fetch error:', companyError)
+    } else if (companyData) {
+      companyName = (companyData as any).name || companyName
+      companyEmail = (companyData as any).email || ''
+      companyPhone = (companyData as any).phone || ''
+      companyAddress = (companyData as any).address || ''
+      companyCity = (companyData as any).city || ''
+      companyState = (companyData as any).state || ''
+      companyZip = (companyData as any).zip || ''
+    }
+
+    let clientCompany = ''
+    let clientPhone = ''
+    if (proposal.client_id) {
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('company_name, phone')
+        .eq('id', proposal.client_id)
+        .single()
+      if (clientError) {
+        console.error('client fetch error:', clientError)
+      } else if (clientData) {
+        clientCompany = (clientData as any).company_name || ''
+        clientPhone = (clientData as any).phone || ''
+      }
+    }
+
+    return {
       proposalNumber: proposal.proposal_number,
       proposalDate: proposal.proposal_date,
       expirationDate: proposal.expiration_date,
       clientName: proposal.client_name,
-      clientEmail: proposal.client_email,
+      clientCompany,
+      clientEmail: proposal.client_email || '',
+      clientPhone,
       projectName: proposal.project_name,
       projectAddress: proposal.project_address,
       projectCity: proposal.project_city || '',
       projectState: proposal.project_state || '',
       projectZip: proposal.project_zip || '',
-      logoImage: logoImage,
+      companyName,
+      companyEmail,
+      companyPhone,
+      companyAddress,
+      companyCity,
+      companyState,
+      companyZip,
+      logoImage,
       lineItems: lineItems.map(item => ({
         description: item.description,
         quantity: item.quantity,
@@ -263,74 +301,26 @@ export default function ProposalDetailPage() {
       totalAmount: proposal.total_amount,
       terms: proposal.terms,
       notes: proposal.notes,
-      scopeOfWork: scopeOfWork,
-      inclusions: inclusions,
-      exclusions: exclusions,
+      scopeOfWork,
+      inclusions,
+      exclusions,
       validFor: proposal.valid_for || '30 Days from Date Issued',
-    })
+    }
+  }
+
+  // Handle export to PDF
+  const handleExportPDF = async () => {
+    const payload = await buildPDFPayload()
+    if (payload) downloadProposalPDF(payload)
   }
 
   // Handle email to client
   const handleEmailClient = async () => {
     if (!proposal) return
 
-    // Parse scope, inclusions, exclusions from newline-separated text
-    const scopeOfWork = (proposal.scope_of_work || '')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s)
-    const inclusions = (proposal.inclusions || '')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s)
-    const exclusions = (proposal.exclusions || '')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s)
-
-    // Fetch and convert header image to base64
-    let logoImage: string | undefined
-    try {
-      const response = await fetch('/images/archon-header.png')
-      const blob = await response.blob()
-      const reader = new FileReader()
-      logoImage = await new Promise<string>((resolve) => {
-        reader.onloadend = () => resolve(reader.result as string)
-        reader.readAsDataURL(blob)
-      })
-    } catch (error) {
-      console.error('Error loading header image:', error)
-    }
-
-    // First, download the PDF
-    downloadProposalPDF({
-      proposalNumber: proposal.proposal_number,
-      proposalDate: proposal.proposal_date,
-      expirationDate: proposal.expiration_date,
-      clientName: proposal.client_name,
-      clientEmail: proposal.client_email,
-      projectName: proposal.project_name,
-      projectAddress: proposal.project_address,
-      projectCity: proposal.project_city || '',
-      projectState: proposal.project_state || '',
-      projectZip: proposal.project_zip || '',
-      logoImage: logoImage,
-      lineItems: lineItems.map(item => ({
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-        amount: item.amount,
-      })),
-      subtotal: proposal.subtotal,
-      tax: proposal.tax,
-      totalAmount: proposal.total_amount,
-      terms: proposal.terms,
-      notes: proposal.notes,
-      scopeOfWork: scopeOfWork,
-      inclusions: inclusions,
-      exclusions: exclusions,
-      validFor: proposal.valid_for || '30 Days from Date Issued',
-    })
+    // First, download the PDF with full company/client info
+    const payload = await buildPDFPayload()
+    if (payload) downloadProposalPDF(payload)
 
     // Then, open default email client
     const clientEmail = proposal.client_email || ''
