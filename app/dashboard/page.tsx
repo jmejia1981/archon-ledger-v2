@@ -155,8 +155,8 @@ export default function DashboardPage() {
         console.log('Totals - Invoiced:', totalInvoiced, 'Collected:', totalCollected, 'Receivable:', accountsReceivable)
 
         const totalCosts = totalExpenses + laborCosts + mileageCosts
-        const netProfit = revisedContractValue - totalCosts
-        const profitMargin = revisedContractValue > 0 ? (netProfit / revisedContractValue) * 100 : 0
+        const netProfit = totalInvoiced - totalCosts
+        const profitMargin = totalInvoiced > 0 ? (netProfit / totalInvoiced) * 100 : 0
 
         const activeProjects = projects.data?.filter((p) => p.status === 'active').length || 0
         const activeClients = clients.data?.filter((c) => c.status === 'active').length || 0
@@ -278,8 +278,8 @@ export default function DashboardPage() {
       .reduce((sum: number, inv: any) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0)
 
     const totalCosts = totalExpenses + laborCosts + mileageCosts
-    const netProfit = revisedContractValue - totalCosts
-    const profitMargin = revisedContractValue > 0 ? (netProfit / revisedContractValue) * 100 : 0
+    const netProfit = totalInvoiced - totalCosts
+    const profitMargin = totalInvoiced > 0 ? (netProfit / totalInvoiced) * 100 : 0
 
     const activeProjects = filteredProjects.filter((p: any) => p.status === 'active').length
     const activeClients = selectedProjectId === 'all'
@@ -330,7 +330,7 @@ export default function DashboardPage() {
       label: 'Net Profit', key: 'netProfit', icon: TrendingUp,
       color: metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600',
       onDetail: () => openDetail('Net Profit Breakdown', [
-        { label: 'Revised Contract Value', value: formatCurrency(metrics.revisedContractValue) },
+        { label: 'Total Invoiced (Revenue)', value: formatCurrency(metrics.totalInvoiced) },
         { label: 'Total Expenses', value: `− ${formatCurrency(metrics.totalExpenses)}` },
         { label: 'Labor Costs', value: `− ${formatCurrency(metrics.laborCosts)}` },
         { label: 'Mileage Costs', value: `− ${formatCurrency(metrics.mileageCosts)}` },
