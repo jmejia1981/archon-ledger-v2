@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, X, Save } from 'lucide-react'
+import { Plus, Search, Trash2, X, Save, RefreshCw } from 'lucide-react'
 
 interface Expense {
   id: string
@@ -35,6 +35,7 @@ export default function ExpensesPage() {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
   const [editFormData, setEditFormData] = useState<typeof formData | null>(null)
   const [saving, setSaving] = useState(false)
+  const [recordingId, setRecordingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     vendor: '',
@@ -158,6 +159,67 @@ export default function ExpensesPage() {
     } catch (error) {
       console.error('Error deleting expense:', error)
       alert(`Error: ${error instanceof Error ? error.message : 'Failed to delete expense'}`)
+    }
+  }
+
+  // Recurring expenses due this month (not yet recorded, not past end date)
+  const now = new Date()
+  const thisYear = now.getFullYear()
+  const thisMonth = now.getMonth()
+
+  const recurringDue = expenses.filter((e) => {
+    if (!e.is_monthly) return false
+    if (e.monthly_end_date) {
+      const end = new Date(e.monthly_end_date + 'T00:00:00')
+      if (end < now) return false
+    }
+    // Check if already recorded this month (same vendor + description)
+    const alreadyRecorded = expenses.some((other) => {
+      if (other.id === e.id) return false
+      const d = new Date(other.date + 'T00:00:00')
+      return (
+        other.vendor === e.vendor &&
+        other.description === e.description &&
+        d.getFullYear() === thisYear &&
+        d.getMonth() === thisMonth
+      )
+    })
+    // Also check if the original entry itself is from this month (it IS this month's record)
+    const originalDate = new Date(e.date + 'T00:00:00')
+    const originalIsThisMonth =
+      originalDate.getFullYear() === thisYear && originalDate.getMonth() === thisMonth
+    return !alreadyRecorded && !originalIsThisMonth
+  })
+
+  const handleRecordThisMonth = async (expense: Expense) => {
+    setRecordingId(expense.id)
+    try {
+      const today = new Date()
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([{
+          vendor: expense.vendor,
+          project_id: expense.project_id || null,
+          category_group: expense.project_id ? 'direct-project-costs' : 'company-overhead',
+          category: 'General',
+          tax_category: expense.tax_category || null,
+          amount: expense.amount,
+          date: dateStr,
+          approval_status: 'pending',
+          description: expense.description,
+          notes: expense.notes || null,
+          is_monthly: false,
+          monthly_end_date: null,
+        }])
+        .select()
+      if (error) throw error
+      if (data) setExpenses((prev) => [...prev, ...data])
+    } catch (error) {
+      console.error('Error recording recurring expense:', error)
+      alert('Failed to record expense')
+    } finally {
+      setRecordingId(null)
     }
   }
 
@@ -494,6 +556,48 @@ export default function ExpensesPage() {
           </div>
         </div>
       </div>
+
+      {/* Recurring Due This Month */}
+      {recurringDue.length > 0 && (
+        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid #fbbf24` }}>
+          <div className="px-5 py-3 flex items-center gap-2" style={{ backgroundColor: '#fffbeb' }}>
+            <RefreshCw className="w-4 h-4" style={{ color: '#d97706' }} />
+            <span className="font-semibold text-sm" style={{ color: '#92400e' }}>
+              Recurring Expenses Due This Month
+            </span>
+            <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#fde68a', color: '#92400e' }}>
+              {recurringDue.length} pending
+            </span>
+          </div>
+          <div className="divide-y bg-white" style={{ borderColor: '#fde68a' }}>
+            {recurringDue.map((expense) => (
+              <div key={expense.id} className="px-5 py-3 flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--color-navy)' }}>{expense.vendor}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--color-muted)' }}>{expense.description}</p>
+                </div>
+                {expense.tax_category && (
+                  <span className="text-xs px-2 py-0.5 rounded hidden sm:inline" style={{ backgroundColor: '#e8f0fe', color: '#1a3a6b' }}>
+                    {expense.tax_category}
+                  </span>
+                )}
+                <span className="text-sm font-semibold w-20 text-right" style={{ color: 'var(--color-navy)' }}>
+                  {formatCurrency(expense.amount)}
+                </span>
+                <button
+                  onClick={() => handleRecordThisMonth(expense)}
+                  disabled={recordingId === expense.id}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--color-navy)' }}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {recordingId === expense.id ? 'Recording…' : 'Record'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex gap-4 items-center">
