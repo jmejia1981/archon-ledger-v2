@@ -140,11 +140,21 @@ export default function ProposalDetailPage() {
 
     setIsApproving(true)
     try {
+      // Determine next project number (starts at 100)
+      const { data: existingProjects } = await supabase
+        .from('projects')
+        .select('project_number')
+      const numbers = (existingProjects || [])
+        .map((p: any) => parseInt(p.project_number))
+        .filter((n: number) => !isNaN(n))
+      const nextProjectNumber = (Math.max(...numbers, 99) + 1).toString()
+
       // Create new project from proposal
       const { error: projectError } = await supabase
         .from('projects')
         .insert([
           {
+            project_number: nextProjectNumber,
             project_name: proposal.project_name,
             client_id: proposal.client_id || null,
             project_address: proposal.project_address,

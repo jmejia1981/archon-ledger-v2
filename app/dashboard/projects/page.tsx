@@ -80,14 +80,12 @@ export default function ProjectsPage() {
   const getClientName = (clientId: string) =>
     clients.find((c) => c.id === clientId)?.name || '—'
 
-  // Generate next project number
+  // Generate next project number (starts at 100)
   const generateNextProjectNumber = () => {
     const numbers = projects
       .map((proj) => parseInt(proj.project_number))
       .filter((n) => !isNaN(n))
-      .sort((a, b) => b - a)
-
-    return ((numbers[0] ?? 999) + 1).toString()
+    return (Math.max(...numbers, 99) + 1).toString()
   }
 
   // Handle open new project form
