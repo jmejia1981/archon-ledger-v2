@@ -546,19 +546,19 @@ export default function ProjectDetailPage() {
             </h3>
             <div className="space-y-3">
               <div>
-                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Total Costs vs Budget</p>
+                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Expenses vs Budget</p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                   <div
                     className="h-2 rounded-full"
                     style={{
-                      width: `${Math.min((totalCosts / project.contract_budget) * 100, 100)}%`,
-                      backgroundColor: totalCosts > project.contract_budget ? 'var(--color-destructive)' : 'var(--color-success)',
+                      width: `${Math.min((totalExpenses / project.contract_budget) * 100, 100)}%`,
+                      backgroundColor: totalExpenses > project.contract_budget ? 'var(--color-destructive)' : 'var(--color-success)',
                     }}
                   />
                 </div>
                 <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }} className="mt-2">
-                  {project.contract_budget > 0 ? Math.round((totalCosts / project.contract_budget) * 100) : 0}% utilized
-                  <span className="ml-2">({formatCurrency(totalCosts)} of {formatCurrency(project.contract_budget)})</span>
+                  {project.contract_budget > 0 ? Math.round((totalExpenses / project.contract_budget) * 100) : 0}% utilized
+                  <span className="ml-2">({formatCurrency(totalExpenses)} of {formatCurrency(project.contract_budget)})</span>
                 </p>
               </div>
             </div>
