@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   Zap,
+  Receipt,
 } from 'lucide-react'
 
 export default function DashboardLayout({
@@ -140,6 +141,7 @@ export default function DashboardLayout({
     { icon: FileText, label: 'Proposals', href: '/dashboard/proposals' },
     { icon: DollarSign, label: 'Invoices', href: '/dashboard/invoices' },
     { icon: TrendingUp, label: 'Receivables', href: '/dashboard/receivables' },
+    { icon: Receipt, label: 'Payables', href: '/dashboard/payables' },
     { icon: CreditCard, label: 'Payroll', href: '/dashboard/payroll' },
     { icon: Clock3, label: 'Labor Hours', href: '/dashboard/labor' },
     { icon: Navigation, label: 'Mileage', href: '/dashboard/mileage' },
