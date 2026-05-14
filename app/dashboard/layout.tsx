@@ -23,6 +23,8 @@ import {
   X,
   Zap,
   Receipt,
+  Package,
+  ClipboardList,
 } from 'lucide-react'
 
 export default function DashboardLayout({
@@ -142,6 +144,8 @@ export default function DashboardLayout({
     { icon: DollarSign, label: 'Invoices', href: '/dashboard/invoices' },
     { icon: TrendingUp, label: 'Receivables', href: '/dashboard/receivables' },
     { icon: Receipt, label: 'Payables', href: '/dashboard/payables' },
+    { icon: Package, label: 'Fixed Assets', href: '/dashboard/assets' },
+    { icon: ClipboardList, label: '1099 Tracking', href: '/dashboard/1099' },
     { icon: CreditCard, label: 'Payroll', href: '/dashboard/payroll' },
     { icon: Clock3, label: 'Labor Hours', href: '/dashboard/labor' },
     { icon: Navigation, label: 'Mileage', href: '/dashboard/mileage' },

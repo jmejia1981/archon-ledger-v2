@@ -7,6 +7,9 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { SkeletonKPICards } from '@/app/components/skeleton-loader'
+import { Download } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 interface FinancialMetrics {
   totalRevenue: number; totalCollected: number; totalExpenses: number
@@ -30,6 +33,7 @@ export default function ReportsPage() {
   const [projectDistribution, setProjectDistribution] = useState<any[]>([])
   const [laborByDept, setLaborByDept] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState('overview')
+  const [yearEndYear, setYearEndYear] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
@@ -200,6 +204,153 @@ export default function ReportsPage() {
   const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v)
   const COLORS = ['#1A3A6B', '#C8B89A', '#8B9A7D', '#D4A574']
 
+  const exportYearEndPDF = () => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 15
+    let y = 20
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.setTextColor(26, 58, 107)
+    doc.text('Archon Construction LLC', pageWidth / 2, y, { align: 'center' })
+    y += 8
+    doc.setFontSize(12)
+    doc.text(`Year-End Financial Package — ${yearEndYear}`, pageWidth / 2, y, { align: 'center' })
+    y += 6
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(100)
+    doc.text(`Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, pageWidth / 2, y, { align: 'center' })
+    y += 10
+
+    // P&L
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(26, 58, 107)
+    doc.text('Profit & Loss Statement', margin, y)
+    y += 2
+    doc.setDrawColor(200, 184, 154)
+    doc.setLineWidth(0.5)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 5
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      body: plLines
+        .filter((l) => !l.separator && l.label)
+        .map((l) => [
+          { content: l.label, styles: { fontStyle: l.bold ? 'bold' : 'normal', cellPadding: { left: l.indent ? 8 : 3, top: 2, bottom: 2, right: 3 } } },
+          { content: l.amount !== 0 || l.bold ? fmt(l.amount) : '', styles: { halign: 'right', fontStyle: l.bold ? 'bold' : 'normal', cellPadding: { left: 3, top: 2, bottom: 2, right: 3 } } },
+        ]),
+      bodyStyles: { fontSize: 9, textColor: [33, 47, 61] },
+      columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: 50 } },
+      theme: 'plain',
+    })
+    y = (doc as any).lastAutoTable.finalY + 12
+
+    if (y > 240) { doc.addPage(); y = 20 }
+
+    // Balance Sheet
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(26, 58, 107)
+    doc.text('Balance Sheet', margin, y)
+    y += 2
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 5
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      body: bsLines
+        .filter((l) => !l.separator && l.label)
+        .map((l) => [
+          { content: l.label, styles: { fontStyle: l.bold ? 'bold' : 'normal', cellPadding: { left: l.indent ? 8 : 3, top: 2, bottom: 2, right: 3 } } },
+          { content: l.amount !== 0 || l.bold ? fmt(l.amount) : '', styles: { halign: 'right', fontStyle: l.bold ? 'bold' : 'normal', cellPadding: { left: 3, top: 2, bottom: 2, right: 3 } } },
+        ]),
+      bodyStyles: { fontSize: 9, textColor: [33, 47, 61] },
+      columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: 50 } },
+      theme: 'plain',
+    })
+    y = (doc as any).lastAutoTable.finalY + 12
+
+    if (y > 220) { doc.addPage(); y = 20 }
+
+    // Schedule C
+    if (taxBreakdown.length > 0) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.setTextColor(26, 58, 107)
+      doc.text('Schedule C Expense Summary', margin, y)
+      y += 2
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 5
+
+      const total = taxBreakdown.reduce((s, r) => s + r.amount, 0)
+      autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [['Category', 'Amount', '% of Total']],
+        body: [
+          ...taxBreakdown.map((r) => [r.category, fmt(r.amount), `${total > 0 ? ((r.amount / total) * 100).toFixed(1) : 0}%`]),
+          ['Total', fmt(total), '100%'],
+        ],
+        headStyles: { fillColor: [200, 184, 154], textColor: [33, 47, 61], fontSize: 9 },
+        bodyStyles: { fontSize: 9 },
+        theme: 'grid',
+      })
+    }
+
+    // Footer
+    const totalPages = doc.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(150)
+      doc.text(`Archon Construction LLC  ·  ${yearEndYear} Year-End Package  ·  Page ${i} of ${totalPages}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' })
+    }
+
+    doc.save(`archon-year-end-${yearEndYear}.pdf`)
+  }
+
+  const exportScheduleC_CSV = () => {
+    const rows = [
+      ['IRS Schedule C Category', 'Amount', '% of Total Expenses'],
+      ...taxBreakdown.map((r) => {
+        const total = taxBreakdown.reduce((s, t) => s + t.amount, 0)
+        return [r.category, r.amount.toFixed(2), `${total > 0 ? ((r.amount / total) * 100).toFixed(1) : 0}%`]
+      }),
+    ]
+    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `schedule-c-${yearEndYear}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportPL_CSV = () => {
+    const rows = [
+      ['Line Item', 'Amount'],
+      ...plLines
+        .filter((l) => !l.separator && l.label)
+        .map((l) => [l.label, l.amount !== 0 || l.bold ? l.amount.toFixed(2) : '']),
+    ]
+    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `profit-loss-${yearEndYear}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const StatementLine = ({ line }: { line: PLLine | BSLine }) => {
     if (line.separator) return <tr><td colSpan={2} className="py-1"><hr style={{ borderColor: '#e5e7eb' }} /></td></tr>
     if (!line.label) return null
@@ -222,7 +373,7 @@ export default function ReportsPage() {
     </div>
   )
 
-  const tabs = ['Overview', 'P&L', 'Balance Sheet', 'Tax Summary']
+  const tabs = ['Overview', 'P&L', 'Balance Sheet', 'Tax Summary', 'Year-End']
 
   return (
     <div className="space-y-6" style={{ backgroundColor: '#F5F5F5', padding: '32px' }}>
@@ -346,6 +497,77 @@ export default function ReportsPage() {
               {bsLines.map((line, i) => <StatementLine key={i} line={line} />)}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ── Year-End Package ── */}
+      {activeTab === 'year-end' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold" style={{ color: '#1A3A6B' }}>Year-End Accountant Package</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Export everything your accountant needs in one click</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <select value={yearEndYear} onChange={(e) => setYearEndYear(parseInt(e.target.value))}
+                className="px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'white', border: '1px solid #D4D0C8', color: '#1A3A6B' }}>
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Export Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { label: 'Full Year-End PDF', sub: 'P&L + Balance Sheet + Schedule C', action: exportYearEndPDF, color: '#1A3A6B' },
+              { label: 'P&L Spreadsheet', sub: 'Profit & Loss as CSV', action: exportPL_CSV, color: '#059669' },
+              { label: 'Schedule C CSV', sub: 'IRS expense categories', action: exportScheduleC_CSV, color: '#7c3aed' },
+            ].map(({ label, sub, action, color }) => (
+              <button key={label} onClick={action}
+                className="flex items-center gap-4 p-5 rounded-xl text-left hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: color, color: 'white' }}>
+                <Download className="w-8 h-8 flex-shrink-0 opacity-80" />
+                <div>
+                  <p className="font-semibold text-sm">{label}</p>
+                  <p className="text-xs opacity-75 mt-0.5">{sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Checklist */}
+          <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'white', border: '1px solid #E0E0E0' }}>
+            <div className="px-6 py-4 border-b" style={{ borderColor: '#E0E0E0', backgroundColor: '#f9fafb' }}>
+              <h3 className="text-sm font-semibold" style={{ color: '#1A3A6B' }}>Year-End Checklist for Your Accountant</h3>
+            </div>
+            <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
+              {[
+                { label: 'Profit & Loss Statement', detail: 'Full year revenue and expenses', done: plLines.length > 0, action: 'In Reports → P&L tab' },
+                { label: 'Balance Sheet', detail: 'Assets, liabilities, and equity as of Dec 31', done: bsLines.length > 0, action: 'In Reports → Balance Sheet tab' },
+                { label: 'Schedule C Expense Summary', detail: 'All expenses sorted by IRS line item', done: taxBreakdown.length > 0, action: taxBreakdown.length === 0 ? 'Add tax categories to expenses first' : 'Export above' },
+                { label: '1099-NEC Filing', detail: 'Vendors/subs paid $600+ (non-incorporated)', done: false, action: 'Go to 1099 page in sidebar' },
+                { label: 'Fixed Asset & Depreciation Schedule', detail: 'Equipment purchases and Section 179 elections', done: false, action: 'Go to Fixed Assets page in sidebar' },
+                { label: 'Mileage Log', detail: 'Business miles driven during the year', done: false, action: 'Export from Mileage page' },
+                { label: 'Payroll Summary', detail: 'W-2s for employees, 1099-NECs for subs', done: false, action: 'From Payroll page' },
+                { label: 'Bank Statements', detail: 'December 31 bank balance for reconciliation', done: false, action: 'From your bank — not tracked here' },
+              ].map(({ label, detail, done, action }) => (
+                <div key={label} className="flex items-start gap-4 px-6 py-4">
+                  <div className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5"
+                    style={{ backgroundColor: done ? '#d1fae5' : '#f3f4f6' }}>
+                    {done && <span style={{ color: '#059669', fontSize: 10 }}>✓</span>}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium" style={{ color: '#1A3A6B' }}>{label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{detail}</p>
+                  </div>
+                  <p className="text-xs text-right flex-shrink-0" style={{ color: done ? '#059669' : '#6b7280' }}>{action}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
