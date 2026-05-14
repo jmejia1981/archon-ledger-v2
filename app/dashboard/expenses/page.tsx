@@ -12,6 +12,7 @@ interface Expense {
   category_group: 'direct-project-costs' | 'company-overhead'
   category: string
   subcategory?: string
+  tax_category?: string
   amount: number
   date: string
   receipt_url?: string
@@ -46,6 +47,7 @@ export default function ExpensesPage() {
     categoryGroup: 'direct-project-costs' as 'direct-project-costs' | 'company-overhead',
     category: 'Materials',
     subcategory: '',
+    taxCategory: '',
     amount: '',
     receiptUrl: '',
     approvalStatus: 'pending' as 'pending' | 'approved' | 'rejected',
@@ -143,6 +145,7 @@ export default function ExpensesPage() {
             category_group: formData.categoryGroup,
             category: formData.category,
             subcategory: formData.subcategory || null,
+            tax_category: formData.taxCategory || null,
             amount: parseFloat(formData.amount),
             date: formData.date,
             receipt_url: formData.receiptUrl || null,
@@ -170,6 +173,7 @@ export default function ExpensesPage() {
           categoryGroup: 'direct-project-costs',
           category: 'Materials',
           subcategory: '',
+          taxCategory: '',
           amount: '',
           receiptUrl: '',
           approvalStatus: 'pending',
@@ -216,6 +220,7 @@ export default function ExpensesPage() {
       categoryGroup: expense.category_group,
       category: expense.category,
       subcategory: expense.subcategory || '',
+      taxCategory: expense.tax_category || '',
       amount: expense.amount.toString(),
       receiptUrl: expense.receipt_url || '',
       approvalStatus: expense.approval_status,
@@ -239,6 +244,7 @@ export default function ExpensesPage() {
           category_group: editFormData.categoryGroup,
           category: editFormData.category,
           subcategory: editFormData.subcategory || null,
+          tax_category: editFormData.taxCategory || null,
           amount: parseFloat(editFormData.amount),
           date: editFormData.date,
           receipt_url: editFormData.receiptUrl || null,
@@ -453,6 +459,38 @@ export default function ExpensesPage() {
                       {subcat}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
+                  Tax Category (Schedule C)
+                </label>
+                <select
+                  id="expenses-taxCategory"
+                  name="taxCategory"
+                  value={formData.taxCategory}
+                  onChange={(e) => setFormData({ ...formData, taxCategory: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+                >
+                  <option value="">— Select tax category —</option>
+                  <option value="Advertising">Advertising (Line 8)</option>
+                  <option value="Car & Truck Expenses">Car &amp; Truck Expenses (Line 9)</option>
+                  <option value="Contract Labor">Contract Labor (Line 11)</option>
+                  <option value="Depreciation">Depreciation (Line 13)</option>
+                  <option value="Insurance">Insurance (Line 15)</option>
+                  <option value="Legal & Professional Services">Legal &amp; Professional Services (Line 17)</option>
+                  <option value="Office Expense">Office Expense (Line 18)</option>
+                  <option value="Rent or Lease">Rent or Lease (Line 20)</option>
+                  <option value="Repairs & Maintenance">Repairs &amp; Maintenance (Line 21)</option>
+                  <option value="Supplies & Materials">Supplies &amp; Materials (Line 22)</option>
+                  <option value="Taxes & Licenses">Taxes &amp; Licenses (Line 23)</option>
+                  <option value="Travel">Travel (Line 24a)</option>
+                  <option value="Meals (50%)">Meals — 50% deductible (Line 24b)</option>
+                  <option value="Utilities">Utilities (Line 25)</option>
+                  <option value="Wages">Wages (Line 26)</option>
+                  <option value="Other Expense">Other Expense (Line 27a)</option>
                 </select>
               </div>
 
@@ -682,6 +720,7 @@ export default function ExpensesPage() {
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Vendor</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Category</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Tax Category</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Description</th>
                 <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Amount</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
@@ -697,6 +736,13 @@ export default function ExpensesPage() {
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>
                     <div>{expense.category_group}</div>
                     <div className="text-xs">{expense.category}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>
+                    {expense.tax_category ? (
+                      <span className="px-2 py-0.5 rounded text-xs font-medium" style={{ backgroundColor: '#e8f0fe', color: '#1a3a6b' }}>
+                        {expense.tax_category}
+                      </span>
+                    ) : <span className="text-xs text-gray-400">—</span>}
                   </td>
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)', maxWidth: '200px' }}>
                     <span className="line-clamp-2">{expense.description}</span>
@@ -795,6 +841,30 @@ export default function ExpensesPage() {
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>{p.project_name}</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Tax Category (Schedule C)</label>
+                <select id="expenses-edit-taxCategory" name="taxCategory" value={editFormData.taxCategory} onChange={(e) => setEditFormData({ ...editFormData, taxCategory: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                  <option value="">— Select tax category —</option>
+                  <option value="Advertising">Advertising (Line 8)</option>
+                  <option value="Car & Truck Expenses">Car &amp; Truck Expenses (Line 9)</option>
+                  <option value="Contract Labor">Contract Labor (Line 11)</option>
+                  <option value="Depreciation">Depreciation (Line 13)</option>
+                  <option value="Insurance">Insurance (Line 15)</option>
+                  <option value="Legal & Professional Services">Legal &amp; Professional Services (Line 17)</option>
+                  <option value="Office Expense">Office Expense (Line 18)</option>
+                  <option value="Rent or Lease">Rent or Lease (Line 20)</option>
+                  <option value="Repairs & Maintenance">Repairs &amp; Maintenance (Line 21)</option>
+                  <option value="Supplies & Materials">Supplies &amp; Materials (Line 22)</option>
+                  <option value="Taxes & Licenses">Taxes &amp; Licenses (Line 23)</option>
+                  <option value="Travel">Travel (Line 24a)</option>
+                  <option value="Meals (50%)">Meals — 50% deductible (Line 24b)</option>
+                  <option value="Utilities">Utilities (Line 25)</option>
+                  <option value="Wages">Wages (Line 26)</option>
+                  <option value="Other Expense">Other Expense (Line 27a)</option>
                 </select>
               </div>
 
