@@ -185,10 +185,18 @@ export function generateProposalPDF(data: ProposalData) {
   doc.text('PREPARED FOR', rightColumnX, yPosition)
   yPosition += 4
 
+  // Use passed data or fall back to hardcoded Archon defaults
+  const resolvedCompanyName = data.companyName || 'Archon Construction LLC'
+  const resolvedCompanyPhone = data.companyPhone || '(551) 212-8820'
+  const resolvedCompanyEmail = data.companyEmail || 'info@archonconstruction.co'
+  const resolvedCompanyAddr = data.companyAddress
+    ? [data.companyAddress, data.companyCity, data.companyState, data.companyZip].filter(Boolean).join(', ')
+    : '656 Grant Terrace, Teaneck, NJ 07666'
+
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(...COLORS.darkText)
-  doc.text(data.companyName || 'Archon Construction LLC', leftColumnX, yPosition)
+  doc.text(resolvedCompanyName, leftColumnX, yPosition)
   doc.text(data.clientName, rightColumnX, yPosition)
   yPosition += 4
 
@@ -198,25 +206,21 @@ export function generateProposalPDF(data: ProposalData) {
 
   let fromY = yPosition
   let toY = yPosition
+
   if (data.clientCompany) {
     doc.setFont('helvetica', 'italic')
     doc.text(data.clientCompany, rightColumnX, toY)
     doc.setFont('helvetica', 'normal')
     toY += 4
   }
-  if (data.companyPhone) {
-    doc.text(data.companyPhone, leftColumnX, fromY)
-    fromY += 4
-  }
-  if (data.companyEmail) {
-    doc.text(data.companyEmail, leftColumnX, fromY)
-    fromY += 4
-  }
-  const companyAddrLine = [data.companyAddress, data.companyCity, data.companyState, data.companyZip].filter(Boolean).join(', ')
-  if (companyAddrLine) {
-    doc.text(companyAddrLine, leftColumnX, fromY)
-    fromY += 4
-  }
+
+  doc.text(resolvedCompanyPhone, leftColumnX, fromY)
+  fromY += 4
+  doc.text(resolvedCompanyEmail, leftColumnX, fromY)
+  fromY += 4
+  doc.text(resolvedCompanyAddr, leftColumnX, fromY)
+  fromY += 4
+
   if (data.clientEmail) {
     doc.text(data.clientEmail, rightColumnX, toY)
     toY += 4
