@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, Navigation } from 'lucide-react'
+import { Plus, Search, Trash2, Navigation, X } from 'lucide-react'
 
 interface MileageEntry {
   id: string
@@ -34,6 +34,9 @@ export default function MileagePage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showNewMileageForm, setShowNewMileageForm] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editFormData, setEditFormData] = useState<any>(null)
   const [formData, setFormData] = useState({
     employee_id: '',
     project_id: '',
@@ -154,6 +157,50 @@ export default function MileagePage() {
       setMileageEntries(mileageEntries.filter((e) => e.id !== id))
     } catch (error) {
       console.error('Error deleting mileage entry:', error)
+    }
+  }
+
+  // Handle edit (double-click)
+  const handleEditMileageEntry = (entry: MileageEntry) => {
+    setEditingId(entry.id)
+    setEditFormData({
+      employee_id: entry.employee_id,
+      project_id: entry.project_id,
+      date: entry.date,
+      starting_location: entry.starting_location,
+      destination: entry.destination,
+      miles_driven: entry.miles_driven.toString(),
+      reimbursement_rate: entry.reimbursement_rate.toString(),
+      notes: entry.notes,
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveEditedEntry = async () => {
+    if (!editingId || !editFormData) return
+
+    try {
+      const updateData = {
+        employee_id: editFormData.employee_id,
+        project_id: editFormData.project_id || null,
+        date: editFormData.date,
+        starting_location: editFormData.starting_location,
+        destination: editFormData.destination,
+        miles_driven: parseFloat(editFormData.miles_driven) || 0,
+        reimbursement_rate: parseFloat(editFormData.reimbursement_rate) || 0.65,
+        notes: editFormData.notes,
+      }
+
+      const { error } = await supabase.from('mileage_entries').update(updateData).eq('id', editingId)
+      if (error) throw error
+
+      setMileageEntries(mileageEntries.map((e) => e.id === editingId ? { ...e, ...updateData } : e))
+      setEditingId(null)
+      setEditFormData(null)
+      setShowEditModal(false)
+    } catch (error) {
+      console.error('Error updating mileage entry:', error)
+      alert('Failed to update mileage entry')
     }
   }
 
@@ -417,7 +464,12 @@ export default function MileagePage() {
             </thead>
             <tbody>
               {filteredEntries.map((entry) => (
-                <tr key={entry.id} style={{ borderBottom: `1px solid var(--color-border)` }} className="hover:opacity-75">
+                <tr
+                  key={entry.id}
+                  style={{ borderBottom: `1px solid var(--color-border)`, cursor: 'pointer' }}
+                  className="hover:opacity-75 transition"
+                  onDoubleClick={() => handleEditMileageEntry(entry)}
+                >
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</td>
                   <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</td>
                   <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(entry.project_id)}</td>
@@ -446,6 +498,136 @@ export default function MileagePage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {/* Edit Modal */}
+      {showEditModal && editFormData && (
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <div className="bg-white rounded-lg p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ border: `1px solid var(--color-border)` }}>
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-2xl font-bold" style={{ color: 'var(--color-navy)' }}>Edit Mileage Entry</h2>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Employee</label>
+                <select
+                  value={editFormData.employee_id}
+                  onChange={(e) => setEditFormData({ ...editFormData, employee_id: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+                >
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Project</label>
+                <select
+                  value={editFormData.project_id}
+                  onChange={(e) => setEditFormData({ ...editFormData, project_id: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+                >
+                  <option value="">No project</option>
+                  {projects.map((proj) => (
+                    <option key={proj.id} value={proj.id}>{proj.project_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Date</label>
+                <input
+                  type="date"
+                  value={editFormData.date}
+                  onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Starting Location</label>
+                <input
+                  type="text"
+                  value={editFormData.starting_location}
+                  onChange={(e) => setEditFormData({ ...editFormData, starting_location: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Destination</label>
+                <input
+                  type="text"
+                  value={editFormData.destination}
+                  onChange={(e) => setEditFormData({ ...editFormData, destination: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Miles Driven</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editFormData.miles_driven}
+                    onChange={(e) => setEditFormData({ ...editFormData, miles_driven: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Rate ($/mi)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editFormData.reimbursement_rate}
+                    onChange={(e) => setEditFormData({ ...editFormData, reimbursement_rate: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Notes</label>
+                <textarea
+                  value={editFormData.notes}
+                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 px-4 py-2 rounded-lg hover:opacity-80 transition"
+                  style={{ border: `1px solid var(--color-border)`, backgroundColor: 'white', color: 'var(--color-navy)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEditedEntry}
+                  className="flex-1 px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
+                  style={{ backgroundColor: 'var(--color-navy)' }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
