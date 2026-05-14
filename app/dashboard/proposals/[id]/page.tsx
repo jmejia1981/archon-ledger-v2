@@ -252,6 +252,7 @@ export default function ProposalDetailPage() {
       companyState = (companyData as any).state || ''
       companyZip = (companyData as any).zip || ''
     }
+    console.log('[PDF] company:', { companyName, companyEmail, companyPhone, companyData, companyError })
 
     let clientCompany = ''
     let clientPhone = ''
@@ -267,6 +268,7 @@ export default function ProposalDetailPage() {
         clientCompany = (clientData as any).company_name || ''
         clientPhone = (clientData as any).phone || ''
       }
+      console.log('[PDF] client:', { clientCompany, clientPhone, clientData, clientError })
     }
 
     return {
