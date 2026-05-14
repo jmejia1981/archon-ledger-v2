@@ -81,7 +81,7 @@ function statusBadge(bill: VendorBill) {
   const balance = bill.amount - bill.amount_paid
   const overdue = new Date(bill.due_date) < new Date() && balance > 0
 
-  let label = bill.status
+  let label: string = bill.status
   let bg = '#f3f4f6'
   let color = '#374151'
 
