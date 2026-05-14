@@ -422,46 +422,6 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <RevenueChart monthlyRevenueData={chartData} />
-        <BudgetVsActualChart budgetVsActualData={allData ? allData.projects.map((p: any) => ({
-          name: p.project_name,
-          budget: p.contract_budget || 0,
-          actual: (allData.expenses || []).filter((e: any) => e.project_id === p.id).reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
-        })) : []} />
-        <ExpenseBreakdownChart expenseCategoryData={allData ? Object.entries(
-          (allData.expenses || []).reduce((acc: any, e: any) => {
-            const cat = e.category || 'Other'
-            acc[cat] = (acc[cat] || 0) + (e.amount || 0)
-            return acc
-          }, {})
-        ).map(([name, value]) => ({ name, value })) : []} />
-        <CashflowChart cashflowData={allData ? Object.entries(
-          (allData.invoices || []).reduce((acc: any, inv: any) => {
-            const date = new Date(inv.created_at || new Date())
-            const weekKey = `Week ${Math.ceil(date.getDate() / 7)}`
-            acc[weekKey] = (acc[weekKey] || 0) + (inv.invoice_amount || inv.amount || 0)
-            return acc
-          }, {})
-        ).map(([name, value]) => ({ name, value })) : []} />
-        <ProfitTrendChart monthlyRevenueData={chartData} />
-      </div>
-
-      {/* Widgets Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {[
-          { title: 'Projects Nearing Budget Limit', count: '0' },
-          { title: 'Overdue Invoices', count: '0' },
-          { title: 'Pending Approvals', count: '0' },
-        ].map((widget, idx) => (
-          <div key={idx} className="bg-white rounded-lg p-6 shadow-sm" style={{ border: `1px solid var(--color-border)` }}>
-            <h3 className="font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>{widget.title}</h3>
-            <p className="text-3xl font-bold" style={{ color: 'var(--color-gold)' }}>{widget.count}</p>
-          </div>
-        ))}
-      </div>
-
       {/* Tax Estimate */}
       <div
         onClick={() => openDetail('Estimated Taxes Breakdown', [
@@ -491,31 +451,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-
-      {/* Detail Modal */}
-      {detailModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={() => setDetailModal(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>{detailModal.title}</h2>
-              <button onClick={() => setDetailModal(null)} className="p-1 hover:bg-black/10 rounded transition">
-                <X className="w-5 h-5" style={{ color: 'var(--color-navy)' }} />
-              </button>
-            </div>
-            <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
-              {detailModal.rows.map((row, i) => (
-                <div key={i} className="flex items-center justify-between px-6 py-4">
-                  <span className="text-sm" style={{ color: 'var(--color-muted)' }}>{row.label}</span>
-                  <div className="text-right">
-                    <span className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{row.value}</span>
-                    {row.sub && <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>{row.sub}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Recurring Overhead Expenses */}
       {allData && (() => {
@@ -580,6 +515,72 @@ export default function DashboardPage() {
           </div>
         )
       })()}
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <RevenueChart monthlyRevenueData={chartData} />
+        <BudgetVsActualChart budgetVsActualData={allData ? allData.projects.map((p: any) => ({
+          name: p.project_name,
+          budget: p.contract_budget || 0,
+          actual: (allData.expenses || []).filter((e: any) => e.project_id === p.id).reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+        })) : []} />
+        <ExpenseBreakdownChart expenseCategoryData={allData ? Object.entries(
+          (allData.expenses || []).reduce((acc: any, e: any) => {
+            const cat = e.category || 'Other'
+            acc[cat] = (acc[cat] || 0) + (e.amount || 0)
+            return acc
+          }, {})
+        ).map(([name, value]) => ({ name, value })) : []} />
+        <CashflowChart cashflowData={allData ? Object.entries(
+          (allData.invoices || []).reduce((acc: any, inv: any) => {
+            const date = new Date(inv.created_at || new Date())
+            const weekKey = `Week ${Math.ceil(date.getDate() / 7)}`
+            acc[weekKey] = (acc[weekKey] || 0) + (inv.invoice_amount || inv.amount || 0)
+            return acc
+          }, {})
+        ).map(([name, value]) => ({ name, value })) : []} />
+        <ProfitTrendChart monthlyRevenueData={chartData} />
+      </div>
+
+      {/* Widgets Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {[
+          { title: 'Projects Nearing Budget Limit', count: '0' },
+          { title: 'Overdue Invoices', count: '0' },
+          { title: 'Pending Approvals', count: '0' },
+        ].map((widget, idx) => (
+          <div key={idx} className="bg-white rounded-lg p-6 shadow-sm" style={{ border: `1px solid var(--color-border)` }}>
+            <h3 className="font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>{widget.title}</h3>
+            <p className="text-3xl font-bold" style={{ color: 'var(--color-gold)' }}>{widget.count}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Detail Modal */}
+      {detailModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={() => setDetailModal(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>{detailModal.title}</h2>
+              <button onClick={() => setDetailModal(null)} className="p-1 hover:bg-black/10 rounded transition">
+                <X className="w-5 h-5" style={{ color: 'var(--color-navy)' }} />
+              </button>
+            </div>
+            <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+              {detailModal.rows.map((row, i) => (
+                <div key={i} className="flex items-center justify-between px-6 py-4">
+                  <span className="text-sm" style={{ color: 'var(--color-muted)' }}>{row.label}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{row.value}</span>
+                    {row.sub && <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>{row.sub}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
