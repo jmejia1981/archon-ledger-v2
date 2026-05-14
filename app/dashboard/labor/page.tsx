@@ -64,7 +64,7 @@ export default function LaborPage() {
     status: 'pending',
   })
 
-  const [weekStartDate, setWeekStartDate] = useState(getThursday(new Date()).toISOString().split('T')[0])
+  const [weekStartDate, setWeekStartDate] = useState(getThursday(new Date()))
   const [weeklyData, setWeeklyData] = useState<Record<string, WeeklyDayEntry>>({
     thu: { hours: '' },
     fri: { hours: '' },
@@ -80,11 +80,15 @@ export default function LaborPage() {
     const day = d.getDay()
     const daysFromThu = (day + 3) % 7
     d.setDate(d.getDate() - daysFromThu)
-    return d
+    // Return local date string to avoid UTC-offset shifting the date
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${dd}`
   }
 
   function getWeekDays(startDate: string) {
-    const start = new Date(startDate)
+    const start = new Date(startDate + 'T00:00:00')
     const days = []
     const dayNames = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed']
     const dayKeys = ['thu', 'fri', 'sat', 'sun', 'mon', 'tue', 'wed']
@@ -451,7 +455,7 @@ export default function LaborPage() {
 
   const formatWeekRange = (weekStart: string) => {
     const start = new Date(weekStart + 'T00:00:00')
-    const end = new Date(start)
+    const end = new Date(weekStart + 'T00:00:00')
     end.setDate(end.getDate() + 6)  // Wed
     const f = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const year = end.getFullYear()
