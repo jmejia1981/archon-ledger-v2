@@ -88,7 +88,7 @@ export default function ExpensesPage() {
       )
     }
 
-    setFilteredExpenses(filtered)
+    setFilteredExpenses([...filtered].sort((a, b) => b.date.localeCompare(a.date)))
   }, [expenses, statusFilter, searchTerm])
 
   // Handle create expense
