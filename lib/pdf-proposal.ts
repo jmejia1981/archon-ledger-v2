@@ -13,6 +13,10 @@ interface ProposalData {
   clientCompany?: string
   clientEmail?: string
   clientPhone?: string
+  clientAddress?: string
+  clientCity?: string
+  clientState?: string
+  clientZip?: string
   projectName?: string
   projectAddress?: string
   projectCity?: string
@@ -207,7 +211,8 @@ export function generateProposalPDF(data: ProposalData) {
   let fromY = yPosition
   let toY = yPosition
 
-  if (data.clientCompany) {
+  // Only show company name if it differs from client name
+  if (data.clientCompany && data.clientCompany.trim().toLowerCase() !== data.clientName.trim().toLowerCase()) {
     doc.setFont('helvetica', 'italic')
     doc.text(data.clientCompany, rightColumnX, toY)
     doc.setFont('helvetica', 'normal')
@@ -227,6 +232,11 @@ export function generateProposalPDF(data: ProposalData) {
   }
   if (data.clientPhone) {
     doc.text(data.clientPhone, rightColumnX, toY)
+    toY += 4
+  }
+  const clientAddrLine = [data.clientAddress, data.clientCity, data.clientState, data.clientZip].filter(Boolean).join(', ')
+  if (clientAddrLine) {
+    doc.text(clientAddrLine, rightColumnX, toY)
     toY += 4
   }
 

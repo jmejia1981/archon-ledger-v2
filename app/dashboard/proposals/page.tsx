@@ -403,10 +403,14 @@ export default function ProposalsPage() {
       // Fetch client details
       let clientCompany = ''
       let clientPhone = ''
+      let clientAddress = ''
+      let clientCity = ''
+      let clientState = ''
+      let clientZip = ''
       if (proposal.client_id) {
         const { data: clientData, error: clientError } = await supabase
           .from('clients')
-          .select('company_name, phone, email')
+          .select('company_name, phone, email, address, city, state, zip')
           .eq('id', proposal.client_id)
           .single()
         if (clientError) {
@@ -414,6 +418,10 @@ export default function ProposalsPage() {
         } else if (clientData) {
           clientCompany = (clientData as any).company_name || ''
           clientPhone = (clientData as any).phone || ''
+          clientAddress = (clientData as any).address || ''
+          clientCity = (clientData as any).city || ''
+          clientState = (clientData as any).state || ''
+          clientZip = (clientData as any).zip || ''
         }
       }
 
@@ -425,6 +433,10 @@ export default function ProposalsPage() {
         clientCompany,
         clientEmail: fullProposal?.client_email || '',
         clientPhone,
+        clientAddress,
+        clientCity,
+        clientState,
+        clientZip,
         projectName: proposal.project_name,
         projectAddress: proposal.project_address,
         projectCity: fullProposal?.project_city || '',
