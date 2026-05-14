@@ -28,7 +28,6 @@ interface Project {
 
 interface WeeklyDayEntry {
   hours: string
-  site: string
 }
 
 export default function LaborPage() {
@@ -46,13 +45,13 @@ export default function LaborPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [listView, setListView] = useState<'entries' | 'week'>('entries')
   const [editWeeklyData, setEditWeeklyData] = useState<Record<string, WeeklyDayEntry>>({
-    mon: { hours: '', site: '' },
-    tue: { hours: '', site: '' },
-    wed: { hours: '', site: '' },
-    thu: { hours: '', site: '' },
-    fri: { hours: '', site: '' },
-    sat: { hours: '', site: '' },
-    sun: { hours: '', site: '' },
+    mon: { hours: '' },
+    tue: { hours: '' },
+    wed: { hours: '' },
+    thu: { hours: '' },
+    fri: { hours: '' },
+    sat: { hours: '' },
+    sun: { hours: '' },
   })
 
   const [formData, setFormData] = useState({
@@ -67,13 +66,13 @@ export default function LaborPage() {
 
   const [weekStartDate, setWeekStartDate] = useState(getMonday(new Date()).toISOString().split('T')[0])
   const [weeklyData, setWeeklyData] = useState<Record<string, WeeklyDayEntry>>({
-    mon: { hours: '', site: '' },
-    tue: { hours: '', site: '' },
-    wed: { hours: '', site: '' },
-    thu: { hours: '', site: '' },
-    fri: { hours: '', site: '' },
-    sat: { hours: '', site: '' },
-    sun: { hours: '', site: '' },
+    mon: { hours: '' },
+    tue: { hours: '' },
+    wed: { hours: '' },
+    thu: { hours: '' },
+    fri: { hours: '' },
+    sat: { hours: '' },
+    sun: { hours: '' },
   })
 
   function getMonday(date: Date) {
@@ -256,13 +255,13 @@ export default function LaborPage() {
             status: 'pending',
           })
           setWeeklyData({
-            mon: { hours: '', site: '' },
-            tue: { hours: '', site: '' },
-            wed: { hours: '', site: '' },
-            thu: { hours: '', site: '' },
-            fri: { hours: '', site: '' },
-            sat: { hours: '', site: '' },
-            sun: { hours: '', site: '' },
+            mon: { hours: '' },
+            tue: { hours: '' },
+            wed: { hours: '' },
+            thu: { hours: '' },
+            fri: { hours: '' },
+            sat: { hours: '' },
+            sun: { hours: '' },
           })
           setShowNewLaborForm(false)
           alert(`${data.length} labor entries created successfully!`)
@@ -298,13 +297,13 @@ export default function LaborPage() {
       const totalHours = entry.regular_hours
       const hoursPerDay = totalHours / 5 // Assume 5 working days
       setEditWeeklyData({
-        mon: { hours: hoursPerDay.toString(), site: '' },
-        tue: { hours: hoursPerDay.toString(), site: '' },
-        wed: { hours: hoursPerDay.toString(), site: '' },
-        thu: { hours: hoursPerDay.toString(), site: '' },
-        fri: { hours: hoursPerDay.toString(), site: '' },
-        sat: { hours: '0', site: '' },
-        sun: { hours: '0', site: '' },
+        mon: { hours: hoursPerDay.toString() },
+        tue: { hours: hoursPerDay.toString() },
+        wed: { hours: hoursPerDay.toString() },
+        thu: { hours: hoursPerDay.toString() },
+        fri: { hours: hoursPerDay.toString() },
+        sat: { hours: '0' },
+        sun: { hours: '0' },
       })
     }
 
@@ -698,13 +697,13 @@ export default function LaborPage() {
                         onChange={(e) => {
                           setWeekStartDate(e.target.value)
                           setWeeklyData({
-                            mon: { hours: '', site: '' },
-                            tue: { hours: '', site: '' },
-                            wed: { hours: '', site: '' },
-                            thu: { hours: '', site: '' },
-                            fri: { hours: '', site: '' },
-                            sat: { hours: '', site: '' },
-                            sun: { hours: '', site: '' },
+                            mon: { hours: '' },
+                            tue: { hours: '' },
+                            wed: { hours: '' },
+                            thu: { hours: '' },
+                            fri: { hours: '' },
+                            sat: { hours: '' },
+                            sun: { hours: '' },
                           })
                         }}
                         className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
@@ -731,31 +730,13 @@ export default function LaborPage() {
                             onChange={(e) =>
                               setWeeklyData({
                                 ...weeklyData,
-                                [day.key]: { ...weeklyData[day.key], hours: e.target.value },
+                                [day.key]: { hours: e.target.value },
                               })
                             }
                             placeholder="0"
-                            className="w-full px-2 py-1 rounded text-center border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition mb-2"
+                            className="w-full px-2 py-1 rounded text-center border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
                             style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
                           />
-                          <select
-                            id={`labor-week_site-${day.key}`}
-                            name={`week_site-${day.key}`}
-                            value={weeklyData[day.key].site}
-                            onChange={(e) =>
-                              setWeeklyData({
-                                ...weeklyData,
-                                [day.key]: { ...weeklyData[day.key], site: e.target.value },
-                              })
-                            }
-                            className="w-full px-1 py-1 rounded text-xs border appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                            style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                          >
-                            <option value="">Site</option>
-                            <option value="site_a">Site A</option>
-                            <option value="site_b">Site B</option>
-                            <option value="site_c">Site C</option>
-                          </select>
                         </div>
                       ))}
                     </div>
@@ -1103,7 +1084,7 @@ export default function LaborPage() {
                           onChange={(e) =>
                             setEditWeeklyData({
                               ...editWeeklyData,
-                              [day.key]: { ...editWeeklyData[day.key], hours: e.target.value },
+                              [day.key]: { hours: e.target.value },
                             })
                           }
                           placeholder="0"
