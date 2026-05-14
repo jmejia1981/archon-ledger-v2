@@ -342,7 +342,6 @@ export default function DashboardPage() {
       href: '/dashboard/reports',
     },
     { label: 'Active Projects', key: 'activeProjects', icon: Briefcase, color: 'text-slate-600', isCount: true, href: '/dashboard/projects' },
-    { label: 'Active Clients', key: 'activeClients', icon: Users, color: 'text-slate-600', isCount: true, href: '/dashboard/clients' },
   ]
 
   if (loading) {
