@@ -273,12 +273,14 @@ export function generateProposalPDF(data: ProposalData) {
   doc.setTextColor(...COLORS.darkText)
 
   let locationY = yPosition + 5
-  doc.text(`Address: ${data.projectAddress || 'N/A'}`, rightColumnX, locationY)
-  locationY += 4
-  const cityStateZip = [data.projectCity, data.projectState, data.projectZip]
-    .filter(x => x)
-    .join(', ')
-  doc.text(`City/State/Zip: ${cityStateZip || 'N/A'}`, rightColumnX, locationY)
+  if (data.projectAddress) {
+    doc.text(data.projectAddress, rightColumnX, locationY)
+    locationY += 4
+  }
+  const cityStateZip = [data.projectCity, data.projectState, data.projectZip].filter(Boolean).join(', ')
+  if (cityStateZip) {
+    doc.text(cityStateZip, rightColumnX, locationY)
+  }
 
   yPosition += 28
 
