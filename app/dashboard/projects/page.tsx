@@ -24,7 +24,7 @@ export default function ProjectsPage() {
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [showNewProjectForm, setShowNewProjectForm] = useState(false)
   const [formData, setFormData] = useState({
     project_number: '',
