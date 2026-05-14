@@ -12,6 +12,13 @@ import {
   AlertCircle,
   CheckCircle,
   X,
+  Mail,
+  Phone,
+  MapPin,
+  User,
+  Building2,
+  Calendar,
+  CreditCard,
 } from 'lucide-react'
 import { Breadcrumbs } from '@/app/components/breadcrumbs'
 import { SkeletonTable } from '@/app/components/skeleton-loader'
@@ -72,6 +79,7 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
 
+  const [viewingClient, setViewingClient] = useState<Client | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<FormData>(initialFormData)
@@ -339,7 +347,7 @@ export default function ClientsPage() {
                 </tr>
               ) : (
                 filteredClients.map((client) => (
-                  <tr key={client.id} className="border-t hover:bg-gray-50 transition" style={{ borderColor: 'var(--color-border)' }}>
+                  <tr key={client.id} className="border-t hover:bg-gray-50 transition cursor-pointer" style={{ borderColor: 'var(--color-border)' }} onDoubleClick={() => setViewingClient(client)}>
                     <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>
                       {client.name}
                     </td>
@@ -402,8 +410,9 @@ export default function ClientsPage() {
             filteredClients.map((client) => (
               <div
                 key={client.id}
-                className="rounded-lg border p-6 hover:shadow-lg transition"
+                className="rounded-lg border p-6 hover:shadow-lg transition cursor-pointer"
                 style={{ borderColor: 'var(--color-border)' }}
+                onDoubleClick={() => setViewingClient(client)}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -725,6 +734,136 @@ export default function ClientsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Client Detail Panel */}
+      {viewingClient && (
+        <div className="fixed inset-0 z-50 flex" onClick={() => setViewingClient(null)}>
+          <div className="flex-1 bg-black bg-opacity-40" />
+          <div
+            className="w-full max-w-md bg-white h-full overflow-y-auto shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style={{ backgroundColor: 'var(--color-navy)' }}>
+                  {viewingClient.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold leading-tight" style={{ color: 'var(--color-navy)' }}>{viewingClient.name}</h2>
+                  {viewingClient.company_name && viewingClient.company_name !== viewingClient.name && (
+                    <p className="text-sm text-gray-500">{viewingClient.company_name}</p>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => setViewingClient(null)} className="p-1 rounded hover:bg-gray-200 transition">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Status badge */}
+            <div className="px-6 pt-5">
+              <span
+                className="px-3 py-1 rounded-full text-xs font-semibold"
+                style={{
+                  backgroundColor: viewingClient.status === 'active' ? '#e8f5e9' : '#f5f5f5',
+                  color: viewingClient.status === 'active' ? '#2e7d32' : '#666',
+                }}
+              >
+                {viewingClient.status === 'active' ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+
+            {/* Details */}
+            <div className="px-6 py-5 flex-1 space-y-5">
+              {/* Contact */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--color-muted)' }}>Contact</h3>
+                <div className="space-y-3">
+                  {viewingClient.email && (
+                    <div className="flex items-center gap-3">
+                      <Mail className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-navy)' }} />
+                      <a href={`mailto:${viewingClient.email}`} className="text-sm hover:underline" style={{ color: 'var(--color-navy)' }}>{viewingClient.email}</a>
+                    </div>
+                  )}
+                  {viewingClient.phone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-navy)' }} />
+                      <a href={`tel:${viewingClient.phone}`} className="text-sm hover:underline" style={{ color: 'var(--color-navy)' }}>{viewingClient.phone}</a>
+                    </div>
+                  )}
+                  {viewingClient.contact_person && (
+                    <div className="flex items-center gap-3">
+                      <User className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-navy)' }} />
+                      <span className="text-sm" style={{ color: 'var(--color-navy)' }}>{viewingClient.contact_person}</span>
+                    </div>
+                  )}
+                  {viewingClient.company_name && (
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-navy)' }} />
+                      <span className="text-sm" style={{ color: 'var(--color-navy)' }}>{viewingClient.company_name}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Address */}
+              {(viewingClient.address || viewingClient.city) && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--color-muted)' }}>Address</h3>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--color-navy)' }} />
+                    <div className="text-sm" style={{ color: 'var(--color-navy)' }}>
+                      {viewingClient.address && <p>{viewingClient.address}</p>}
+                      {(viewingClient.city || viewingClient.state || viewingClient.zip) && (
+                        <p>{[viewingClient.city, viewingClient.state, viewingClient.zip].filter(Boolean).join(', ')}</p>
+                      )}
+                      {viewingClient.country && <p>{viewingClient.country}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Business */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--color-muted)' }}>Business</h3>
+                <div className="space-y-3">
+                  {viewingClient.payment_terms && (
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-navy)' }} />
+                      <span className="text-sm" style={{ color: 'var(--color-navy)' }}>Payment Terms: {viewingClient.payment_terms}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-navy)' }} />
+                    <span className="text-sm" style={{ color: 'var(--color-navy)' }}>
+                      Client since {new Date(viewingClient.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div className="px-6 py-4 border-t flex gap-3" style={{ borderColor: 'var(--color-border)' }}>
+              <button
+                onClick={() => { setViewingClient(null); handleOpenForm(viewingClient) }}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition hover:bg-gray-50"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}
+              >
+                <Edit className="w-4 h-4" /> Edit
+              </button>
+              <button
+                onClick={() => { setViewingClient(null); setDeleteConfirm(viewingClient.id) }}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition hover:bg-red-50"
+                style={{ color: '#dc2626', border: '1px solid #fecaca' }}
+              >
+                <Trash2 className="w-4 h-4" /> Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
