@@ -224,18 +224,40 @@ export default function ExpensesPage() {
     }
   }
 
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 1200
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height * MAX) / width); width = MAX }
+          else { width = Math.round((width * MAX) / height); height = MAX }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.82)
+      }
+      img.src = url
+    })
+  }
+
   const handleReceiptUpload = async (file: File, onSuccess: (url: string) => void) => {
     setUploadingReceipt(true)
     try {
-      const ext = file.name.split('.').pop() || 'jpg'
-      const fileName = `expenses/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage.from('receipts').upload(fileName, file, { contentType: file.type })
+      const compressed = await compressImage(file)
+      const fileName = `expenses/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+      const { error } = await supabase.storage.from('receipts').upload(fileName, compressed, { contentType: 'image/jpeg' })
       if (error) throw error
       const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(fileName)
       onSuccess(publicUrl)
     } catch (error) {
       console.error('Error uploading receipt:', error)
-      alert('Failed to upload receipt. Please ensure the "receipts" bucket exists in Supabase Storage and is set to Public.')
+      alert('Failed to upload receipt.')
     } finally {
       setUploadingReceipt(false)
     }
