@@ -384,22 +384,22 @@ export default function DashboardLayout({
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-4 md:p-8 pb-20 lg:pb-8">
+        <main className="flex-1 overflow-auto p-4 md:p-8 pb-24 lg:pb-8">
           {children}
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex border-t" style={{ backgroundColor: 'white', borderColor: 'var(--color-border)' }}>
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex border-t safe-area-pb" style={{ backgroundColor: 'white', borderColor: 'var(--color-border)' }}>
           {bottomNavItems.map((item) => {
             const Icon = item.icon
-            const isActive = item.href ? pathname === item.href : false
+            const isActive = item.href ? pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) : false
             if (item.href === null) {
               return (
                 <button
                   key="more"
                   onClick={() => setSidebarOpen(true)}
-                  className="flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-all"
-                  style={{ color: 'var(--color-muted)' }}
+                  className="flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-all"
+                  style={{ color: sidebarOpen ? 'var(--color-navy)' : 'var(--color-muted)' }}
                 >
                   <Icon className="w-6 h-6" />
                   <span className="text-xs font-medium">More</span>
@@ -410,12 +410,14 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-all"
+                className="flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-all relative"
                 style={{ color: isActive ? 'var(--color-navy)' : 'var(--color-muted)' }}
               >
+                {isActive && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ backgroundColor: 'var(--color-navy)' }} />
+                )}
                 <Icon className="w-6 h-6" />
                 <span className="text-xs font-medium">{item.label}</span>
-                {isActive && <div className="absolute bottom-0 w-8 h-0.5 rounded-full" style={{ backgroundColor: 'var(--color-navy)' }} />}
               </Link>
             )
           })}

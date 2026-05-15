@@ -449,56 +449,97 @@ export default function MileagePage() {
           <p style={{ color: 'var(--color-muted)' }}>No mileage entries found. Record your first trip to get started!</p>
         </div>
       ) : (
-        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-          <table className="w-full min-w-[640px]">
-            <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Date</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Employee</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Route</th>
-                <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Miles</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Reimbursement</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEntries.map((entry) => (
-                <tr
-                  key={entry.id}
-                  style={{ borderBottom: `1px solid var(--color-border)`, cursor: 'pointer' }}
-                  className="hover:opacity-75 transition"
-                  onDoubleClick={() => handleEditMileageEntry(entry)}
-                >
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</td>
-                  <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(entry.project_id)}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>
-                    <div className="flex items-center gap-1">
-                      <Navigation className="w-4 h-4" />
-                      <span>{entry.starting_location} → {entry.destination}</span>
+        <>
+          {/* Mobile cards */}
+          <div className="sm:hidden space-y-3">
+            {filteredEntries.map((entry) => (
+              <div
+                key={entry.id}
+                className="bg-white rounded-xl p-4 active:opacity-75"
+                style={{ border: `1px solid var(--color-border)` }}
+                onClick={() => handleEditMileageEntry(entry)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-base" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</p>
+                    <div className="flex items-center gap-1 text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>
+                      <Navigation className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{entry.starting_location} → {entry.destination}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-center font-medium" style={{ color: 'var(--color-navy)' }}>
-                    {entry.miles_driven.toFixed(1)}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
-                    {formatCurrency(calculateReimbursement(entry))}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <button
-                      onClick={() => handleDeleteMileageEntry(entry.id)}
-                      className="hover:opacity-80 transition"
-                      style={{ color: 'var(--color-destructive)' }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                      {formatDate(entry.date)} · {getProjectName(entry.project_id)}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-lg" style={{ color: 'var(--color-navy)' }}>{formatCurrency(calculateReimbursement(entry))}</p>
+                    <p className="text-sm" style={{ color: 'var(--color-muted)' }}>{entry.miles_driven.toFixed(1)} mi</p>
+                  </div>
+                </div>
+                <div className="flex justify-end mt-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteMileageEntry(entry.id) }}
+                    className="p-1.5 rounded hover:bg-red-50 transition"
+                    style={{ color: 'var(--color-destructive)' }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+            <table className="w-full min-w-[640px]">
+              <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Date</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Employee</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Route</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Miles</th>
+                  <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Reimbursement</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredEntries.map((entry) => (
+                  <tr
+                    key={entry.id}
+                    style={{ borderBottom: `1px solid var(--color-border)`, cursor: 'pointer' }}
+                    className="hover:opacity-75 transition"
+                    onDoubleClick={() => handleEditMileageEntry(entry)}
+                  >
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</td>
+                    <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(entry.project_id)}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>
+                      <div className="flex items-center gap-1">
+                        <Navigation className="w-4 h-4" />
+                        <span>{entry.starting_location} → {entry.destination}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-center font-medium" style={{ color: 'var(--color-navy)' }}>
+                      {entry.miles_driven.toFixed(1)}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
+                      {formatCurrency(calculateReimbursement(entry))}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <button
+                        onClick={() => handleDeleteMileageEntry(entry.id)}
+                        className="hover:opacity-80 transition"
+                        style={{ color: 'var(--color-destructive)' }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
       {/* Edit Modal */}
       {showEditModal && editFormData && (

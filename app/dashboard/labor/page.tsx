@@ -881,65 +881,117 @@ export default function LaborPage() {
           <p style={{ color: 'var(--color-muted)' }}>No labor entries found. Record hours to get started!</p>
         </div>
       ) : listView === 'entries' ? (
-        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-          <table className="w-full min-w-[640px]">
-            <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Date</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Employee</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
-                <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Regular Hours</th>
-                <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Overtime Hours</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Labor Cost</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEntries.map((entry) => (
-                <tr
-                  key={entry.id}
-                  style={{ borderBottom: `1px solid var(--color-border)`, cursor: 'pointer' }}
-                  className="hover:opacity-75 transition"
-                  onDoubleClick={() => handleEditLaborEntry(entry)}
-                >
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</td>
-                  <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(entry.project_id)}</td>
-                  <td className="px-6 py-4 text-sm text-center" style={{ color: 'var(--color-navy)' }}>{entry.regular_hours.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm text-center" style={{ color: 'var(--color-navy)' }}>{entry.overtime_hours.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
-                    {formatCurrency(calculateLaborCost(entry))}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[entry.status]}`}>
-                      {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm flex gap-2">
+        <>
+          {/* Mobile cards */}
+          <div className="sm:hidden space-y-3">
+            {filteredEntries.map((entry) => (
+              <div
+                key={entry.id}
+                className="bg-white rounded-xl p-4 active:opacity-75"
+                style={{ border: `1px solid var(--color-border)` }}
+                onClick={() => handleEditLaborEntry(entry)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-base" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</p>
+                    <p className="text-sm truncate mt-0.5" style={{ color: 'var(--color-muted)' }}>{getProjectName(entry.project_id)}</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-lg" style={{ color: 'var(--color-navy)' }}>{formatCurrency(calculateLaborCost(entry))}</p>
+                    <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
+                      {entry.regular_hours.toFixed(1)}h{entry.overtime_hours > 0 ? ` + ${entry.overtime_hours.toFixed(1)}h OT` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColors[entry.status]}`}>
+                    {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
+                  </span>
+                  <div className="flex gap-1">
                     {entry.status === 'pending' && (
                       <button
-                        onClick={() => handleApproveLaborEntry(entry.id)}
+                        onClick={(e) => { e.stopPropagation(); handleApproveLaborEntry(entry.id) }}
+                        className="p-1.5 rounded hover:bg-green-50 transition"
                         style={{ color: 'var(--color-success)' }}
-                        className="hover:opacity-80 transition"
-                        title="Approve"
                       >
                         <CheckCircle className="w-4 h-4" />
                       </button>
                     )}
                     <button
-                      onClick={() => handleDeleteLaborEntry(entry.id)}
-                      className="hover:opacity-80 transition"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteLaborEntry(entry.id) }}
+                      className="p-1.5 rounded hover:bg-red-50 transition"
                       style={{ color: 'var(--color-destructive)' }}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                  </td>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+            <table className="w-full min-w-[640px]">
+              <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Date</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Employee</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Regular Hours</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Overtime Hours</th>
+                  <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Labor Cost</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredEntries.map((entry) => (
+                  <tr
+                    key={entry.id}
+                    style={{ borderBottom: `1px solid var(--color-border)`, cursor: 'pointer' }}
+                    className="hover:opacity-75 transition"
+                    onDoubleClick={() => handleEditLaborEntry(entry)}
+                  >
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</td>
+                    <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(entry.project_id)}</td>
+                    <td className="px-6 py-4 text-sm text-center" style={{ color: 'var(--color-navy)' }}>{entry.regular_hours.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-sm text-center" style={{ color: 'var(--color-navy)' }}>{entry.overtime_hours.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
+                      {formatCurrency(calculateLaborCost(entry))}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[entry.status]}`}>
+                        {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm flex gap-2">
+                      {entry.status === 'pending' && (
+                        <button
+                          onClick={() => handleApproveLaborEntry(entry.id)}
+                          style={{ color: 'var(--color-success)' }}
+                          className="hover:opacity-80 transition"
+                          title="Approve"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteLaborEntry(entry.id)}
+                        className="hover:opacity-80 transition"
+                        style={{ color: 'var(--color-destructive)' }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
         /* Weekly grouped view — each week → each employee */
         <div className="space-y-6">

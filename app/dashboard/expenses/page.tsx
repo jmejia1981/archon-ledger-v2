@@ -628,7 +628,7 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* Expenses Table */}
+      {/* Expenses List */}
       {loading ? (
         <div className="text-center py-12" style={{ color: 'var(--color-muted)' }}>
           <p>Loading expenses...</p>
@@ -638,7 +638,61 @@ export default function ExpensesPage() {
           <p style={{ color: 'var(--color-muted)' }}>No expenses found. Record your first expense to get started!</p>
         </div>
       ) : (
-        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+        <>
+          {/* Mobile cards */}
+          <div className="sm:hidden space-y-3">
+            {filteredExpenses.map((expense) => (
+              <div
+                key={expense.id}
+                className="bg-white rounded-xl p-4 active:opacity-75"
+                style={{ border: `1px solid var(--color-border)` }}
+                onDoubleClick={() => handleOpenExpense(expense)}
+                onClick={() => handleOpenExpense(expense)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-base truncate" style={{ color: 'var(--color-navy)' }}>{expense.vendor}</p>
+                    <p className="text-sm truncate mt-0.5" style={{ color: 'var(--color-muted)' }}>{expense.description}</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>{formatDate(expense.date)} · {getProjectName(expense.project_id)}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-lg" style={{ color: 'var(--color-navy)' }}>{formatCurrency(expense.amount)}</p>
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[expense.approval_status]}`}>
+                      {expense.approval_status.charAt(0).toUpperCase() + expense.approval_status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+                {expense.tax_category && (
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded text-xs font-medium" style={{ backgroundColor: '#e8f0fe', color: '#1a3a6b' }}>
+                      {expense.tax_category}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteExpense(expense.id) }}
+                      className="p-1"
+                      style={{ color: 'var(--color-destructive)' }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                {!expense.tax_category && (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteExpense(expense.id) }}
+                      className="p-1"
+                      style={{ color: 'var(--color-destructive)' }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
           <table className="w-full min-w-[640px]">
             <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
               <tr>
@@ -694,7 +748,8 @@ export default function ExpensesPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {/* Edit Expense Modal */}
