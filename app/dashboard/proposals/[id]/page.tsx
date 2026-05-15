@@ -531,57 +531,57 @@ export default function ProposalDetailPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:opacity-80 transition"
-            style={{ color: 'var(--color-navy)' }}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>
+      <div className="flex items-start gap-3">
+        <button
+          onClick={() => router.back()}
+          className="p-2 hover:opacity-80 transition flex-shrink-0 mt-1"
+          style={{ color: 'var(--color-navy)' }}
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>
               {proposal.proposal_number}
             </h1>
-            <p style={{ color: 'var(--color-muted)' }}>{proposal.client_name}</p>
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[proposal.status]}`}>
+              {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
+            </span>
           </div>
+          <p style={{ color: 'var(--color-muted)' }}>{proposal.client_name}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {proposal.status === 'draft' && (
             <button
               onClick={handleApproveProposal}
               disabled={isApproving}
-              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 text-sm"
               style={{ backgroundColor: '#28a745' }}
               title="Approve proposal and create project"
             >
               <CheckCircle className="w-4 h-4" />
-              {isApproving ? 'Approving...' : 'Approve'}
+              <span className="hidden sm:inline">{isApproving ? 'Approving...' : 'Approve'}</span>
             </button>
           )}
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition font-medium"
+            className="flex items-center gap-1.5 px-3 py-2 text-white rounded-lg hover:opacity-90 transition font-medium text-sm"
             style={{ backgroundColor: '#0066cc' }}
             title="Download proposal as PDF"
           >
             <Download className="w-4 h-4" />
-            Download PDF
+            <span className="hidden sm:inline">Download PDF</span>
           </button>
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[proposal.status]}`}>
-            {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
-          </span>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Section - Proposal Details */}
-        <div className="col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           {/* Quick Stats */}
           <div className="rounded-lg p-6" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Proposal Date</p>
                 <p className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>
@@ -686,7 +686,7 @@ export default function ProposalDetailPage() {
         </div>
 
         {/* Right Section - Actions and Edit */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:col-span-1">
           {/* Action Buttons */}
           <div className="rounded-lg p-6 space-y-3" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
             <button
