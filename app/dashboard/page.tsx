@@ -360,12 +360,12 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
-          <h1 className="text-4xl font-playfair font-bold mb-2" style={{ color: 'var(--color-navy)' }}>Dashboard</h1>
+          <h1 className="text-3xl sm:text-4xl font-playfair font-bold mb-1 sm:mb-2" style={{ color: 'var(--color-navy)' }}>Dashboard</h1>
           <p style={{ color: 'var(--color-muted)' }}>Executive overview of your construction business</p>
         </div>
-        <div style={{ width: '300px' }}>
+        <div className="w-full sm:w-72 flex-shrink-0">
           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-muted)' }}>
             View by Project
           </label>
@@ -433,7 +433,7 @@ export default function DashboardPage() {
         className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition cursor-pointer group"
         style={{ border: `1px solid var(--color-border)` }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>Estimated Taxes</h2>
@@ -441,7 +441,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>30% of net profit — set aside for tax obligations</p>
           </div>
-          <div className="text-right">
+          <div className="sm:text-right">
             <p className="text-3xl font-bold" style={{ color: metrics.netProfit > 0 ? '#dc2626' : 'var(--color-muted)' }}>
               {formatCurrency(Math.max(metrics.netProfit * 0.3, 0))}
             </p>
@@ -461,12 +461,12 @@ export default function DashboardPage() {
 
         return (
           <div className="bg-white rounded-lg shadow-sm" style={{ border: `1px solid var(--color-border)` }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
               <div>
                 <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>Recurring Overhead Expenses</h2>
                 <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>Monthly fixed costs</p>
               </div>
-              <div className="text-right">
+              <div className="sm:text-right">
                 <p className="text-xs uppercase tracking-wide mb-0.5" style={{ color: 'var(--color-muted)' }}>Monthly Total</p>
                 <p className="text-xl font-bold" style={{ color: 'var(--color-navy)' }}>{formatCurrency(monthlyTotal)}</p>
               </div>
@@ -477,6 +477,7 @@ export default function DashboardPage() {
                 No recurring overhead expenses recorded yet.
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full min-w-[640px]">
                 <thead style={{ backgroundColor: 'var(--color-linen)' }}>
                   <tr>
@@ -511,6 +512,7 @@ export default function DashboardPage() {
                   </tr>
                 </tfoot>
               </table>
+              </div>
             )}
           </div>
         )
