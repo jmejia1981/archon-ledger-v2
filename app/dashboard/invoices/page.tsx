@@ -494,7 +494,7 @@ export default function InvoicesPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     Invoice Date
@@ -531,7 +531,7 @@ export default function InvoicesPage() {
                 </label>
                 <div className="space-y-3 mb-3">
                   {lineItems.map((item, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2">
+                    <div key={index} className="flex gap-2">
                       <input
                         type="text"
                         id={`invoices-line_description-${index}`}
@@ -543,7 +543,7 @@ export default function InvoicesPage() {
                           setLineItems(newItems)
                         }}
                         placeholder="Item description"
-                        className="col-span-8 px-3 py-2 rounded-lg border text-sm"
+                        className="flex-1 px-3 py-2 rounded-lg border text-sm"
                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
                       />
                       <input
@@ -558,15 +558,15 @@ export default function InvoicesPage() {
                           setLineItems(newItems)
                         }}
                         placeholder="Amount"
-                        className="col-span-2 px-3 py-2 rounded-lg border text-sm"
+                        className="w-24 px-3 py-2 rounded-lg border text-sm"
                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
                       />
                       <button
                         type="button"
                         onClick={() => setLineItems(lineItems.filter((_, i) => i !== index))}
-                        className="col-span-2 px-2 py-2 text-red-600 hover:bg-red-50 rounded text-sm"
+                        className="px-2 py-2 text-red-600 hover:bg-red-50 rounded text-sm flex-shrink-0"
                       >
-                        Remove
+                        ✕
                       </button>
                     </div>
                   ))}
@@ -581,7 +581,7 @@ export default function InvoicesPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     Subtotal (Auto)
@@ -805,76 +805,129 @@ export default function InvoicesPage() {
           <p style={{ color: 'var(--color-muted)' }}>No invoices found. Create your first invoice to get started!</p>
         </div>
       ) : (
-        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-          <table className="w-full min-w-[640px]">
-            <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Invoice #</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Client</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Invoice Date</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Due Date</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Amount</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Outstanding</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredInvoices.map((invoice) => (
-                <tr
-                  key={invoice.id}
-                  style={{ borderBottom: `1px solid var(--color-border)`, cursor: 'pointer' }}
-                  className="hover:opacity-75"
-                  onDoubleClick={() => handleViewInvoice(invoice)}
-                >
-                  <td className="px-6 py-4 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{invoice.invoice_number}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getClientName(invoice.client_id)}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(invoice.project_id)}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(invoice.invoice_date)}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(invoice.due_date)}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
-                    {formatCurrency(invoice.invoice_amount)}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
-                    {formatCurrency(getOutstandingBalance(invoice))}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[invoice.status]}`}>
+        <>
+          {/* Mobile cards */}
+          <div className="sm:hidden space-y-3">
+            {filteredInvoices.map((invoice) => (
+              <div
+                key={invoice.id}
+                className="bg-white rounded-xl p-4 active:opacity-75"
+                style={{ border: `1px solid var(--color-border)` }}
+                onClick={() => handleViewInvoice(invoice)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm" style={{ color: 'var(--color-navy)' }}>{invoice.invoice_number}</p>
+                    <p className="font-semibold text-base mt-0.5 truncate" style={{ color: 'var(--color-navy)' }}>{getClientName(invoice.client_id)}</p>
+                    <p className="text-sm truncate mt-0.5" style={{ color: 'var(--color-muted)' }}>{getProjectName(invoice.project_id)}</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                      Due {formatDate(invoice.due_date)}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-lg" style={{ color: 'var(--color-navy)' }}>{formatCurrency(invoice.invoice_amount)}</p>
+                    {getOutstandingBalance(invoice) > 0 && (
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--color-destructive)' }}>
+                        {formatCurrency(getOutstandingBalance(invoice))} due
+                      </p>
+                    )}
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[invoice.status]}`}>
                       {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm flex gap-2">
-                    <button
-                      onClick={() => handleViewInvoice(invoice)}
-                      style={{ color: 'var(--color-navy)' }}
-                      className="hover:opacity-80 transition"
-                      title="View invoice"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDownloadInvoicePDF(invoice)}
-                      style={{ color: 'var(--color-secondary)' }}
-                      className="hover:opacity-80 transition"
-                      title="Download as PDF"
-                    >
-                      <FileDown className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteInvoice(invoice.id)}
-                      className="hover:opacity-80 transition"
-                      style={{ color: 'var(--color-destructive)' }}
-                      title="Delete invoice"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-1 mt-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDownloadInvoicePDF(invoice) }}
+                    className="p-1.5 rounded hover:bg-gray-100 transition"
+                    style={{ color: 'var(--color-secondary)' }}
+                  >
+                    <FileDown className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id) }}
+                    className="p-1.5 rounded hover:bg-red-50 transition"
+                    style={{ color: 'var(--color-destructive)' }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+            <table className="w-full min-w-[640px]">
+              <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Invoice #</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Client</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Invoice Date</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Due Date</th>
+                  <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Amount</th>
+                  <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Outstanding</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredInvoices.map((invoice) => (
+                  <tr
+                    key={invoice.id}
+                    style={{ borderBottom: `1px solid var(--color-border)`, cursor: 'pointer' }}
+                    className="hover:opacity-75"
+                    onDoubleClick={() => handleViewInvoice(invoice)}
+                  >
+                    <td className="px-6 py-4 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{invoice.invoice_number}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getClientName(invoice.client_id)}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(invoice.project_id)}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(invoice.invoice_date)}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(invoice.due_date)}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
+                      {formatCurrency(invoice.invoice_amount)}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
+                      {formatCurrency(getOutstandingBalance(invoice))}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[invoice.status]}`}>
+                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm flex gap-2">
+                      <button
+                        onClick={() => handleViewInvoice(invoice)}
+                        style={{ color: 'var(--color-navy)' }}
+                        className="hover:opacity-80 transition"
+                        title="View invoice"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDownloadInvoicePDF(invoice)}
+                        style={{ color: 'var(--color-secondary)' }}
+                        className="hover:opacity-80 transition"
+                        title="Download as PDF"
+                      >
+                        <FileDown className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteInvoice(invoice.id)}
+                        className="hover:opacity-80 transition"
+                        style={{ color: 'var(--color-destructive)' }}
+                        title="Delete invoice"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Invoice Modal */}

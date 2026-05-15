@@ -542,7 +542,7 @@ export default function InvoiceDetailPage() {
         <div className="bg-white rounded-lg p-6 space-y-6" style={{ border: `1px solid var(--color-border)` }}>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>Edit Invoice</h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Invoice Number</label>
               <input
@@ -570,7 +570,7 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Client</label>
               <select
@@ -601,7 +601,7 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Invoice Date</label>
               <input
@@ -649,13 +649,13 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="space-y-2">
               {editLineItems.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                <div key={idx} className="flex flex-wrap gap-2 items-center">
                   <input
                     type="text"
                     placeholder="Description"
                     value={item.description}
                     onChange={(e) => updateEditLineItem(idx, 'description', e.target.value)}
-                    className="col-span-5 px-3 py-2 rounded-lg border text-sm"
+                    className="flex-1 min-w-[160px] px-3 py-2 rounded-lg border text-sm"
                     style={{ borderColor: 'var(--color-border)' }}
                   />
                   <input
@@ -663,7 +663,7 @@ export default function InvoiceDetailPage() {
                     placeholder="Qty"
                     value={item.quantity}
                     onChange={(e) => updateEditLineItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                    className="col-span-2 px-3 py-2 rounded-lg border text-sm"
+                    className="w-16 px-3 py-2 rounded-lg border text-sm"
                     style={{ borderColor: 'var(--color-border)' }}
                   />
                   <input
@@ -671,15 +671,15 @@ export default function InvoiceDetailPage() {
                     placeholder="Unit Price"
                     value={item.unit_price}
                     onChange={(e) => updateEditLineItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                    className="col-span-2 px-3 py-2 rounded-lg border text-sm"
+                    className="w-24 px-3 py-2 rounded-lg border text-sm"
                     style={{ borderColor: 'var(--color-border)' }}
                   />
-                  <div className="col-span-2 px-3 py-2 text-sm font-medium text-right" style={{ color: 'var(--color-navy)' }}>
+                  <div className="w-24 px-3 py-2 text-sm font-medium text-right" style={{ color: 'var(--color-navy)' }}>
                     {formatCurrency(item.amount)}
                   </div>
                   <button
                     onClick={() => removeLineItem(idx)}
-                    className="col-span-1 flex justify-center hover:opacity-70 transition"
+                    className="p-2 hover:opacity-70 transition flex-shrink-0"
                     style={{ color: 'var(--color-destructive, #dc2626)' }}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -689,7 +689,7 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Subtotal</label>
               <input
@@ -801,7 +801,7 @@ export default function InvoiceDetailPage() {
       {recordingPayment && (
         <div className="bg-white rounded-lg p-6 space-y-4" style={{ border: `1px solid var(--color-border)` }}>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>Record Payment</h2>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Amount</label>
               <input

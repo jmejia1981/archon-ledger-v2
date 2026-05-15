@@ -272,9 +272,9 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}
-        <div className="col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           {/* Project Information */}
           <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
@@ -296,7 +296,7 @@ export default function ProjectDetailPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                       Contract Budget
@@ -369,7 +369,7 @@ export default function ProjectDetailPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Status</p>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold inline-block ${statusColors[project.status || 'active']}`}>

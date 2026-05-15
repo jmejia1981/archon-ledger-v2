@@ -306,7 +306,7 @@ export default function ClientsPage() {
 
       {/* Table View */}
       {!loading && viewMode === 'table' && (
-        <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="rounded-lg border overflow-x-auto" style={{ borderColor: 'var(--color-border)' }}>
           <table className="w-full min-w-[640px]">
             <thead style={{ backgroundColor: 'var(--color-linen)' }}>
               <tr>
