@@ -70,32 +70,47 @@ export default function AnalyticsPage() {
     const loadAnalyticsData = async () => {
       try {
         // Fetch all data
-        const [invoicesRes, expensesRes, projectsRes, clientsRes] = await Promise.all([
+        const [invoicesRes, expensesRes, projectsRes, clientsRes, laborRes, employeesRes] = await Promise.all([
           supabase.from('invoices').select('*'),
           supabase.from('expenses').select('*'),
           supabase.from('projects').select('*'),
           supabase.from('clients').select('*'),
+          supabase.from('labor_entries').select('*'),
+          supabase.from('employees').select('id, hourly_rate, overtime_rate'),
         ])
 
         const invoices = invoicesRes.data || []
         const expenses = expensesRes.data || []
         const projects = projectsRes.data || []
         const clients = clientsRes.data || []
+        const laborEntries = laborRes.data || []
+        const employees = employeesRes.data || []
+
+        const employeeMap = Object.fromEntries(employees.map((e: any) => [e.id, e]))
 
         // Calculate project metrics
         const projMetrics = projects.map((proj) => {
           const projInvoices = invoices.filter((inv) => inv.project_id === proj.id)
           const projExpenses = expenses.filter((exp) => exp.project_id === proj.id)
+          const projLabor = laborEntries.filter((l: any) => l.project_id === proj.id)
 
           const revenue = projInvoices.reduce((sum, inv) => sum + (inv.invoice_amount || 0), 0)
           const expenseAmount = projExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
-          const profit = revenue - expenseAmount
+          const laborCost = projLabor.reduce((sum: number, l: any) => {
+            const emp = employeeMap[l.employee_id]
+            const rate = emp?.hourly_rate || 0
+            const otRate = emp?.overtime_rate || rate * 1.5
+            return sum + (l.regular_hours || 0) * rate + (l.overtime_hours || 0) * otRate
+          }, 0)
+          const totalCosts = expenseAmount + laborCost
+          const profit = revenue - totalCosts
           const profitMargin = revenue > 0 ? (profit / revenue) * 100 : 0
 
           return {
             name: proj.project_name,
             revenue,
-            expenses: expenseAmount,
+            expenses: totalCosts,
+            laborCost,
             profit,
             profitMargin,
             status: proj.status || 'active',
@@ -168,7 +183,13 @@ export default function AnalyticsPage() {
         // Calculate KPIs
         const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.invoice_amount || 0), 0)
         const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
-        const totalProfit = totalRevenue - totalExpenses
+        const totalLaborCost = laborEntries.reduce((sum: number, l: any) => {
+          const emp = employeeMap[l.employee_id]
+          const rate = emp?.hourly_rate || 0
+          const otRate = emp?.overtime_rate || rate * 1.5
+          return sum + (l.regular_hours || 0) * rate + (l.overtime_hours || 0) * otRate
+        }, 0)
+        const totalProfit = totalRevenue - totalExpenses - totalLaborCost
         const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0
 
         const topProjMetrics = projMetrics.length > 0 ? projMetrics.reduce((max, p) => (p.profit > max.profit ? p : max)) : null
