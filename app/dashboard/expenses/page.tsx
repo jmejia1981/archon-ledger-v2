@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, X, Save, RefreshCw } from 'lucide-react'
+import { Plus, Search, Trash2, X, Save, RefreshCw, Camera } from 'lucide-react'
 
 interface Expense {
   id: string
@@ -36,6 +36,7 @@ export default function ExpensesPage() {
   const [editFormData, setEditFormData] = useState<typeof formData | null>(null)
   const [saving, setSaving] = useState(false)
   const [recordingId, setRecordingId] = useState<string | null>(null)
+  const [uploadingReceipt, setUploadingReceipt] = useState(false)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     vendor: '',
@@ -220,6 +221,23 @@ export default function ExpensesPage() {
       alert('Failed to record expense')
     } finally {
       setRecordingId(null)
+    }
+  }
+
+  const handleReceiptUpload = async (file: File, onSuccess: (url: string) => void) => {
+    setUploadingReceipt(true)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const fileName = `expenses/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage.from('receipts').upload(fileName, file, { contentType: file.type })
+      if (error) throw error
+      const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(fileName)
+      onSuccess(publicUrl)
+    } catch (error) {
+      console.error('Error uploading receipt:', error)
+      alert('Failed to upload receipt. Please ensure the "receipts" bucket exists in Supabase Storage and is set to Public.')
+    } finally {
+      setUploadingReceipt(false)
     }
   }
 
@@ -492,15 +510,40 @@ export default function ExpensesPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Receipt URL</label>
-                <input
-                  type="url"
-                  value={formData.receiptUrl}
-                  onChange={(e) => setFormData({ ...formData, receiptUrl: e.target.value })}
-                  placeholder="https://example.com/receipt.pdf"
-                  className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
-                />
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Receipt</label>
+                {formData.receiptUrl ? (
+                  <div className="space-y-2">
+                    <a href={formData.receiptUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <img src={formData.receiptUrl} alt="Receipt" className="w-full max-h-40 object-contain rounded-lg border" style={{ borderColor: 'var(--color-border)' }} />
+                    </a>
+                    <div className="flex gap-2">
+                      <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border cursor-pointer hover:bg-gray-50 transition text-sm font-medium" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                        <Camera className="w-4 h-4" />
+                        Change
+                        <input type="file" accept="image/*" capture="environment" className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (url) => setFormData(prev => ({ ...prev, receiptUrl: url }))) }} />
+                      </label>
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, receiptUrl: '' }))}
+                        className="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50 transition"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-destructive)' }}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed cursor-pointer hover:bg-gray-50 transition" style={{ borderColor: 'var(--color-border)' }}>
+                    {uploadingReceipt ? (
+                      <span className="text-sm" style={{ color: 'var(--color-muted)' }}>Uploading...</span>
+                    ) : (
+                      <>
+                        <Camera className="w-6 h-6" style={{ color: 'var(--color-muted)' }} />
+                        <span className="text-sm font-medium" style={{ color: 'var(--color-muted)' }}>Take Photo or Upload</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (url) => setFormData(prev => ({ ...prev, receiptUrl: url }))) }} />
+                  </label>
+                )}
               </div>
 
               <div>
@@ -651,7 +694,10 @@ export default function ExpensesPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-base truncate" style={{ color: 'var(--color-navy)' }}>{expense.vendor}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-base truncate" style={{ color: 'var(--color-navy)' }}>{expense.vendor}</p>
+                      {expense.receipt_url && <Camera className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-muted)' }} />}
+                    </div>
                     <p className="text-sm truncate mt-0.5" style={{ color: 'var(--color-muted)' }}>{expense.description}</p>
                     <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>{formatDate(expense.date)} · {getProjectName(expense.project_id)}</p>
                   </div>
@@ -835,9 +881,40 @@ export default function ExpensesPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Receipt URL</label>
-                <input type="url" value={editFormData.receiptUrl} onChange={(e) => setEditFormData({ ...editFormData, receiptUrl: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--color-border)' }} placeholder="https://" />
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Receipt</label>
+                {editFormData.receiptUrl ? (
+                  <div className="space-y-2">
+                    <a href={editFormData.receiptUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <img src={editFormData.receiptUrl} alt="Receipt" className="w-full max-h-40 object-contain rounded-lg border" style={{ borderColor: 'var(--color-border)' }} />
+                    </a>
+                    <div className="flex gap-2">
+                      <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border cursor-pointer hover:bg-gray-50 transition text-sm font-medium" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
+                        <Camera className="w-4 h-4" />
+                        Change
+                        <input type="file" accept="image/*" capture="environment" className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (url) => setEditFormData(prev => prev ? { ...prev, receiptUrl: url } : prev)) }} />
+                      </label>
+                      <button type="button" onClick={() => setEditFormData(prev => prev ? { ...prev, receiptUrl: '' } : prev)}
+                        className="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50 transition"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-destructive)' }}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-2 w-full py-5 rounded-lg border-2 border-dashed cursor-pointer hover:bg-gray-50 transition" style={{ borderColor: 'var(--color-border)' }}>
+                    {uploadingReceipt ? (
+                      <span className="text-sm" style={{ color: 'var(--color-muted)' }}>Uploading...</span>
+                    ) : (
+                      <>
+                        <Camera className="w-5 h-5" style={{ color: 'var(--color-muted)' }} />
+                        <span className="text-sm font-medium" style={{ color: 'var(--color-muted)' }}>Take Photo or Upload</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (url) => setEditFormData(prev => prev ? { ...prev, receiptUrl: url } : prev)) }} />
+                  </label>
+                )}
               </div>
 
               <div>
