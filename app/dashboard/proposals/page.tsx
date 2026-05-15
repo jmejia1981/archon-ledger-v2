@@ -499,13 +499,30 @@ export default function ProposalsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-playfair font-bold mb-1" style={{ color: 'var(--color-navy)' }}>Proposals</h1>
+          <p style={{ color: 'var(--color-muted)' }}>Create and manage client proposals</p>
+        </div>
+        <button
+          onClick={handleOpenNewProposalForm}
+          className="flex items-center gap-2 text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition"
+          style={{ backgroundColor: 'var(--color-navy)' }}
+        >
+          <Plus className="w-5 h-5" />
+          <span className="hidden sm:inline">New Proposal</span>
+          <span className="sm:hidden">New</span>
+        </button>
+      </div>
+
       {/* New Proposal Form Modal */}
       {showNewProposalForm && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.05)' }}>
-          <div className="bg-white rounded-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto" style={{ border: `1px solid var(--color-border)` }}>
+        <div className="fixed inset-0 flex items-center justify-center z-50 px-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
+          <div className="bg-white rounded-lg p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto" style={{ border: `1px solid var(--color-border)` }}>
             <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--color-navy)' }}>Create New Proposal</h2>
             <form onSubmit={handleCreateProposal} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     Proposal Number
@@ -604,7 +621,7 @@ export default function ProposalsPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     Client Name *
@@ -638,7 +655,7 @@ export default function ProposalsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     Email
@@ -703,7 +720,7 @@ export default function ProposalsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     City
@@ -767,7 +784,7 @@ export default function ProposalsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     Payment Terms
@@ -838,7 +855,7 @@ export default function ProposalsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     City
@@ -886,7 +903,7 @@ export default function ProposalsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     Expiration Date
@@ -972,7 +989,7 @@ export default function ProposalsPage() {
                 </label>
                 <div className="space-y-3 mb-3">
                   {lineItems.map((item, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2">
+                    <div key={index} className="flex gap-2">
                       <input
                         type="text"
                         id={`proposals-line_description-${index}`}
@@ -984,7 +1001,7 @@ export default function ProposalsPage() {
                           setLineItems(newItems)
                         }}
                         placeholder="Item description"
-                        className="col-span-8 px-3 py-2 rounded-lg border text-sm"
+                        className="flex-1 px-3 py-2 rounded-lg border text-sm"
                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
                       />
                       <input
@@ -999,15 +1016,15 @@ export default function ProposalsPage() {
                           setLineItems(newItems)
                         }}
                         placeholder="Amount"
-                        className="col-span-2 px-3 py-2 rounded-lg border text-sm"
+                        className="w-24 px-3 py-2 rounded-lg border text-sm"
                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
                       />
                       <button
                         type="button"
                         onClick={() => setLineItems(lineItems.filter((_, i) => i !== index))}
-                        className="col-span-2 px-2 py-2 text-red-600 hover:bg-red-50 rounded text-sm"
+                        className="px-2 py-2 text-red-600 hover:bg-red-50 rounded text-sm flex-shrink-0"
                       >
-                        Remove
+                        ✕
                       </button>
                     </div>
                   ))}
@@ -1022,7 +1039,7 @@ export default function ProposalsPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
                     Subtotal (Auto)
@@ -1126,7 +1143,7 @@ export default function ProposalsPage() {
       )}
 
       {/* Controls */}
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-3 items-center">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
@@ -1146,25 +1163,16 @@ export default function ProposalsPage() {
           name="statusFilter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 rounded-lg border appearance-none pr-10"
+          className="px-3 py-2 rounded-lg border appearance-none"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
         >
-          <option value="all">All Status</option>
+          <option value="all">All</option>
           <option value="draft">Draft</option>
           <option value="sent">Sent</option>
           <option value="accepted">Accepted</option>
           <option value="rejected">Rejected</option>
           <option value="expired">Expired</option>
         </select>
-
-        <button
-          onClick={handleOpenNewProposalForm}
-          className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
-          style={{ backgroundColor: 'var(--color-navy)' }}
-        >
-          <Plus className="w-4 h-4" />
-          New Proposal
-        </button>
       </div>
 
       {/* Proposals Table */}
@@ -1177,72 +1185,121 @@ export default function ProposalsPage() {
           <p style={{ color: 'var(--color-muted)' }}>No proposals found. Create your first proposal to get started!</p>
         </div>
       ) : (
-        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-          <table className="w-full min-w-[640px]">
-            <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Proposal #</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Client</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Date</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Expires</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Amount</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProposals.map((proposal) => (
-                <tr
-                  key={proposal.id}
-                  style={{ borderBottom: `1px solid var(--color-border)` }}
-                  className="hover:opacity-75 cursor-pointer"
-                  onDoubleClick={() => router.push(`/dashboard/proposals/${proposal.id}`)}
-                >
-                  <td className="px-6 py-4 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{proposal.proposal_number}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{proposal.client_name}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{proposal.project_name || 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(proposal.proposal_date)}</td>
-                  <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{proposal.expiration_date ? formatDate(proposal.expiration_date) : 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
-                    {formatCurrency(proposal.total_amount)}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[proposal.status]}`}>
+        <>
+          {/* Mobile cards */}
+          <div className="sm:hidden space-y-3">
+            {filteredProposals.map((proposal) => (
+              <div
+                key={proposal.id}
+                className="bg-white rounded-xl p-4 active:opacity-75"
+                style={{ border: `1px solid var(--color-border)` }}
+                onClick={() => router.push(`/dashboard/proposals/${proposal.id}`)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm" style={{ color: 'var(--color-navy)' }}>{proposal.proposal_number}</p>
+                    <p className="font-semibold text-base mt-0.5 truncate" style={{ color: 'var(--color-navy)' }}>{proposal.client_name}</p>
+                    <p className="text-sm truncate mt-0.5" style={{ color: 'var(--color-muted)' }}>{proposal.project_name || 'No project'}</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                      {formatDate(proposal.proposal_date)}
+                      {proposal.expiration_date ? ` · Expires ${formatDate(proposal.expiration_date)}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-lg" style={{ color: 'var(--color-navy)' }}>{formatCurrency(proposal.total_amount)}</p>
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[proposal.status]}`}>
                       {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm flex gap-2">
-                    <button
-                      onClick={() => router.push(`/dashboard/proposals/${proposal.id}`)}
-                      style={{ color: 'var(--color-navy)' }}
-                      className="hover:opacity-80 transition"
-                      title="View proposal"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDownloadProposalPDF(proposal)}
-                      style={{ color: 'var(--color-secondary)' }}
-                      className="hover:opacity-80 transition"
-                      title="Download as PDF"
-                    >
-                      <FileDown className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProposal(proposal.id)}
-                      className="hover:opacity-80 transition"
-                      style={{ color: 'var(--color-destructive)' }}
-                      title="Delete proposal"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-1 mt-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDownloadProposalPDF(proposal) }}
+                    className="p-1.5 rounded hover:bg-gray-100 transition"
+                    style={{ color: 'var(--color-secondary)' }}
+                  >
+                    <FileDown className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteProposal(proposal.id) }}
+                    className="p-1.5 rounded hover:bg-red-50 transition"
+                    style={{ color: 'var(--color-destructive)' }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
+            <table className="w-full min-w-[640px]">
+              <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Proposal #</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Client</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Date</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Expires</th>
+                  <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Amount</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredProposals.map((proposal) => (
+                  <tr
+                    key={proposal.id}
+                    style={{ borderBottom: `1px solid var(--color-border)` }}
+                    className="hover:opacity-75 cursor-pointer"
+                    onDoubleClick={() => router.push(`/dashboard/proposals/${proposal.id}`)}
+                  >
+                    <td className="px-6 py-4 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{proposal.proposal_number}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{proposal.client_name}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{proposal.project_name || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(proposal.proposal_date)}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{proposal.expiration_date ? formatDate(proposal.expiration_date) : 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
+                      {formatCurrency(proposal.total_amount)}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[proposal.status]}`}>
+                        {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm flex gap-2">
+                      <button
+                        onClick={() => router.push(`/dashboard/proposals/${proposal.id}`)}
+                        style={{ color: 'var(--color-navy)' }}
+                        className="hover:opacity-80 transition"
+                        title="View proposal"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDownloadProposalPDF(proposal)}
+                        style={{ color: 'var(--color-secondary)' }}
+                        className="hover:opacity-80 transition"
+                        title="Download as PDF"
+                      >
+                        <FileDown className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProposal(proposal.id)}
+                        className="hover:opacity-80 transition"
+                        style={{ color: 'var(--color-destructive)' }}
+                        title="Delete proposal"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )
