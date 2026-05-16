@@ -28,6 +28,8 @@ import {
   Building2,
 } from 'lucide-react'
 
+const supabase = createClient()
+
 export default function DashboardLayout({
   children,
 }: {
@@ -42,7 +44,6 @@ export default function DashboardLayout({
   const notificationsRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = createClient()
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -73,7 +74,7 @@ export default function DashboardLayout({
     }
 
     checkAuth()
-  }, [router, supabase])
+  }, [router])
 
   const fetchNotifications = async (userId: string) => {
     try {
