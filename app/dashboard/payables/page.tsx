@@ -104,6 +104,102 @@ function statusBadge(bill: VendorBill) {
 
 const supabase = createClient()
 
+function BillForm({ data, onChange, onSave, onCancel, title, projects, saving }: {
+  data: typeof emptyForm
+  onChange: (d: typeof emptyForm) => void
+  onSave: () => void
+  onCancel: () => void
+  title: string
+  projects: Project[]
+  saving: boolean
+}) {
+  const inputClass = "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+  const inputStyle = { border: '1px solid var(--color-border)', backgroundColor: 'white' }
+  const labelClass = "block text-xs font-medium mb-1"
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--color-navy)' }}>{title}</h2>
+          <button onClick={onCancel}><X className="w-5 h-5 text-gray-400" /></button>
+        </div>
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="bill_number">Bill #</label>
+            <input id="bill_number" name="bill_number" type="text" className={inputClass} style={inputStyle}
+              value={data.bill_number} onChange={(e) => onChange({ ...data, bill_number: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="vendor">Vendor *</label>
+            <input id="vendor" name="vendor" type="text" className={inputClass} style={inputStyle}
+              value={data.vendor} onChange={(e) => onChange({ ...data, vendor: e.target.value })} required />
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="issue_date">Issue Date</label>
+            <input id="issue_date" name="issue_date" type="date" className={inputClass} style={inputStyle}
+              value={data.issue_date} onChange={(e) => onChange({ ...data, issue_date: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="due_date">Due Date *</label>
+            <input id="due_date" name="due_date" type="date" className={inputClass} style={inputStyle}
+              value={data.due_date} onChange={(e) => onChange({ ...data, due_date: e.target.value })} required />
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="amount">Amount *</label>
+            <input id="amount" name="amount" type="number" step="0.01" min="0" className={inputClass} style={inputStyle}
+              value={data.amount} onChange={(e) => onChange({ ...data, amount: e.target.value })} required />
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="amount_paid">Amount Paid</label>
+            <input id="amount_paid" name="amount_paid" type="number" step="0.01" min="0" className={inputClass} style={inputStyle}
+              value={data.amount_paid} onChange={(e) => onChange({ ...data, amount_paid: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="category">Category</label>
+            <select id="category" name="category" className={inputClass} style={inputStyle}
+              value={data.category} onChange={(e) => onChange({ ...data, category: e.target.value })}>
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="tax_category">IRS Schedule C</label>
+            <select id="tax_category" name="tax_category" className={inputClass} style={inputStyle}
+              value={data.tax_category} onChange={(e) => onChange({ ...data, tax_category: e.target.value })}>
+              <option value="">— Select —</option>
+              {TAX_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="project_id">Project (optional)</label>
+            <select id="project_id" name="project_id" className={inputClass} style={inputStyle}
+              value={data.project_id} onChange={(e) => onChange({ ...data, project_id: e.target.value })}>
+              <option value="">— None —</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.project_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="description">Description</label>
+            <input id="description" name="description" type="text" className={inputClass} style={inputStyle}
+              value={data.description} onChange={(e) => onChange({ ...data, description: e.target.value })} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="notes">Notes</label>
+            <textarea id="notes" name="notes" rows={2} className={inputClass} style={inputStyle}
+              value={data.notes} onChange={(e) => onChange({ ...data, notes: e.target.value })} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 px-6 pb-6">
+          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>Cancel</button>
+          <button onClick={onSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2" style={{ backgroundColor: 'var(--color-navy)', color: 'white' }}>
+            <Save className="w-4 h-4" />{saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PayablesPage() {
   const [bills, setBills] = useState<VendorBill[]>([])
   const [filtered, setFiltered] = useState<VendorBill[]>([])
@@ -269,97 +365,6 @@ export default function PayablesPage() {
     loadData()
   }
 
-  const inputClass = "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
-  const inputStyle = { border: '1px solid var(--color-border)', backgroundColor: 'white', focusRingColor: 'var(--color-gold)' }
-  const labelClass = "block text-xs font-medium mb-1"
-
-  const BillForm = ({ data, onChange, onSave, onCancel, title }: {
-    data: typeof emptyForm
-    onChange: (d: typeof emptyForm) => void
-    onSave: () => void
-    onCancel: () => void
-    title: string
-  }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: 'var(--color-border)' }}>
-          <h2 className="text-lg font-bold" style={{ color: 'var(--color-navy)' }}>{title}</h2>
-          <button onClick={onCancel}><X className="w-5 h-5 text-gray-400" /></button>
-        </div>
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="bill_number">Bill #</label>
-            <input id="bill_number" name="bill_number" type="text" className={inputClass} style={inputStyle}
-              value={data.bill_number} onChange={(e) => onChange({ ...data, bill_number: e.target.value })} />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="vendor">Vendor *</label>
-            <input id="vendor" name="vendor" type="text" className={inputClass} style={inputStyle}
-              value={data.vendor} onChange={(e) => onChange({ ...data, vendor: e.target.value })} required />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="issue_date">Issue Date</label>
-            <input id="issue_date" name="issue_date" type="date" className={inputClass} style={inputStyle}
-              value={data.issue_date} onChange={(e) => onChange({ ...data, issue_date: e.target.value })} />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="due_date">Due Date *</label>
-            <input id="due_date" name="due_date" type="date" className={inputClass} style={inputStyle}
-              value={data.due_date} onChange={(e) => onChange({ ...data, due_date: e.target.value })} required />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="amount">Amount *</label>
-            <input id="amount" name="amount" type="number" step="0.01" min="0" className={inputClass} style={inputStyle}
-              value={data.amount} onChange={(e) => onChange({ ...data, amount: e.target.value })} required />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="amount_paid">Amount Paid</label>
-            <input id="amount_paid" name="amount_paid" type="number" step="0.01" min="0" className={inputClass} style={inputStyle}
-              value={data.amount_paid} onChange={(e) => onChange({ ...data, amount_paid: e.target.value })} />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="category">Category</label>
-            <select id="category" name="category" className={inputClass} style={inputStyle}
-              value={data.category} onChange={(e) => onChange({ ...data, category: e.target.value })}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="tax_category">IRS Schedule C</label>
-            <select id="tax_category" name="tax_category" className={inputClass} style={inputStyle}
-              value={data.tax_category} onChange={(e) => onChange({ ...data, tax_category: e.target.value })}>
-              <option value="">— Select —</option>
-              {TAX_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="project_id">Project (optional)</label>
-            <select id="project_id" name="project_id" className={inputClass} style={inputStyle}
-              value={data.project_id} onChange={(e) => onChange({ ...data, project_id: e.target.value })}>
-              <option value="">— None —</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.project_name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="description">Description</label>
-            <input id="description" name="description" type="text" className={inputClass} style={inputStyle}
-              value={data.description} onChange={(e) => onChange({ ...data, description: e.target.value })} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="notes">Notes</label>
-            <textarea id="notes" name="notes" rows={2} className={inputClass} style={inputStyle}
-              value={data.notes} onChange={(e) => onChange({ ...data, notes: e.target.value })} />
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 px-6 pb-6">
-          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>Cancel</button>
-          <button onClick={onSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2" style={{ backgroundColor: 'var(--color-navy)', color: 'white' }}>
-            <Save className="w-4 h-4" />{saving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="text-gray-500">Loading...</div></div>
 
@@ -556,6 +561,8 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
           onSave={handleSave}
           onCancel={() => { setShowForm(false); setFormData(emptyForm) }}
           title="Add Vendor Bill"
+          projects={projects}
+          saving={saving}
         />
       )}
 
@@ -567,6 +574,8 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
           onSave={handleUpdate}
           onCancel={() => { setSelectedBill(null); setEditFormData(null) }}
           title="Edit Vendor Bill"
+          projects={projects}
+          saving={saving}
         />
       )}
 
