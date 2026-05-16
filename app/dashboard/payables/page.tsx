@@ -8,6 +8,7 @@ interface VendorBill {
   id: string
   bill_number: string
   vendor: string
+  vendor_id?: string
   project_id?: string
   project_name?: string
   issue_date: string
@@ -24,6 +25,11 @@ interface VendorBill {
 interface Project {
   id: string
   project_name: string
+}
+
+interface Vendor {
+  id: string
+  name: string
 }
 
 const TAX_CATEGORIES = [
@@ -62,6 +68,7 @@ const CATEGORIES = [
 const emptyForm = {
   bill_number: '',
   vendor: '',
+  vendor_id: '',
   project_id: '',
   issue_date: new Date().toISOString().split('T')[0],
   due_date: '',
@@ -104,19 +111,32 @@ function statusBadge(bill: VendorBill) {
 
 const supabase = createClient()
 
-function BillForm({ data, onChange, onSave, onCancel, title, projects, saving, saveError }: {
+function BillForm({ data, onChange, onSave, onCancel, title, projects, vendors, saving, saveError }: {
   data: typeof emptyForm
   onChange: (d: typeof emptyForm) => void
   onSave: () => void
   onCancel: () => void
   title: string
   projects: Project[]
+  vendors: Vendor[]
   saving: boolean
   saveError: string | null
 }) {
   const inputClass = "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
   const inputStyle = { border: '1px solid var(--color-border)', backgroundColor: 'white' }
   const labelClass = "block text-xs font-medium mb-1"
+  const isManual = data.vendor_id === '__manual__'
+
+  const handleVendorSelect = (vendorId: string) => {
+    if (vendorId === '__manual__') {
+      onChange({ ...data, vendor_id: '__manual__', vendor: '' })
+    } else if (vendorId === '') {
+      onChange({ ...data, vendor_id: '', vendor: '' })
+    } else {
+      const v = vendors.find(v => v.id === vendorId)
+      onChange({ ...data, vendor_id: vendorId, vendor: v?.name || '' })
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -132,9 +152,28 @@ function BillForm({ data, onChange, onSave, onCancel, title, projects, saving, s
               value={data.bill_number} onChange={(e) => onChange({ ...data, bill_number: e.target.value })} />
           </div>
           <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="vendor">Vendor *</label>
-            <input id="vendor" name="vendor" type="text" className={inputClass} style={inputStyle}
-              value={data.vendor} onChange={(e) => onChange({ ...data, vendor: e.target.value })} required />
+            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="vendor_id">Vendor *</label>
+            {vendors.length > 0 && !isManual ? (
+              <select id="vendor_id" name="vendor_id" className={inputClass} style={{ ...inputStyle, color: 'var(--color-navy)' }}
+                value={data.vendor_id} onChange={(e) => handleVendorSelect(e.target.value)} required={!isManual}>
+                <option value="">— Select vendor —</option>
+                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                <option value="__manual__">＋ Type a name manually</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <input id="vendor" name="vendor" type="text" className={inputClass} style={inputStyle}
+                  value={data.vendor} onChange={(e) => onChange({ ...data, vendor: e.target.value })}
+                  placeholder="Vendor name" required />
+                {vendors.length > 0 && (
+                  <button type="button" onClick={() => onChange({ ...data, vendor_id: '', vendor: '' })}
+                    className="px-2 py-1 rounded-lg text-xs border whitespace-nowrap"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}>
+                    Pick from list
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="issue_date">Issue Date</label>
@@ -210,6 +249,7 @@ export default function PayablesPage() {
   const [bills, setBills] = useState<VendorBill[]>([])
   const [filtered, setFiltered] = useState<VendorBill[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -225,9 +265,10 @@ export default function PayablesPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [billsRes, projectsRes] = await Promise.all([
+      const [billsRes, projectsRes, vendorsRes] = await Promise.all([
         supabase.from('vendor_bills').select('*').order('due_date', { ascending: true }),
         supabase.from('projects').select('id, project_name'),
+        supabase.from('vendors').select('id, name').order('name'),
       ])
 
       if (billsRes.error) {
@@ -247,6 +288,7 @@ export default function PayablesPage() {
 
       setBills(billData)
       setProjects(projectsRes.data || [])
+      setVendors(vendorsRes.data || [])
     } catch {
       setTableReady(false)
     } finally {
@@ -302,9 +344,11 @@ export default function PayablesPage() {
     setSaving(true)
     setSaveError(null)
     try {
+      const vendorId = formData.vendor_id && formData.vendor_id !== '__manual__' ? formData.vendor_id : null
       const payload = {
         bill_number: formData.bill_number,
         vendor: formData.vendor,
+        vendor_id: vendorId,
         project_id: formData.project_id || null,
         issue_date: formData.issue_date || null,
         due_date: formData.due_date,
@@ -333,9 +377,11 @@ export default function PayablesPage() {
     setSaving(true)
     setSaveError(null)
     try {
+      const vendorId = editFormData.vendor_id && editFormData.vendor_id !== '__manual__' ? editFormData.vendor_id : null
       const payload = {
         bill_number: editFormData.bill_number,
         vendor: editFormData.vendor,
+        vendor_id: vendorId,
         project_id: editFormData.project_id || null,
         issue_date: editFormData.issue_date || null,
         due_date: editFormData.due_date,
@@ -504,6 +550,7 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
                     setEditFormData({
                       bill_number: bill.bill_number || '',
                       vendor: bill.vendor,
+                      vendor_id: bill.vendor_id || (bill.vendor ? '__manual__' : ''),
                       project_id: bill.project_id || '',
                       issue_date: bill.issue_date || '',
                       due_date: bill.due_date,
@@ -573,6 +620,7 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
           onCancel={() => { setShowForm(false); setFormData(emptyForm); setSaveError(null) }}
           title="Add Vendor Bill"
           projects={projects}
+          vendors={vendors}
           saving={saving}
           saveError={saveError}
         />
@@ -587,6 +635,7 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
           onCancel={() => { setSelectedBill(null); setEditFormData(null); setSaveError(null) }}
           title="Edit Vendor Bill"
           projects={projects}
+          vendors={vendors}
           saving={saving}
           saveError={saveError}
         />
