@@ -51,8 +51,9 @@ const emptyForm = {
   notes: '',
 }
 
+const supabase = createClient()
+
 export default function VendorsPage() {
-  const supabase = createClient()
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [filtered, setFiltered] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,7 +69,7 @@ export default function VendorsPage() {
     const { data } = await supabase.from('vendors').select('*').order('name')
     setVendors(data || [])
     setLoading(false)
-  }, [supabase])
+  }, [])
 
   useEffect(() => { loadVendors() }, [loadVendors])
 
