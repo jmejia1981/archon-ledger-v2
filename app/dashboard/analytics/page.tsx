@@ -71,13 +71,14 @@ export default function AnalyticsPage() {
     const loadAnalyticsData = async () => {
       try {
         // Fetch all data
-        const [invoicesRes, expensesRes, projectsRes, clientsRes, laborRes, employeesRes] = await Promise.all([
+        const [invoicesRes, expensesRes, projectsRes, clientsRes, laborRes, employeesRes, billsRes] = await Promise.all([
           supabase.from('invoices').select('*'),
           supabase.from('expenses').select('*'),
           supabase.from('projects').select('*'),
           supabase.from('clients').select('*'),
           supabase.from('labor_entries').select('*'),
           supabase.from('employees').select('id, hourly_rate, overtime_rate'),
+          supabase.from('vendor_bills').select('*'),
         ])
 
         const invoices = invoicesRes.data || []
@@ -86,6 +87,7 @@ export default function AnalyticsPage() {
         const clients = clientsRes.data || []
         const laborEntries = laborRes.data || []
         const employees = employeesRes.data || []
+        const bills = billsRes.data || []
 
         const employeeMap = Object.fromEntries(employees.map((e: any) => [e.id, e]))
 
@@ -93,10 +95,12 @@ export default function AnalyticsPage() {
         const projMetrics = projects.map((proj) => {
           const projInvoices = invoices.filter((inv) => inv.project_id === proj.id)
           const projExpenses = expenses.filter((exp) => exp.project_id === proj.id)
+          const projBills = bills.filter((b: any) => b.project_id === proj.id)
           const projLabor = laborEntries.filter((l: any) => l.project_id === proj.id)
 
           const revenue = projInvoices.reduce((sum, inv) => sum + (inv.invoice_amount || 0), 0)
           const expenseAmount = projExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
+            + projBills.reduce((sum: number, b: any) => sum + (b.amount || 0), 0)
           const laborCost = projLabor.reduce((sum: number, l: any) => {
             const emp = employeeMap[l.employee_id]
             const rate = emp?.hourly_rate || 0
@@ -174,6 +178,17 @@ export default function AnalyticsPage() {
           trendObj[month].expenses += exp.amount || 0
         })
 
+        bills.forEach((bill: any) => {
+          const month = new Date(bill.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+          })
+          if (!trendObj[month]) {
+            trendObj[month] = { month, revenue: 0, expenses: 0 }
+          }
+          trendObj[month].expenses += bill.amount || 0
+        })
+
         const trends = Object.values(trendObj)
           .map((t: any) => ({
             ...t,
@@ -184,6 +199,7 @@ export default function AnalyticsPage() {
         // Calculate KPIs
         const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.invoice_amount || 0), 0)
         const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
+          + bills.reduce((sum: number, b: any) => sum + (b.amount || 0), 0)
         const totalLaborCost = laborEntries.reduce((sum: number, l: any) => {
           const emp = employeeMap[l.employee_id]
           const rate = emp?.hourly_rate || 0

@@ -75,13 +75,14 @@ export default function DashboardPage() {
       try {
         console.log('Starting dashboard data load...')
         // Fetch all necessary data
-        const [projectsRes, expensesRes, laborRes, mileageRes, invoicesRes, clientsRes] = await Promise.all([
+        const [projectsRes, expensesRes, laborRes, mileageRes, invoicesRes, clientsRes, billsRes] = await Promise.all([
           supabase.from('projects').select('*'),
           supabase.from('expenses').select('*'),
           supabase.from('labor_entries').select('*'),
           supabase.from('mileage_entries').select('*'),
           supabase.from('invoices').select('*'),
           supabase.from('clients').select('*'),
+          supabase.from('vendor_bills').select('*'),
         ])
 
         const employeesRes = await supabase.from('employees').select('id, name, hourly_rate')
@@ -120,7 +121,8 @@ export default function DashboardPage() {
             0
           ) || 0
 
-        const totalExpenses = expenses.data?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0
+        const billsTotal = billsRes.data?.reduce((sum, b) => sum + (b.amount || 0), 0) || 0
+        const totalExpenses = (expenses.data?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0) + billsTotal
         console.log('Total expenses:', totalExpenses)
 
         let laborCosts = 0
@@ -202,6 +204,7 @@ export default function DashboardPage() {
         setAllData({
           projects: projects.data || [],
           expenses: expenses.data || [],
+          bills: billsRes.data || [],
           labor: labor.data || [],
           mileage: mileage.data || [],
           invoices: invoices.data || [],
@@ -250,6 +253,7 @@ export default function DashboardPage() {
       : allData.projects.filter((p: any) => p.id === selectedProjectId)
 
     const filteredExpenses = filterByProject(allData.expenses, 'project_id')
+    const filteredBills = filterByProject(allData.bills || [], 'project_id')
     const filteredLabor = filterByProject(allData.labor, 'project_id')
     const filteredMileage = filterByProject(allData.mileage, 'project_id')
     const filteredInvoices = filterByProject(allData.invoices, 'project_id')
@@ -258,6 +262,7 @@ export default function DashboardPage() {
     const totalContractedRevenue = filteredProjects.reduce((sum: number, p: any) => sum + (p.contract_budget || 0), 0)
     const revisedContractValue = filteredProjects.reduce((sum: number, p: any) => sum + (p.contract_budget || 0), 0)
     const totalExpenses = filteredExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+      + filteredBills.reduce((sum: number, b: any) => sum + (b.amount || 0), 0)
 
     let laborCosts = 0
     filteredLabor.forEach((entry: any) => {
