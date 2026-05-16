@@ -26,6 +26,8 @@ interface Project {
   project_name: string
 }
 
+const supabase = createClient()
+
 export default function MileagePage() {
   const [mileageEntries, setMileageEntries] = useState<MileageEntry[]>([])
   const [filteredEntries, setFilteredEntries] = useState<MileageEntry[]>([])
@@ -47,8 +49,6 @@ export default function MileagePage() {
     reimbursement_rate: '0.65',
     notes: '',
   })
-
-  const supabase = createClient()
 
   // Load mileage entries, employees, and projects
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function MileagePage() {
     }
 
     loadData()
-  }, [supabase])
+  }, [])
 
   // Filter and search mileage entries
   useEffect(() => {

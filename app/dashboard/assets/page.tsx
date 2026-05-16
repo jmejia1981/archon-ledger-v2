@@ -65,6 +65,8 @@ function calcDepreciation(asset: FixedAsset, asOfYear?: number) {
   return { annualDepreciation, accumulatedDepreciation: accumulated, bookValue, fullyDepreciated }
 }
 
+const supabase = createClient()
+
 export default function AssetsPage() {
   const [assets, setAssets] = useState<FixedAsset[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,8 +78,6 @@ export default function AssetsPage() {
   const [saving, setSaving] = useState(false)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
 
-  const supabase = createClient()
-
   const loadAssets = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('fixed_assets').select('*').order('purchase_date', { ascending: false })
@@ -85,7 +85,7 @@ export default function AssetsPage() {
       setAssets(data || [])
     } catch { setTableReady(false) }
     finally { setLoading(false) }
-  }, [supabase])
+  }, [])
 
   useEffect(() => { loadAssets() }, [loadAssets])
 

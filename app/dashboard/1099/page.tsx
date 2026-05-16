@@ -17,6 +17,8 @@ function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(n)
 }
 
+const supabase = createClient()
+
 export default function Page1099() {
   const [vendors, setVendors] = useState<VendorSummary[]>([])
   const [filtered, setFiltered] = useState<VendorSummary[]>([])
@@ -27,8 +29,6 @@ export default function Page1099() {
   const [taxIds, setTaxIds] = useState<Record<string, string>>({})
   const [needs1099Flags, setNeeds1099Flags] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState<string | null>(null)
-
-  const supabase = createClient()
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -103,7 +103,7 @@ export default function Page1099() {
     } finally {
       setLoading(false)
     }
-  }, [selectedYear, supabase])
+  }, [selectedYear])
 
   useEffect(() => { loadData() }, [loadData])
 

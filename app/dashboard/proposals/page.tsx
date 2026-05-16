@@ -31,6 +31,8 @@ interface Client {
   phone?: string
 }
 
+const supabase = createClient()
+
 export default function ProposalsPage() {
   const router = useRouter()
   const [proposals, setProposals] = useState<Proposal[]>([])
@@ -75,8 +77,6 @@ export default function ProposalsPage() {
     { description: '', amount: '' }
   ])
 
-  const supabase = createClient()
-
   // Auto-calculate subtotal and total from line items
   useEffect(() => {
     const subtotal = lineItems.reduce((sum, item) => {
@@ -110,7 +110,7 @@ export default function ProposalsPage() {
     }
 
     loadData()
-  }, [supabase])
+  }, [])
 
   // Filter and search proposals
   useEffect(() => {

@@ -18,6 +18,8 @@ interface Project {
   created_at?: string
 }
 
+const supabase = createClient()
+
 export default function ProjectsPage() {
   const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
@@ -41,8 +43,6 @@ export default function ProjectsPage() {
 
   const [clients, setClients] = useState<any[]>([])
 
-  const supabase = createClient()
-
   // Load projects and clients
   useEffect(() => {
     const loadData = async () => {
@@ -62,7 +62,7 @@ export default function ProjectsPage() {
     }
 
     loadData()
-  }, [supabase])
+  }, [])
 
   // Filter and search projects
   useEffect(() => {

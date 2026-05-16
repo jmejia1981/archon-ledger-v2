@@ -65,8 +65,9 @@ const initialFormData: FormData = {
   status: 'active',
 }
 
+const supabase = createClient()
+
 export default function ClientsPage() {
-  const supabase = createClient()
   const router = useRouter()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)

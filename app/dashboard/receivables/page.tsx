@@ -20,6 +20,8 @@ interface Client {
   name: string
 }
 
+const supabase = createClient()
+
 export default function ReceivablesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([])
@@ -27,8 +29,6 @@ export default function ReceivablesPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('outstanding')
-
-  const supabase = createClient()
 
   // Load invoices and clients
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function ReceivablesPage() {
     }
 
     loadData()
-  }, [supabase])
+  }, [])
 
   // Filter and search invoices
   useEffect(() => {

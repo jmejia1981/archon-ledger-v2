@@ -48,6 +48,8 @@ interface LineItem {
   amount: string
 }
 
+const supabase = createClient()
+
 export default function ProposalDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -66,7 +68,6 @@ export default function ProposalDetailPage() {
   const [formData, setFormData] = useState<Partial<Proposal>>({})
   const [, setEditLineItems] = useState<LineItem[]>([])
 
-  const supabase = createClient()
   const editFormRef = useRef<HTMLDivElement>(null)
 
   // Load proposal and line items
@@ -103,7 +104,7 @@ export default function ProposalDetailPage() {
     if (proposalId) {
       loadProposal()
     }
-  }, [proposalId, supabase])
+  }, [proposalId])
 
   // Handle save changes
   const handleSaveChanges = async (e: React.FormEvent) => {

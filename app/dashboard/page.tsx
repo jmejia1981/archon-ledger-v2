@@ -42,6 +42,8 @@ interface Project {
   project_name: string
 }
 
+const supabase = createClient()
+
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalContractedRevenue: 0,
@@ -63,7 +65,6 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all')
   const [detailModal, setDetailModal] = useState<{ title: string; rows: { label: string; value: string; sub?: string }[] } | null>(null)
-  const supabase = createClient()
   const router = useRouter()
 
   // Store all data for filtering
@@ -233,7 +234,7 @@ export default function DashboardPage() {
     }
 
     loadDashboardData()
-  }, [supabase])
+  }, [])
 
   // Recalculate metrics when project selection changes
   useEffect(() => {

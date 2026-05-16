@@ -51,8 +51,9 @@ const initialFormData: PaymentFormData = {
   notes: '',
 }
 
+const supabase = createClient()
+
 export default function PaymentsPage() {
-  const supabase = createClient()
   const [payments, setPayments] = useState<Payment[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)

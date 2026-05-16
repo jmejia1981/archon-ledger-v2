@@ -39,6 +39,8 @@ interface ClientMetrics {
   averageInvoice: number
 }
 
+const supabase = createClient()
+
 export default function AnalyticsPage() {
   const [projectMetrics, setProjectMetrics] = useState<ProjectMetrics[]>([])
   const [clientMetrics, setClientMetrics] = useState<ClientMetrics[]>([])
@@ -53,7 +55,6 @@ export default function AnalyticsPage() {
     avgProjectProfit: 0,
   })
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -215,7 +216,7 @@ export default function AnalyticsPage() {
     }
 
     loadAnalyticsData()
-  }, [supabase])
+  }, [])
 
   if (loading) {
     return (

@@ -25,6 +25,8 @@ interface Employee {
   hourly_rate: number
 }
 
+const supabase = createClient()
+
 export default function PayrollPage() {
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
   const [filteredRecords, setFilteredRecords] = useState<PayrollRecord[]>([])
@@ -45,8 +47,6 @@ export default function PayrollPage() {
     reimbursements: '',
     status: 'pending',
   })
-
-  const supabase = createClient()
 
   // Load payroll records and employees
   useEffect(() => {
@@ -76,7 +76,7 @@ export default function PayrollPage() {
     }
 
     loadData()
-  }, [supabase])
+  }, [])
 
   // Filter and search payroll records
   useEffect(() => {

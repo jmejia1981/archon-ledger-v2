@@ -30,6 +30,8 @@ interface WeeklyDayEntry {
   hours: string
 }
 
+const supabase = createClient()
+
 export default function LaborPage() {
   const [laborEntries, setLaborEntries] = useState<LaborEntry[]>([])
   const [filteredEntries, setFilteredEntries] = useState<LaborEntry[]>([])
@@ -109,8 +111,6 @@ export default function LaborPage() {
   const weekDays = getWeekDays(weekStartDate)
   const totalWeeklyHours = Object.values(weeklyData).reduce((sum, day) => sum + (parseFloat(day.hours) || 0), 0)
 
-  const supabase = createClient()
-
   // Load labor entries, employees, and projects
   useEffect(() => {
     const loadData = async () => {
@@ -139,7 +139,7 @@ export default function LaborPage() {
     }
 
     loadData()
-  }, [supabase])
+  }, [])
 
   // Filter and search labor entries
   useEffect(() => {

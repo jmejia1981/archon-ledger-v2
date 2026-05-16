@@ -16,10 +16,11 @@ interface LineItem {
   amount: number
 }
 
+const supabase = createClient()
+
 export default function InvoiceDetailPage() {
   const params = useParams()
   const invoiceId = params.id as string
-  const supabase = createClient()
 
   const [invoice, setInvoice] = useState<any>(null)
   const [lineItems, setLineItems] = useState<LineItem[]>([])
@@ -104,7 +105,7 @@ export default function InvoiceDetailPage() {
     }
 
     loadData()
-  }, [invoiceId, supabase])
+  }, [invoiceId])
 
   // Recalculate invoice_amount from line items in edit mode
   useEffect(() => {

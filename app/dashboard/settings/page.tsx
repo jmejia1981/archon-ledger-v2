@@ -29,14 +29,14 @@ const defaultCompany: CompanySettings = {
   license_number: '',
 }
 
+const supabase = createClient()
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('company')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [company, setCompany] = useState<CompanySettings>(defaultCompany)
-
-  const supabase = createClient()
 
   const settingsTabs = [
     { id: 'company', label: 'Company', icon: Building2 },

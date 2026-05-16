@@ -53,6 +53,8 @@ interface Employee {
   hourly_rate: number | null
 }
 
+const supabase = createClient()
+
 export default function ProjectDetailPage() {
   const params = useParams()
   const projectId = params.id as string
@@ -72,8 +74,6 @@ export default function ProjectDetailPage() {
     description: '',
     status: 'active',
   })
-
-  const supabase = createClient()
 
   // Load project details
   useEffect(() => {
@@ -153,7 +153,7 @@ export default function ProjectDetailPage() {
     }
 
     loadProjectDetails()
-  }, [projectId, supabase])
+  }, [projectId])
 
   const handleSaveChanges = async () => {
     if (!project) return

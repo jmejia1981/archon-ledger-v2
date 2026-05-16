@@ -102,6 +102,8 @@ function statusBadge(bill: VendorBill) {
   )
 }
 
+const supabase = createClient()
+
 export default function PayablesPage() {
   const [bills, setBills] = useState<VendorBill[]>([])
   const [filtered, setFiltered] = useState<VendorBill[]>([])
@@ -117,8 +119,6 @@ export default function PayablesPage() {
   const [editFormData, setEditFormData] = useState<typeof emptyForm | null>(null)
   const [saving, setSaving] = useState(false)
   const [tableReady, setTableReady] = useState(true)
-
-  const supabase = createClient()
 
   const loadData = useCallback(async () => {
     try {
@@ -149,7 +149,7 @@ export default function PayablesPage() {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => { loadData() }, [loadData])
 

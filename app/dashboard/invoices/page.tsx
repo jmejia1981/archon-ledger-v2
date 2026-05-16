@@ -35,6 +35,8 @@ interface Project {
   project_name: string
 }
 
+const supabase = createClient()
+
 export default function InvoicesPage() {
   const router = useRouter()
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -62,8 +64,6 @@ export default function InvoicesPage() {
   const [lineItems, setLineItems] = useState([
     { description: '', amount: '' }
   ])
-
-  const supabase = createClient()
 
   // Auto-calculate invoice amount from line items
   useEffect(() => {
@@ -99,7 +99,7 @@ export default function InvoicesPage() {
     }
 
     loadData()
-  }, [supabase])
+  }, [])
 
   // Filter and search invoices
   useEffect(() => {

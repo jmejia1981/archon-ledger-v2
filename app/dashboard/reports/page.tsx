@@ -20,6 +20,8 @@ interface FinancialMetrics {
 interface PLLine { label: string; amount: number; indent?: boolean; bold?: boolean; separator?: boolean }
 interface BSLine  { label: string; amount: number; indent?: boolean; bold?: boolean; separator?: boolean }
 
+const supabase = createClient()
+
 export default function ReportsPage() {
   const [metrics, setMetrics] = useState<FinancialMetrics>({
     totalRevenue: 0, totalCollected: 0, totalExpenses: 0,
@@ -39,8 +41,6 @@ export default function ReportsPage() {
     startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
   })
-  const supabase = createClient()
-
   useEffect(() => {
     const loadReportsData = async () => {
       try {

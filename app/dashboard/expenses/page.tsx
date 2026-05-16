@@ -24,6 +24,8 @@ interface Project {
   project_name: string
 }
 
+const supabase = createClient()
+
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
@@ -51,8 +53,6 @@ export default function ExpensesPage() {
     monthlyEndDate: '',
   })
 
-  const supabase = createClient()
-
   // Load expenses and projects
   useEffect(() => {
     const loadData = async () => {
@@ -72,7 +72,7 @@ export default function ExpensesPage() {
     }
 
     loadData()
-  }, [supabase])
+  }, [])
 
   // Filter and search expenses
   useEffect(() => {

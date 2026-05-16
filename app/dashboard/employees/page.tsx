@@ -79,8 +79,9 @@ const initialFormData: FormData = {
   emergency_contact_phone: '',
 }
 
+const supabase = createClient()
+
 export default function EmployeesPage() {
-  const supabase = createClient()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')

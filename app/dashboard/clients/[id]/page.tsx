@@ -48,6 +48,8 @@ function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(n)
 }
 
+const supabase = createClient()
+
 export default function ClientDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -57,8 +59,6 @@ export default function ClientDetailPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [loading, setLoading] = useState(true)
-
-  const supabase = createClient()
 
   useEffect(() => {
     const load = async () => {
