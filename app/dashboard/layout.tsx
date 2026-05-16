@@ -25,6 +25,7 @@ import {
   Receipt,
   Package,
   ClipboardList,
+  Building2,
 } from 'lucide-react'
 
 export default function DashboardLayout({
@@ -145,6 +146,7 @@ export default function DashboardLayout({
     { icon: TrendingUp, label: 'Receivables', href: '/dashboard/receivables' },
     { icon: Receipt, label: 'Payables', href: '/dashboard/payables' },
     { icon: Package, label: 'Fixed Assets', href: '/dashboard/assets' },
+    { icon: Building2, label: 'Vendors', href: '/dashboard/vendors' },
     { icon: ClipboardList, label: '1099 Tracking', href: '/dashboard/1099' },
     { icon: CreditCard, label: 'Payroll', href: '/dashboard/payroll' },
     { icon: Clock3, label: 'Labor Hours', href: '/dashboard/labor' },

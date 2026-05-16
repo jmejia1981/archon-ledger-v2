@@ -36,13 +36,20 @@ export default function Page1099() {
       const yearStart = `${selectedYear}-01-01`
       const yearEnd = `${selectedYear}-12-31`
 
-      const [billsRes, expensesRes] = await Promise.all([
+      const [billsRes, expensesRes, vendorsRes] = await Promise.all([
         supabase.from('vendor_bills').select('id, vendor, amount_paid, due_date, is_1099_vendor, vendor_tax_id').gte('due_date', yearStart).lte('due_date', yearEnd),
         supabase.from('expenses').select('id, vendor, amount, date, category').gte('date', yearStart).lte('date', yearEnd),
+        supabase.from('vendors').select('name, ein, is_1099_required'),
       ])
 
       const bills = billsRes.data || []
       const expenses = (expensesRes.data || []).filter((e: any) => e.category === 'Subcontractors' && e.vendor)
+
+      // Build vendor records map from vendors table
+      const vendorRecords: Record<string, { ein: string; is_1099_required: boolean }> = {}
+      ;(vendorsRes.data || []).forEach((v: any) => {
+        vendorRecords[v.name.trim()] = { ein: v.ein || '', is_1099_required: v.is_1099_required }
+      })
 
       const map: Record<string, VendorSummary> = {}
 
@@ -55,6 +62,10 @@ export default function Page1099() {
         if (!map[key].sources.includes('Vendor Bills')) map[key].sources.push('Vendor Bills')
         if (b.is_1099_vendor) map[key].needs1099 = true
         if (b.vendor_tax_id) map[key].taxId = b.vendor_tax_id
+        if (vendorRecords[key]) {
+          if (vendorRecords[key].ein && !map[key].taxId) map[key].taxId = vendorRecords[key].ein
+          if (vendorRecords[key].is_1099_required) map[key].needs1099 = true
+        }
       })
 
       expenses.forEach((e: any) => {
@@ -63,6 +74,17 @@ export default function Page1099() {
         if (!map[key]) map[key] = { vendor: key, totalPaid: 0, needs1099: false, taxId: '', sources: [], billIds: [] }
         map[key].totalPaid += e.amount || 0
         if (!map[key].sources.includes('Expenses')) map[key].sources.push('Expenses')
+        if (vendorRecords[key]) {
+          if (vendorRecords[key].ein && !map[key].taxId) map[key].taxId = vendorRecords[key].ein
+          if (vendorRecords[key].is_1099_required) map[key].needs1099 = true
+        }
+      })
+
+      // Include vendors flagged as 1099 even with no transactions yet
+      Object.entries(vendorRecords).forEach(([name, rec]) => {
+        if (!map[name] && rec.is_1099_required) {
+          map[name] = { vendor: name, totalPaid: 0, needs1099: true, taxId: rec.ein, sources: ['Vendors'], billIds: [] }
+        }
       })
 
       const summaries = Object.values(map).sort((a, b) => b.totalPaid - a.totalPaid)
@@ -100,6 +122,11 @@ export default function Page1099() {
         is_1099_vendor: needs1099Flags[vendor] ?? false,
         vendor_tax_id: taxIds[vendor] || null,
       }).in('id', billIds)
+      // Also update vendors table if record exists
+      await supabase.from('vendors').update({
+        ein: taxIds[vendor] || null,
+        is_1099_required: needs1099Flags[vendor] ?? false,
+      }).eq('name', vendor)
     } catch (err) { console.error(err) }
     finally { setSaving(null) }
   }
