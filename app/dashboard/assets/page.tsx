@@ -81,7 +81,7 @@ export default function AssetsPage() {
   const loadAssets = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('fixed_assets').select('*').order('purchase_date', { ascending: false })
-      if (error?.code === '42P01') { setTableReady(false); setLoading(false); return }
+      if (error) { setTableReady(false); setLoading(false); return }
       setAssets(data || [])
     } catch { setTableReady(false) }
     finally { setLoading(false) }

@@ -104,7 +104,7 @@ function statusBadge(bill: VendorBill) {
 
 const supabase = createClient()
 
-function BillForm({ data, onChange, onSave, onCancel, title, projects, saving }: {
+function BillForm({ data, onChange, onSave, onCancel, title, projects, saving, saveError }: {
   data: typeof emptyForm
   onChange: (d: typeof emptyForm) => void
   onSave: () => void
@@ -112,6 +112,7 @@ function BillForm({ data, onChange, onSave, onCancel, title, projects, saving }:
   title: string
   projects: Project[]
   saving: boolean
+  saveError: string | null
 }) {
   const inputClass = "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
   const inputStyle = { border: '1px solid var(--color-border)', backgroundColor: 'white' }
@@ -189,6 +190,11 @@ function BillForm({ data, onChange, onSave, onCancel, title, projects, saving }:
               value={data.notes} onChange={(e) => onChange({ ...data, notes: e.target.value })} />
           </div>
         </div>
+        {saveError && (
+          <div className="mx-6 mb-2 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>
+            {saveError}
+          </div>
+        )}
         <div className="flex justify-end gap-3 px-6 pb-6">
           <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>Cancel</button>
           <button onClick={onSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2" style={{ backgroundColor: 'var(--color-navy)', color: 'white' }}>
@@ -214,6 +220,7 @@ export default function PayablesPage() {
   const [formData, setFormData] = useState(emptyForm)
   const [editFormData, setEditFormData] = useState<typeof emptyForm | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [tableReady, setTableReady] = useState(true)
 
   const loadData = useCallback(async () => {
@@ -223,7 +230,7 @@ export default function PayablesPage() {
         supabase.from('projects').select('id, project_name'),
       ])
 
-      if (billsRes.error?.code === '42P01') {
+      if (billsRes.error) {
         setTableReady(false)
         setLoading(false)
         return
@@ -293,27 +300,29 @@ export default function PayablesPage() {
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError(null)
     try {
       const payload = {
         bill_number: formData.bill_number,
         vendor: formData.vendor,
         project_id: formData.project_id || null,
-        issue_date: formData.issue_date,
+        issue_date: formData.issue_date || null,
         due_date: formData.due_date,
         amount: parseFloat(formData.amount) || 0,
         amount_paid: parseFloat(formData.amount_paid) || 0,
         category: formData.category,
         tax_category: formData.tax_category || null,
-        description: formData.description,
-        notes: formData.notes,
+        description: formData.description || null,
+        notes: formData.notes || null,
       }
       const { error } = await supabase.from('vendor_bills').insert([payload])
       if (error) throw error
       setFormData(emptyForm)
       setShowForm(false)
       loadData()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving bill:', err)
+      setSaveError(err?.message || 'Failed to save. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -322,27 +331,29 @@ export default function PayablesPage() {
   const handleUpdate = async () => {
     if (!selectedBill || !editFormData) return
     setSaving(true)
+    setSaveError(null)
     try {
       const payload = {
         bill_number: editFormData.bill_number,
         vendor: editFormData.vendor,
         project_id: editFormData.project_id || null,
-        issue_date: editFormData.issue_date,
+        issue_date: editFormData.issue_date || null,
         due_date: editFormData.due_date,
         amount: parseFloat(editFormData.amount) || 0,
         amount_paid: parseFloat(editFormData.amount_paid) || 0,
         category: editFormData.category,
         tax_category: editFormData.tax_category || null,
-        description: editFormData.description,
-        notes: editFormData.notes,
+        description: editFormData.description || null,
+        notes: editFormData.notes || null,
       }
       const { error } = await supabase.from('vendor_bills').update(payload).eq('id', selectedBill.id)
       if (error) throw error
       setSelectedBill(null)
       setEditFormData(null)
       loadData()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating bill:', err)
+      setSaveError(err?.message || 'Failed to update. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -559,10 +570,11 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
           data={formData}
           onChange={setFormData}
           onSave={handleSave}
-          onCancel={() => { setShowForm(false); setFormData(emptyForm) }}
+          onCancel={() => { setShowForm(false); setFormData(emptyForm); setSaveError(null) }}
           title="Add Vendor Bill"
           projects={projects}
           saving={saving}
+          saveError={saveError}
         />
       )}
 
@@ -572,10 +584,11 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
           data={editFormData}
           onChange={setEditFormData}
           onSave={handleUpdate}
-          onCancel={() => { setSelectedBill(null); setEditFormData(null) }}
+          onCancel={() => { setSelectedBill(null); setEditFormData(null); setSaveError(null) }}
           title="Edit Vendor Bill"
           projects={projects}
           saving={saving}
+          saveError={saveError}
         />
       )}
 
