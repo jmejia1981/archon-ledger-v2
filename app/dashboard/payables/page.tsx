@@ -51,19 +51,6 @@ const TAX_CATEGORIES = [
   'Other (Line 27a)',
 ]
 
-const CATEGORIES = [
-  'Materials',
-  'Subcontractors',
-  'Equipment Rental',
-  'Labor',
-  'Permits & Fees',
-  'Insurance',
-  'Office Supplies',
-  'Utilities',
-  'Professional Services',
-  'Rent',
-  'Other',
-]
 
 const emptyForm = {
   bill_number: '',
@@ -74,7 +61,6 @@ const emptyForm = {
   due_date: '',
   amount: '',
   amount_paid: '0',
-  category: 'Materials',
   tax_category: '',
   description: '',
   notes: '',
@@ -194,13 +180,6 @@ function BillForm({ data, onChange, onSave, onCancel, title, projects, vendors, 
             <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="amount_paid">Amount Paid</label>
             <input id="amount_paid" name="amount_paid" type="number" step="0.01" min="0" className={inputClass} style={inputStyle}
               value={data.amount_paid} onChange={(e) => onChange({ ...data, amount_paid: e.target.value })} />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="category">Category</label>
-            <select id="category" name="category" className={inputClass} style={inputStyle}
-              value={data.category} onChange={(e) => onChange({ ...data, category: e.target.value })}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
           </div>
           <div>
             <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="tax_category">IRS Schedule C</label>
@@ -354,7 +333,6 @@ export default function PayablesPage() {
         due_date: formData.due_date,
         amount: parseFloat(formData.amount) || 0,
         amount_paid: parseFloat(formData.amount_paid) || 0,
-        category: formData.category,
         tax_category: formData.tax_category || null,
         description: formData.description || null,
         notes: formData.notes || null,
@@ -387,7 +365,6 @@ export default function PayablesPage() {
         due_date: editFormData.due_date,
         amount: parseFloat(editFormData.amount) || 0,
         amount_paid: parseFloat(editFormData.amount_paid) || 0,
-        category: editFormData.category,
         tax_category: editFormData.tax_category || null,
         description: editFormData.description || null,
         notes: editFormData.notes || null,
@@ -528,7 +505,7 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
           <table className="w-full">
             <thead style={{ backgroundColor: 'var(--color-linen)' }}>
               <tr>
-                {['Bill #', 'Vendor', 'Category', 'Issue Date', 'Due Date', 'Amount', 'Balance Due', 'Status', ''].map((h) => (
+                {['Bill #', 'Vendor', 'IRS Schedule C', 'Issue Date', 'Due Date', 'Amount', 'Balance Due', 'Status', ''].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>{h}</th>
                 ))}
               </tr>
@@ -556,7 +533,6 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
                       due_date: bill.due_date,
                       amount: bill.amount.toString(),
                       amount_paid: bill.amount_paid.toString(),
-                      category: bill.category,
                       tax_category: bill.tax_category || '',
                       description: bill.description || '',
                       notes: bill.notes || '',
@@ -570,7 +546,7 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
                     {bill.vendor}
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
-                    {bill.category}
+                    {bill.tax_category || '—'}
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
                     {bill.issue_date ? new Date(bill.issue_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
