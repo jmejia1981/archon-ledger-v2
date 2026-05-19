@@ -121,7 +121,7 @@ export default function ProjectDetailPage() {
           supabase.from('expenses').select('id, amount, category, description, created_at').eq('project_id', projectId),
           supabase.from('vendor_bills').select('id, vendor, amount, description, tax_category, created_at').eq('project_id', projectId),
           supabase.from('labor_entries').select('id, employee_id, regular_hours, overtime_hours, work_date').eq('project_id', projectId),
-          supabase.from('mileage_entries').select('id, employee_id, date, starting_location, destination, miles_driven, reimbursement_rate').eq('project_id', projectId),
+          supabase.from('mileage_entries').select('id, employee_id, date, starting_location, destination, miles_driven, reimbursement_rate').eq('project_id', projectId).order('date', { ascending: false }),
           supabase.from('employees').select('id, first_name, last_name, hourly_rate'),
         ])
 
