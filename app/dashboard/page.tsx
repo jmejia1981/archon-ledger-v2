@@ -122,8 +122,6 @@ export default function DashboardPage() {
           ) || 0
 
         const billsTotal = billsRes.data?.reduce((sum, b) => sum + (b.amount || 0), 0) || 0
-        const totalExpenses = (expenses.data?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0) + billsTotal
-        console.log('Total expenses:', totalExpenses)
 
         let laborCosts = 0
         if (labor.data) {
@@ -148,6 +146,9 @@ export default function DashboardPage() {
           console.log('Total mileage costs calculated:', mileageCosts)
         }
 
+        const totalExpenses = (expenses.data?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0) + billsTotal + mileageCosts
+        console.log('Total expenses (incl. mileage):', totalExpenses)
+
         const totalInvoiced = invoices.data?.reduce((sum, inv) => sum + (inv.invoice_amount || inv.amount || 0), 0) || 0
         const totalCollected = invoices.data?.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0) || 0
         const accountsReceivable = totalInvoiced - totalCollected
@@ -157,7 +158,7 @@ export default function DashboardPage() {
 
         console.log('Totals - Invoiced:', totalInvoiced, 'Collected:', totalCollected, 'Receivable:', accountsReceivable)
 
-        const totalCosts = totalExpenses + laborCosts + mileageCosts
+        const totalCosts = totalExpenses + laborCosts
         const netProfit = totalInvoiced - totalCosts
         const profitMargin = totalInvoiced > 0 ? (netProfit / totalInvoiced) * 100 : 0
 
@@ -261,9 +262,6 @@ export default function DashboardPage() {
     // Recalculate all metrics
     const totalContractedRevenue = filteredProjects.reduce((sum: number, p: any) => sum + (p.contract_budget || 0), 0)
     const revisedContractValue = filteredProjects.reduce((sum: number, p: any) => sum + (p.contract_budget || 0), 0)
-    const totalExpenses = filteredExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
-      + filteredBills.reduce((sum: number, b: any) => sum + (b.amount || 0), 0)
-
     let laborCosts = 0
     filteredLabor.forEach((entry: any) => {
       const empRate = allData.employees?.find((e: any) => e.id === entry.employee_id)?.hourly_rate || 0
@@ -276,6 +274,10 @@ export default function DashboardPage() {
       mileageCosts += (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
     })
 
+    const totalExpenses = filteredExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+      + filteredBills.reduce((sum: number, b: any) => sum + (b.amount || 0), 0)
+      + mileageCosts
+
     const totalInvoiced = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.invoice_amount || inv.amount || 0), 0)
     const totalCollected = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.amount_paid || 0), 0)
     const accountsReceivable = totalInvoiced - totalCollected
@@ -283,7 +285,7 @@ export default function DashboardPage() {
       .filter((inv: any) => inv.status !== 'paid' && (inv.invoice_amount || inv.amount || 0) > (inv.amount_paid || 0) && (inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < new Date())))
       .reduce((sum: number, inv: any) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0)
 
-    const totalCosts = totalExpenses + laborCosts + mileageCosts
+    const totalCosts = totalExpenses + laborCosts
     const netProfit = totalInvoiced - totalCosts
     const profitMargin = totalInvoiced > 0 ? (netProfit / totalInvoiced) * 100 : 0
 
