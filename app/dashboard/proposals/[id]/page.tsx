@@ -57,6 +57,12 @@ interface Client {
   zip?: string
 }
 
+interface Project {
+  id: string
+  project_name: string
+  project_number: string
+}
+
 interface LineItem {
   description: string
   amount: string
@@ -72,6 +78,7 @@ export default function ProposalDetailPage() {
   const [proposal, setProposal] = useState<Proposal | null>(null)
   const [lineItems, setLineItems] = useState<ProposalItem[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -91,10 +98,11 @@ export default function ProposalDetailPage() {
   useEffect(() => {
     const loadProposal = async () => {
       try {
-        const [proposalRes, itemsRes, clientsRes] = await Promise.all([
+        const [proposalRes, itemsRes, clientsRes, projectsRes] = await Promise.all([
           supabase.from('proposals').select('*').eq('id', proposalId).single(),
           supabase.from('proposal_items').select('*').eq('proposal_id', proposalId),
           supabase.from('clients').select('id, name, email, phone, primary_contact, company_name, address, city, state, zip'),
+          supabase.from('projects').select('id, project_name, project_number').order('project_number', { ascending: true }),
         ])
 
         if (proposalRes.data) {
@@ -106,6 +114,7 @@ export default function ProposalDetailPage() {
           setEditLineItems(itemsRes.data.map(i => ({ description: i.description, amount: i.amount.toString() })))
         }
         setClients(clientsRes.data || [])
+        setProjects(projectsRes.data || [])
       } catch (error) {
         console.error('Error loading proposal:', error)
       } finally {
@@ -142,7 +151,7 @@ export default function ProposalDetailPage() {
       const tax = parseFloat(String(editData.tax)) || 0
       const total_amount = subtotal + tax
 
-      // 1. Update proposal
+      // 1. Update proposal (including project_id link)
       const { error: propError } = await supabase
         .from('proposals')
         .update({
@@ -166,6 +175,7 @@ export default function ProposalDetailPage() {
           terms: editData.terms || null,
           notes: editData.notes || null,
           status: editData.status || proposal.status,
+          project_id: editData.project_id || null,
         })
         .eq('id', proposal.id)
 
@@ -186,9 +196,10 @@ export default function ProposalDetailPage() {
         )
       }
 
-      // 3. Sync to linked project (if exists)
-      if (proposal.project_id) {
-        await supabase
+      // 3. Sync to linked project (use editData.project_id so manually linked projects work too)
+      const linkedProjectId = editData.project_id || proposal.project_id
+      if (linkedProjectId) {
+        const { error: projSyncError } = await supabase
           .from('projects')
           .update({
             project_name: editData.project_name,
@@ -196,7 +207,8 @@ export default function ProposalDetailPage() {
             client_id: editData.client_id || null,
             contract_budget: total_amount,
           })
-          .eq('id', proposal.project_id)
+          .eq('id', linkedProjectId)
+        if (projSyncError) console.error('Project sync error:', projSyncError)
       }
 
       // 4. Refresh local state
@@ -204,7 +216,10 @@ export default function ProposalDetailPage() {
         supabase.from('proposals').select('*').eq('id', proposal.id).single(),
         supabase.from('proposal_items').select('*').eq('proposal_id', proposal.id),
       ])
-      if (updatedProp.data) setProposal(updatedProp.data)
+      if (updatedProp.data) {
+        setProposal(updatedProp.data)
+        setEditData(updatedProp.data)
+      }
       if (updatedItems.data) {
         setLineItems(updatedItems.data)
         setEditLineItems(updatedItems.data.map(i => ({ description: i.description, amount: i.amount.toString() })))
@@ -564,6 +579,24 @@ export default function ProposalDetailPage() {
                   <option value="accepted">Accepted</option>
                   <option value="rejected">Rejected</option>
                   <option value="expired">Expired</option>
+                </select>
+              </div>
+
+              {/* Linked Project */}
+              <div>
+                <label className={labelCls} style={{ color: 'var(--color-muted)' }}>
+                  Linked Project <span className="font-normal">(budget & name will sync on save)</span>
+                </label>
+                <select
+                  value={editData.project_id || ''}
+                  onChange={e => setEditData(p => ({ ...p, project_id: e.target.value || undefined }))}
+                  className={inputCls}
+                  style={{ ...inputStyle, color: 'var(--color-navy)' }}
+                >
+                  <option value="">— Not linked —</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>#{p.project_number} — {p.project_name}</option>
+                  ))}
                 </select>
               </div>
 
