@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Edit2, Save } from 'lucide-react'
-import { Breadcrumbs } from '@/app/components/breadcrumbs'
+import { Edit2, Save, X, ArrowLeft } from 'lucide-react'
 
 interface Project {
   id: string
@@ -14,6 +13,7 @@ interface Project {
   contract_budget: number
   description?: string
   status?: string
+  project_address?: string
   created_at?: string
 }
 
@@ -38,6 +38,16 @@ interface Expense {
   id: string
   amount: number
   category: string
+  description?: string
+  created_at: string
+}
+
+interface VendorBill {
+  id: string
+  vendor: string
+  amount: number
+  description?: string
+  tax_category?: string
   created_at: string
 }
 
@@ -46,10 +56,13 @@ interface LaborEntry {
   employee_id: string
   regular_hours: number
   overtime_hours: number
+  work_date?: string
 }
 
 interface Employee {
   id: string
+  first_name?: string
+  last_name?: string
   hourly_rate: number | null
 }
 
@@ -57,17 +70,21 @@ const supabase = createClient()
 
 export default function ProjectDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const projectId = params.id as string
 
   const [project, setProject] = useState<Project | null>(null)
   const [client, setClient] = useState<Client | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [bills, setBills] = useState<VendorBill[]>([])
   const [laborEntries, setLaborEntries] = useState<LaborEntry[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     project_name: '',
     contract_budget: 0,
@@ -75,90 +92,66 @@ export default function ProjectDetailPage() {
     status: 'active',
   })
 
-  // Load project details
   useEffect(() => {
-    const loadProjectDetails = async () => {
+    const load = async () => {
       try {
-        // Load project
-        const { data: projectData } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', projectId)
-          .single()
+        // Fetch everything in parallel
+        const [
+          projectRes,
+          invoicesRes,
+          expensesRes,
+          billsRes,
+          laborRes,
+          employeesRes,
+        ] = await Promise.all([
+          supabase.from('projects').select('*').eq('id', projectId).single(),
+          supabase.from('invoices').select('id, invoice_number, invoice_amount, amount_paid, status').eq('project_id', projectId),
+          supabase.from('expenses').select('id, amount, category, description, created_at').eq('project_id', projectId),
+          supabase.from('vendor_bills').select('id, vendor, amount, description, tax_category, created_at').eq('project_id', projectId),
+          supabase.from('labor_entries').select('id, employee_id, regular_hours, overtime_hours, work_date').eq('project_id', projectId),
+          supabase.from('employees').select('id, first_name, last_name, hourly_rate'),
+        ])
 
-        if (projectData) {
-          setProject(projectData)
-          setFormData({
-            project_name: projectData.project_name,
-            contract_budget: projectData.contract_budget,
-            description: projectData.description || '',
-            status: projectData.status || 'active',
-          })
+        if (projectRes.error) throw new Error(projectRes.error.message)
+        if (!projectRes.data) throw new Error('Project not found')
 
-          // Load client
+        setProject(projectRes.data)
+        setFormData({
+          project_name: projectRes.data.project_name,
+          contract_budget: projectRes.data.contract_budget,
+          description: projectRes.data.description || '',
+          status: projectRes.data.status || 'active',
+        })
+
+        setInvoices(invoicesRes.data || [])
+        setExpenses(expensesRes.data || [])
+        setBills(billsRes.data || [])
+        setLaborEntries(laborRes.data || [])
+        setEmployees(employeesRes.data || [])
+
+        // Load client separately (needs project.client_id)
+        if (projectRes.data.client_id) {
           const { data: clientData } = await supabase
             .from('clients')
             .select('*')
-            .eq('id', projectData.client_id)
+            .eq('id', projectRes.data.client_id)
             .single()
-
-          if (clientData) {
-            setClient(clientData)
-          }
-
-          // Load invoices for this project
-          const { data: invoicesData } = await supabase
-            .from('invoices')
-            .select('*')
-            .eq('project_id', projectId)
-
-          if (invoicesData) {
-            setInvoices(invoicesData)
-          }
-
-          // Load expenses for this project
-          const { data: expensesData } = await supabase
-            .from('expenses')
-            .select('*')
-            .eq('project_id', projectId)
-
-          if (expensesData) {
-            setExpenses(expensesData)
-          }
-
-          // Load labor entries for this project
-          const { data: laborData } = await supabase
-            .from('labor_entries')
-            .select('id, employee_id, regular_hours, overtime_hours')
-            .eq('project_id', projectId)
-
-          if (laborData) {
-            setLaborEntries(laborData)
-          }
-
-          // Load employees for rate lookup
-          const { data: employeesData } = await supabase
-            .from('employees')
-            .select('id, hourly_rate')
-
-          if (employeesData) {
-            setEmployees(employeesData)
-          }
+          if (clientData) setClient(clientData)
         }
-      } catch (error) {
-        console.error('Error loading project:', error)
+      } catch (err: any) {
+        console.error('Error loading project:', err)
+        setLoadError(err?.message || 'Failed to load project')
       } finally {
         setLoading(false)
       }
     }
-
-    loadProjectDetails()
+    if (projectId) load()
   }, [projectId])
 
   const handleSaveChanges = async () => {
     if (!project) return
-
     setSaving(true)
+    setSaveError(null)
     try {
       const { error } = await supabase
         .from('projects')
@@ -169,43 +162,22 @@ export default function ProjectDetailPage() {
           status: formData.status,
         })
         .eq('id', project.id)
-
       if (error) throw error
-
-      setProject({
-        ...project,
-        project_name: formData.project_name,
-        contract_budget: parseFloat(formData.contract_budget.toString()),
-        description: formData.description,
-        status: formData.status,
-      })
-
+      setProject({ ...project, ...formData, contract_budget: parseFloat(formData.contract_budget.toString()) })
       setEditing(false)
-      alert('Project updated successfully!')
-    } catch (error) {
-      console.error('Error saving project:', error)
-      alert('Failed to save project changes')
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to save')
     } finally {
       setSaving(false)
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value)
-  }
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
+  const fmt = (v: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v)
+  const fmtFull = (v: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v)
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 
   const statusColors: Record<string, string> = {
     active: 'bg-green-100 text-green-800',
@@ -215,223 +187,178 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Breadcrumbs items={[{ label: 'Projects', href: '/dashboard/projects' }, { label: 'Loading...' }]} />
-        <div className="text-center py-12" style={{ color: 'var(--color-muted)' }}>
-          Loading project details...
-        </div>
+      <div className="space-y-4">
+        <div className="text-center py-12" style={{ color: 'var(--color-muted)' }}>Loading project details...</div>
       </div>
     )
   }
 
-  if (!project) {
+  if (loadError || !project) {
     return (
-      <div className="space-y-6">
-        <Breadcrumbs items={[{ label: 'Projects', href: '/dashboard/projects' }, { label: 'Not Found' }]} />
-        <div className="rounded-lg p-12 text-center" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-          <p style={{ color: 'var(--color-muted)' }}>Project not found</p>
-        </div>
+      <div className="rounded-lg p-12 text-center" style={{ backgroundColor: 'white', border: '1px solid var(--color-border)' }}>
+        <p style={{ color: 'var(--color-muted)' }}>{loadError || 'Project not found'}</p>
+        <button onClick={() => router.push('/dashboard/projects')} className="mt-4 px-4 py-2 rounded-lg text-white text-sm" style={{ backgroundColor: 'var(--color-navy)' }}>
+          Back to Projects
+        </button>
       </div>
     )
   }
 
-  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.invoice_amount, 0)
-  const totalPaid = invoices.reduce((sum, inv) => sum + inv.amount_paid, 0)
-  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0)
+  // ── Calculations ──────────────────────────────────────────────
+  const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.invoice_amount || 0), 0)
+  const totalPaid = invoices.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0)
+  const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
+  const totalBills = bills.reduce((sum, b) => sum + (b.amount || 0), 0)
   const totalLaborCost = laborEntries.reduce((sum, entry) => {
-    const rate = employees.find((e) => e.id === entry.employee_id)?.hourly_rate || 0
-    return sum + entry.regular_hours * rate + entry.overtime_hours * rate * 1.5
+    const emp = employees.find((e) => e.id === entry.employee_id)
+    const rate = emp?.hourly_rate || 0
+    return sum + (entry.regular_hours || 0) * rate + (entry.overtime_hours || 0) * rate * 1.5
   }, 0)
-  const totalLaborHours = laborEntries.reduce((sum, e) => sum + e.regular_hours + e.overtime_hours, 0)
-  const totalCosts = totalExpenses + totalLaborCost
+  const totalLaborHours = laborEntries.reduce((sum, e) => sum + (e.regular_hours || 0) + (e.overtime_hours || 0), 0)
+  const totalCosts = totalExpenses + totalBills + totalLaborCost
   const totalProfit = totalInvoiced - totalCosts
+  const budget = project.contract_budget || 0
+  const budgetUsedPct = budget > 0 ? Math.min((totalCosts / budget) * 100, 100) : 0
+  const invoicedPct = budget > 0 ? Math.min((totalInvoiced / budget) * 100, 100) : 0
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs */}
-      <Breadcrumbs items={[{ label: 'Projects', href: '/dashboard/projects' }, { label: project.project_name }]} />
-
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-playfair font-bold mb-1" style={{ color: 'var(--color-navy)' }}>
-            {project.project_name}
-          </h1>
-          <p style={{ color: 'var(--color-muted)' }}>Project management and budget tracking</p>
+      <div className="flex items-start gap-3">
+        <button onClick={() => router.push('/dashboard/projects')} className="p-2 hover:opacity-80 flex-shrink-0 mt-1" style={{ color: 'var(--color-navy)' }}>
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <p className="text-xs font-semibold" style={{ color: 'var(--color-muted)' }}>Project #{project.project_number}</p>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[project.status || 'active']}`}>
+              {(project.status || 'active').charAt(0).toUpperCase() + (project.status || 'active').slice(1).replace('-', ' ')}
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>{project.project_name}</h1>
+          {project.project_address && (
+            <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>{project.project_address}</p>
+          )}
         </div>
         {!editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:opacity-80 transition"
-            style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-          >
-            <Edit2 className="w-4 h-4" />
-            Edit
+          <button onClick={() => setEditing(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:opacity-80 transition flex-shrink-0"
+            style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}>
+            <Edit2 className="w-4 h-4" /> Edit
           </button>
         )}
       </div>
 
-      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
+        {/* ── Left column ────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Project Information */}
-          <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
-              Project Information
-            </h3>
+
+          {/* Project Info / Edit form */}
+          <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>Project Information</h3>
 
             {editing ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
-                    Project Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.project_name}
-                    onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
-                  />
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Project Name</label>
+                  <input type="text" value={formData.project_name} onChange={e => setFormData({ ...formData, project_name: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border focus:outline-none" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }} />
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
-                      Contract Budget
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.contract_budget}
-                      onChange={(e) => setFormData({ ...formData, contract_budget: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
-                    />
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Contract Budget</label>
+                    <input type="number" step="0.01" value={formData.contract_budget}
+                      onChange={e => setFormData({ ...formData, contract_budget: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 rounded-lg border focus:outline-none" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }} />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
-                      Status
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                      style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                    >
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Status</label>
+                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border focus:outline-none" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}>
                       <option value="active">Active</option>
                       <option value="on-hold">On Hold</option>
                       <option value="completed">Completed</option>
                     </select>
                   </div>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition resize-none"
-                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
-                    rows={4}
-                  />
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Description</label>
+                  <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}
+                    rows={3} className="w-full px-4 py-2 rounded-lg border focus:outline-none resize-none"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }} />
                 </div>
-
-                <div className="flex gap-2 pt-4">
-                  <button
-                    onClick={() => setEditing(false)}
+                {saveError && (
+                  <div className="px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>{saveError}</div>
+                )}
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => setEditing(false)}
                     className="flex-1 px-4 py-2 rounded-lg border hover:opacity-80 transition"
-                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                  >
-                    Cancel
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}>
+                    <X className="w-4 h-4 inline mr-1" />Cancel
                   </button>
-                  <button
-                    onClick={handleSaveChanges}
-                    disabled={saving}
+                  <button onClick={handleSaveChanges} disabled={saving}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
-                    style={{ backgroundColor: 'var(--color-navy)' }}
-                  >
-                    <Save className="w-4 h-4" />
-                    {saving ? 'Saving...' : 'Save'}
+                    style={{ backgroundColor: 'var(--color-navy)' }}>
+                    <Save className="w-4 h-4" />{saving ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Project Number</p>
-                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
-                    {project.project_number || 'N/A'}
-                  </p>
+                  <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Project Number</p>
+                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>{project.project_number || '—'}</p>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Status</p>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold inline-block ${statusColors[project.status || 'active']}`}>
-                      {project.status ? project.status.charAt(0).toUpperCase() + project.status.slice(1).replace('-', ' ') : 'Active'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Contract Budget</p>
-                    <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
-                      {formatCurrency(project.contract_budget)}
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Contract Budget</p>
+                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>{fmtFull(budget)}</p>
                 </div>
-
-                {project.description && (
-                  <div>
-                    <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Description</p>
-                    <p style={{ color: 'var(--color-navy)' }} className="mt-1">
-                      {project.description}
-                    </p>
-                  </div>
-                )}
-
+                <div>
+                  <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Status</p>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold inline-block ${statusColors[project.status || 'active']}`}>
+                    {(project.status || 'active').charAt(0).toUpperCase() + (project.status || 'active').slice(1).replace('-', ' ')}
+                  </span>
+                </div>
                 {project.created_at && (
                   <div>
-                    <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Created</p>
-                    <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
-                      {formatDate(project.created_at)}
-                    </p>
+                    <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Created</p>
+                    <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>{fmtDate(project.created_at)}</p>
+                  </div>
+                )}
+                {project.description && (
+                  <div className="col-span-2">
+                    <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Description</p>
+                    <p style={{ color: 'var(--color-navy)' }}>{project.description}</p>
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Client Information */}
+          {/* Client */}
           {client && (
-            <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
-                Client Information
-              </h3>
-              <div className="space-y-3">
+            <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>Client</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Client Name</p>
-                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
-                    {client.name}
-                  </p>
+                  <p style={{ color: 'var(--color-muted)' }}>Name</p>
+                  <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>{client.name}</p>
                 </div>
                 {client.company_name && (
                   <div>
-                    <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Company</p>
+                    <p style={{ color: 'var(--color-muted)' }}>Company</p>
                     <p style={{ color: 'var(--color-navy)' }}>{client.company_name}</p>
                   </div>
                 )}
-                <div>
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Email</p>
-                  <p style={{ color: 'var(--color-navy)' }}>{client.email}</p>
-                </div>
+                {client.email && (
+                  <div>
+                    <p style={{ color: 'var(--color-muted)' }}>Email</p>
+                    <p style={{ color: 'var(--color-navy)' }}>{client.email}</p>
+                  </div>
+                )}
                 {client.phone && (
                   <div>
-                    <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Phone</p>
+                    <p style={{ color: 'var(--color-muted)' }}>Phone</p>
                     <p style={{ color: 'var(--color-navy)' }}>{client.phone}</p>
                   </div>
                 )}
@@ -440,127 +367,237 @@ export default function ProjectDetailPage() {
           )}
 
           {/* Invoices */}
-          <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
+          <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
-              Project Invoices ({invoices.length})
+              Invoices ({invoices.length})
             </h3>
             {invoices.length === 0 ? (
-              <p style={{ color: 'var(--color-muted)' }}>No invoices for this project yet</p>
+              <p className="text-sm" style={{ color: 'var(--color-muted)' }}>No invoices for this project yet</p>
             ) : (
               <div className="space-y-2">
-                {invoices.map((inv) => (
-                  <div
-                    key={inv.id}
-                    className="flex justify-between items-center p-3 rounded-lg"
-                    style={{ backgroundColor: 'var(--color-linen)' }}
-                  >
+                {invoices.map(inv => (
+                  <div key={inv.id} className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'var(--color-linen)' }}>
                     <div>
-                      <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
-                        {inv.invoice_number}
-                      </p>
-                      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
-                        {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
+                      <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{inv.invoice_number}</p>
+                      <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                        {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)} · Paid: {fmtFull(inv.amount_paid)}
                       </p>
                     </div>
-                    <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>
-                      {formatCurrency(inv.invoice_amount)}
-                    </p>
+                    <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{fmtFull(inv.invoice_amount)}</p>
                   </div>
                 ))}
+                <div className="flex justify-between pt-2 font-semibold text-sm" style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-navy)' }}>
+                  <span>Total Invoiced</span>
+                  <span>{fmtFull(totalInvoiced)}</span>
+                </div>
               </div>
             )}
           </div>
+
+          {/* Vendor Bills */}
+          <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
+            <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--color-navy)' }}>
+              Vendor Bills ({bills.length})
+            </h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--color-muted)' }}>
+              Bills linked to this project. Add new bills in Payables → select this project.
+            </p>
+            {bills.length === 0 ? (
+              <p className="text-sm" style={{ color: 'var(--color-muted)' }}>No vendor bills linked to this project yet</p>
+            ) : (
+              <div className="space-y-2">
+                {bills.map(bill => (
+                  <div key={bill.id} className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'var(--color-linen)' }}>
+                    <div>
+                      <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{bill.vendor}</p>
+                      <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                        {bill.description || '—'} {bill.tax_category && `· ${bill.tax_category}`}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{fmtFull(bill.amount)}</p>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-2 font-semibold text-sm" style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-navy)' }}>
+                  <span>Total Bills</span>
+                  <span>{fmtFull(totalBills)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Labor */}
+          {laborEntries.length > 0 && (
+            <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+                Labor ({totalLaborHours.toFixed(1)} hrs)
+              </h3>
+              <div className="space-y-2">
+                {laborEntries.map(entry => {
+                  const emp = employees.find(e => e.id === entry.employee_id)
+                  const rate = emp?.hourly_rate || 0
+                  const cost = (entry.regular_hours || 0) * rate + (entry.overtime_hours || 0) * rate * 1.5
+                  return (
+                    <div key={entry.id} className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'var(--color-linen)' }}>
+                      <div>
+                        <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>
+                          {emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() : 'Unknown'}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                          {entry.regular_hours}h reg{entry.overtime_hours > 0 ? ` · ${entry.overtime_hours}h OT` : ''} @ ${rate}/hr
+                          {entry.work_date ? ` · ${fmtDate(entry.work_date)}` : ''}
+                        </p>
+                      </div>
+                      <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{fmtFull(cost)}</p>
+                    </div>
+                  )
+                })}
+                <div className="flex justify-between pt-2 font-semibold text-sm" style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-navy)' }}>
+                  <span>Total Labor Cost</span>
+                  <span>{fmtFull(totalLaborCost)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Expenses (project-linked overhead) */}
+          {expenses.length > 0 && (
+            <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+                Direct Expenses ({expenses.length})
+              </h3>
+              <div className="space-y-2">
+                {expenses.map(exp => (
+                  <div key={exp.id} className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'var(--color-linen)' }}>
+                    <div>
+                      <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{exp.description || exp.category}</p>
+                      <p className="text-xs" style={{ color: 'var(--color-muted)' }}>{exp.category}</p>
+                    </div>
+                    <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{fmtFull(exp.amount)}</p>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-2 font-semibold text-sm" style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-navy)' }}>
+                  <span>Total Expenses</span>
+                  <span>{fmtFull(totalExpenses)}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right Column - Summary Cards */}
+        {/* ── Right column: Budget Summary ──────────────────── */}
         <div className="space-y-6">
           {/* Budget Summary */}
-          <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
-              Budget Summary
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Contract Budget</p>
-                <p className="text-lg font-bold" style={{ color: 'var(--color-navy)' }}>
-                  {formatCurrency(project.contract_budget)}
-                </p>
+          <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>Budget Summary</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <span style={{ color: 'var(--color-muted)' }}>Contract Budget</span>
+                <span className="text-base font-bold" style={{ color: 'var(--color-navy)' }}>{fmtFull(budget)}</span>
               </div>
 
-              <div style={{ borderTop: `1px solid var(--color-border)`, paddingTop: '0.75rem' }} className="pt-3">
-                <div>
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Total Invoiced</p>
-                  <p className="text-lg font-bold" style={{ color: 'var(--color-success)' }}>
-                    {formatCurrency(totalInvoiced)}
-                  </p>
+              {/* Revenue */}
+              <p className="text-xs font-bold uppercase tracking-wide pt-1" style={{ color: 'var(--color-navy)' }}>Revenue</p>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--color-muted)' }}>Total Invoiced</span>
+                <span className="font-semibold" style={{ color: '#16a34a' }}>{fmtFull(totalInvoiced)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--color-muted)' }}>Total Collected</span>
+                <span className="font-semibold" style={{ color: 'var(--color-navy)' }}>{fmtFull(totalPaid)}</span>
+              </div>
+              {budget > 0 && (
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--color-muted)' }}>Remaining to Bill</span>
+                  <span className="font-semibold" style={{ color: budget - totalInvoiced >= 0 ? '#2563eb' : '#dc2626' }}>
+                    {fmtFull(budget - totalInvoiced)}
+                  </span>
                 </div>
+              )}
 
-                <div className="mt-3">
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Total Paid</p>
-                  <p className="text-lg font-bold" style={{ color: 'var(--color-navy)' }}>
-                    {formatCurrency(totalPaid)}
-                  </p>
+              {/* Costs */}
+              <p className="text-xs font-bold uppercase tracking-wide pt-2" style={{ color: 'var(--color-navy)', borderTop: '1px solid var(--color-border)' }}>
+                <span className="block pt-2">Costs</span>
+              </p>
+              {totalBills > 0 && (
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--color-muted)' }}>Vendor Bills</span>
+                  <span className="font-semibold" style={{ color: '#dc2626' }}>{fmtFull(totalBills)}</span>
                 </div>
+              )}
+              {totalLaborCost > 0 && (
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--color-muted)' }}>Labor ({totalLaborHours.toFixed(1)} hrs)</span>
+                  <span className="font-semibold" style={{ color: '#dc2626' }}>{fmtFull(totalLaborCost)}</span>
+                </div>
+              )}
+              {totalExpenses > 0 && (
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--color-muted)' }}>Direct Expenses</span>
+                  <span className="font-semibold" style={{ color: '#dc2626' }}>{fmtFull(totalExpenses)}</span>
+                </div>
+              )}
+              {totalBills === 0 && totalLaborCost === 0 && totalExpenses === 0 && (
+                <p className="text-xs" style={{ color: 'var(--color-muted)' }}>No costs recorded yet</p>
+              )}
 
-                <div className="mt-3">
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Total Expenses</p>
-                  <p className="text-lg font-bold" style={{ color: 'var(--color-destructive)' }}>
-                    {formatCurrency(totalExpenses)}
-                  </p>
-                </div>
+              {/* Total Costs */}
+              <div className="flex justify-between items-center pt-2 pb-2 font-bold" style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-navy)' }}>
+                <span>Total Costs</span>
+                <span style={{ color: '#dc2626' }}>{fmtFull(totalCosts)}</span>
+              </div>
 
-                <div className="mt-3">
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
-                    Labor Cost
-                    <span className="ml-2 font-normal text-xs">({totalLaborHours.toFixed(1)} hrs)</span>
-                  </p>
-                  <p className="text-lg font-bold" style={{ color: 'var(--color-destructive)' }}>
-                    {formatCurrency(totalLaborCost)}
-                  </p>
-                </div>
-
-                <div style={{ borderTop: `1px solid var(--color-border)`, marginTop: '0.75rem', paddingTop: '0.75rem' }} className="mt-3 pt-3">
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Total Costs</p>
-                  <p className="text-lg font-bold" style={{ color: 'var(--color-destructive)' }}>
-                    {formatCurrency(totalCosts)}
-                  </p>
-                </div>
-
-                <div style={{ borderTop: `1px solid var(--color-border)`, marginTop: '0.75rem', paddingTop: '0.75rem' }} className="mt-3 pt-3">
-                  <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Net Profit</p>
-                  <p
-                    className="text-lg font-bold"
-                    style={{ color: totalProfit >= 0 ? 'var(--color-success)' : 'var(--color-destructive)' }}
-                  >
-                    {formatCurrency(totalProfit)}
-                  </p>
-                </div>
+              {/* Net Profit */}
+              <div className="flex justify-between items-center pt-2 font-bold text-base" style={{ borderTop: '2px solid var(--color-border)' }}>
+                <span style={{ color: 'var(--color-navy)' }}>Net Profit</span>
+                <span style={{ color: totalProfit >= 0 ? '#16a34a' : '#dc2626' }}>{fmtFull(totalProfit)}</span>
               </div>
             </div>
           </div>
 
           {/* Budget Utilization */}
-          <div className="bg-white rounded-lg p-6" style={{ border: `1px solid var(--color-border)` }}>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
-              Budget Utilization
-            </h3>
-            <div className="space-y-3">
+          <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>Budget Utilization</h3>
+            <div className="space-y-4 text-sm">
               <div>
-                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Expenses vs Budget</p>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div
-                    className="h-2 rounded-full"
-                    style={{
-                      width: `${Math.min((totalExpenses / project.contract_budget) * 100, 100)}%`,
-                      backgroundColor: totalExpenses > project.contract_budget ? 'var(--color-destructive)' : 'var(--color-success)',
-                    }}
-                  />
+                <div className="flex justify-between mb-1">
+                  <span style={{ color: 'var(--color-muted)' }}>Costs vs Budget</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-navy)' }}>{budgetUsedPct.toFixed(0)}%</span>
                 </div>
-                <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }} className="mt-2">
-                  {project.contract_budget > 0 ? Math.round((totalExpenses / project.contract_budget) * 100) : 0}% utilized
-                  <span className="ml-2">({formatCurrency(totalExpenses)} of {formatCurrency(project.contract_budget)})</span>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="h-2 rounded-full transition-all" style={{
+                    width: `${budgetUsedPct}%`,
+                    backgroundColor: budgetUsedPct > 100 ? '#dc2626' : budgetUsedPct > 80 ? '#f59e0b' : '#16a34a',
+                  }} />
+                </div>
+                <p className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
+                  {fmtFull(totalCosts)} of {fmtFull(budget)}
                 </p>
               </div>
+
+              <div>
+                <div className="flex justify-between mb-1">
+                  <span style={{ color: 'var(--color-muted)' }}>Invoiced vs Budget</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-navy)' }}>{invoicedPct.toFixed(0)}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="h-2 rounded-full transition-all" style={{
+                    width: `${invoicedPct}%`,
+                    backgroundColor: '#2563eb',
+                  }} />
+                </div>
+                <p className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
+                  {fmtFull(totalInvoiced)} of {fmtFull(budget)}
+                </p>
+              </div>
+
+              {budget > 0 && (
+                <div className="pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+                  <p style={{ color: 'var(--color-muted)' }}>Gross Margin</p>
+                  <p className="text-lg font-bold" style={{ color: totalInvoiced > 0 ? (totalProfit >= 0 ? '#16a34a' : '#dc2626') : 'var(--color-muted)' }}>
+                    {totalInvoiced > 0 ? `${((totalProfit / totalInvoiced) * 100).toFixed(1)}%` : '—'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
