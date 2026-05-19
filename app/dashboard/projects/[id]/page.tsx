@@ -186,8 +186,6 @@ export default function ProjectDetailPage() {
     }
   }
 
-  const fmt = (v: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v)
   const fmtFull = (v: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v)
   const fmtDate = (d: string) =>
