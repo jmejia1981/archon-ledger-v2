@@ -59,6 +59,16 @@ interface LaborEntry {
   work_date?: string
 }
 
+interface MileageEntry {
+  id: string
+  employee_id: string
+  date: string
+  starting_location?: string
+  destination?: string
+  miles_driven: number
+  reimbursement_rate: number
+}
+
 interface Employee {
   id: string
   first_name?: string
@@ -79,6 +89,7 @@ export default function ProjectDetailPage() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [bills, setBills] = useState<VendorBill[]>([])
   const [laborEntries, setLaborEntries] = useState<LaborEntry[]>([])
+  const [mileageEntries, setMileageEntries] = useState<MileageEntry[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -102,6 +113,7 @@ export default function ProjectDetailPage() {
           expensesRes,
           billsRes,
           laborRes,
+          mileageRes,
           employeesRes,
         ] = await Promise.all([
           supabase.from('projects').select('*').eq('id', projectId).single(),
@@ -109,6 +121,7 @@ export default function ProjectDetailPage() {
           supabase.from('expenses').select('id, amount, category, description, created_at').eq('project_id', projectId),
           supabase.from('vendor_bills').select('id, vendor, amount, description, tax_category, created_at').eq('project_id', projectId),
           supabase.from('labor_entries').select('id, employee_id, regular_hours, overtime_hours, work_date').eq('project_id', projectId),
+          supabase.from('mileage_entries').select('id, employee_id, date, starting_location, destination, miles_driven, reimbursement_rate').eq('project_id', projectId),
           supabase.from('employees').select('id, first_name, last_name, hourly_rate'),
         ])
 
@@ -127,6 +140,7 @@ export default function ProjectDetailPage() {
         setExpenses(expensesRes.data || [])
         setBills(billsRes.data || [])
         setLaborEntries(laborRes.data || [])
+        setMileageEntries(mileageRes.data || [])
         setEmployees(employeesRes.data || [])
 
         // Load client separately (needs project.client_id)
@@ -215,7 +229,9 @@ export default function ProjectDetailPage() {
     return sum + (entry.regular_hours || 0) * rate + (entry.overtime_hours || 0) * rate * 1.5
   }, 0)
   const totalLaborHours = laborEntries.reduce((sum, e) => sum + (e.regular_hours || 0) + (e.overtime_hours || 0), 0)
-  const totalCosts = totalExpenses + totalBills + totalLaborCost
+  const totalMileageCost = mileageEntries.reduce((sum, m) => sum + (m.miles_driven || 0) * (m.reimbursement_rate || 0), 0)
+  const totalMilesMiles = mileageEntries.reduce((sum, m) => sum + (m.miles_driven || 0), 0)
+  const totalCosts = totalExpenses + totalBills + totalLaborCost + totalMileageCost
   const totalProfit = totalInvoiced - totalCosts
   const budget = project.contract_budget || 0
   const budgetUsedPct = budget > 0 ? Math.min((totalCosts / budget) * 100, 100) : 0
@@ -459,6 +475,40 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
+          {/* Mileage */}
+          {mileageEntries.length > 0 && (
+            <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
+                Mileage ({totalMilesMiles.toFixed(0)} mi · {fmtFull(totalMileageCost)})
+              </h3>
+              <div className="space-y-2">
+                {mileageEntries.map(entry => {
+                  const emp = employees.find(e => e.id === entry.employee_id)
+                  const cost = (entry.miles_driven || 0) * (entry.reimbursement_rate || 0)
+                  return (
+                    <div key={entry.id} className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'var(--color-linen)' }}>
+                      <div>
+                        <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>
+                          {emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() : 'Unknown'}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                          {entry.miles_driven} mi @ ${entry.reimbursement_rate}/mi
+                          {entry.destination ? ` → ${entry.destination}` : ''}
+                          {entry.date ? ` · ${fmtDate(entry.date)}` : ''}
+                        </p>
+                      </div>
+                      <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{fmtFull(cost)}</p>
+                    </div>
+                  )
+                })}
+                <div className="flex justify-between pt-2 font-semibold text-sm" style={{ borderTop: '1px solid var(--color-border)', color: 'var(--color-navy)' }}>
+                  <span>Total Mileage</span>
+                  <span>{fmtFull(totalMileageCost)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Expenses (project-linked overhead) */}
           {expenses.length > 0 && (
             <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
@@ -530,13 +580,19 @@ export default function ProjectDetailPage() {
                   <span className="font-semibold" style={{ color: '#dc2626' }}>{fmtFull(totalLaborCost)}</span>
                 </div>
               )}
+              {totalMileageCost > 0 && (
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--color-muted)' }}>Mileage ({totalMilesMiles.toFixed(0)} mi)</span>
+                  <span className="font-semibold" style={{ color: '#dc2626' }}>{fmtFull(totalMileageCost)}</span>
+                </div>
+              )}
               {totalExpenses > 0 && (
                 <div className="flex justify-between items-center">
                   <span style={{ color: 'var(--color-muted)' }}>Direct Expenses</span>
                   <span className="font-semibold" style={{ color: '#dc2626' }}>{fmtFull(totalExpenses)}</span>
                 </div>
               )}
-              {totalBills === 0 && totalLaborCost === 0 && totalExpenses === 0 && (
+              {totalBills === 0 && totalLaborCost === 0 && totalMileageCost === 0 && totalExpenses === 0 && (
                 <p className="text-xs" style={{ color: 'var(--color-muted)' }}>No costs recorded yet</p>
               )}
 
