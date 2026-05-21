@@ -549,10 +549,10 @@ CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true)
                     {bill.tax_category || '—'}
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
-                    {bill.issue_date ? new Date(bill.issue_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    {bill.issue_date ? new Date(bill.issue_date + (bill.issue_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
-                    {new Date(bill.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(bill.due_date + (bill.due_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>
                     {fmt(bill.amount)}
