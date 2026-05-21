@@ -237,7 +237,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center gap-3">
                 <Calendar className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-navy)' }} />
                 <span className="text-sm" style={{ color: 'var(--color-navy)' }}>
-                  Client since {new Date(client.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  Client since {new Date(client.created_at + (client.created_at.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </span>
               </div>
             </div>
@@ -271,7 +271,7 @@ export default function ClientDetailPage() {
                       onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>
                       <td className="px-4 py-3 text-sm font-mono font-medium" style={{ color: 'var(--color-navy)' }}>{inv.invoice_number}</td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
-                        {new Date(inv.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(inv.invoice_date + (inv.invoice_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{fmt(inv.invoice_amount)}</td>
                       <td className="px-4 py-3 text-sm" style={{ color: '#10b981' }}>{fmt(inv.amount_paid)}</td>
@@ -309,7 +309,7 @@ export default function ClientDetailPage() {
                         {p.proposal_number.startsWith('PROP-') ? p.proposal_number : `PROP-${p.proposal_number}`}
                       </td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
-                        {new Date(p.proposal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(p.proposal_date + (p.proposal_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>{p.project_name || '—'}</td>
                       <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{fmt(p.total_amount)}</td>

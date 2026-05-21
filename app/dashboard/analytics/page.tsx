@@ -138,7 +138,7 @@ export default function AnalyticsPage() {
         // Calculate cashflow (monthly)
         const cashflowObj: Record<string, any> = {}
         invoices.forEach((inv) => {
-          const month = new Date(inv.invoice_date).toLocaleDateString('en-US', {
+          const month = new Date(inv.invoice_date + (inv.invoice_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
           })
@@ -157,7 +157,7 @@ export default function AnalyticsPage() {
         // Calculate trend data (profit by month)
         const trendObj: Record<string, any> = {}
         invoices.forEach((inv) => {
-          const month = new Date(inv.invoice_date).toLocaleDateString('en-US', {
+          const month = new Date(inv.invoice_date + (inv.invoice_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
           })
@@ -168,7 +168,7 @@ export default function AnalyticsPage() {
         })
 
         expenses.forEach((exp) => {
-          const month = new Date(exp.created_at).toLocaleDateString('en-US', {
+          const month = new Date(exp.created_at + (exp.created_at.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
           })
@@ -179,7 +179,7 @@ export default function AnalyticsPage() {
         })
 
         bills.forEach((bill: any) => {
-          const month = new Date(bill.created_at).toLocaleDateString('en-US', {
+          const month = new Date(bill.created_at + (bill.created_at.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
           })

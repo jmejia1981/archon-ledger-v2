@@ -504,7 +504,7 @@ export default function DashboardPage() {
                       <td className="px-6 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>{e.description}</td>
                       <td className="px-6 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
                         {e.monthly_end_date
-                          ? new Date(e.monthly_end_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                          ? new Date(e.monthly_end_date + (e.monthly_end_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
                           : <span className="italic">Ongoing</span>}
                       </td>
                       <td className="px-6 py-3 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>

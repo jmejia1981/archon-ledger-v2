@@ -339,7 +339,7 @@ CREATE POLICY "Allow all" ON fixed_assets FOR ALL USING (true) WITH CHECK (true)
                       <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{asset.name}</td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>{asset.category}</td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
-                        {new Date(asset.purchase_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(asset.purchase_date + (asset.purchase_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{fmt(asset.cost)}</td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>

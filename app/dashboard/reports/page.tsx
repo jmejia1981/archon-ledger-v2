@@ -167,12 +167,12 @@ export default function ReportsPage() {
         // ── Monthly chart data ────────────────────────────────────────────────
         const monthlyObj: Record<string, any> = {}
         invoices.forEach((inv: any) => {
-          const key = new Date(inv.invoice_date || inv.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+          const key = new Date((inv.invoice_date || inv.created_at) + ((inv.invoice_date || inv.created_at).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
           if (!monthlyObj[key]) monthlyObj[key] = { month: key, revenue: 0, expenses: 0 }
           monthlyObj[key].revenue += inv.invoice_amount || inv.amount || 0
         })
         expenses.forEach((exp: any) => {
-          const key = new Date(exp.date || exp.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+          const key = new Date((exp.date || exp.created_at) + ((exp.date || exp.created_at).includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
           if (!monthlyObj[key]) monthlyObj[key] = { month: key, revenue: 0, expenses: 0 }
           monthlyObj[key].expenses += exp.amount || 0
         })
