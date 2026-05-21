@@ -422,7 +422,7 @@ export default function LaborPage() {
   }
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
+    return new Date(date + (date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

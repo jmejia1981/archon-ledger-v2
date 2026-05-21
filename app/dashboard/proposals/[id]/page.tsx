@@ -361,7 +361,7 @@ export default function ProposalDetailPage() {
     accepted: 'bg-green-100 text-green-800', rejected: 'bg-red-100 text-red-800', expired: 'bg-yellow-100 text-yellow-800',
   }
   const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v)
-  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'
+  const fmtDate = (d: string) => d ? new Date(d + (d.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'
 
   const inputCls = "w-full px-3 py-2 rounded-lg border text-sm focus:outline-none"
   const inputStyle = { borderColor: 'var(--color-border)', backgroundColor: 'white' }
