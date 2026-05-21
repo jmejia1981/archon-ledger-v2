@@ -55,7 +55,7 @@ export default function MileagePage() {
     const loadData = async () => {
       try {
         const [mileageData, employeesData, projectsData] = await Promise.all([
-          supabase.from('mileage_entries').select('*'),
+          supabase.from('mileage_entries').select('*').order('date', { ascending: false }),
           supabase.from('employees').select('id, name, first_name, last_name'),
           supabase.from('projects').select('id, project_name'),
         ])
