@@ -11,6 +11,7 @@ interface Project {
   project_name: string
   client_id: string
   contract_budget: number
+  revised_contract_value?: number
   description?: string
   status?: string
   project_address?: string
@@ -219,7 +220,12 @@ export default function ProjectDetailPage() {
 
   // ── Calculations ──────────────────────────────────────────────
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.invoice_amount || 0), 0)
-  const totalPaid = invoices.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0)
+  const totalPaid = invoices.reduce((sum, inv) => {
+    const invoiceAmt = inv.invoice_amount || 0
+    const amountPaid = inv.amount_paid || 0
+    // If marked paid, count full invoice amount regardless of how payment was recorded
+    return sum + (inv.status === 'paid' ? Math.max(amountPaid, invoiceAmt) : amountPaid)
+  }, 0)
   const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
   const totalBills = bills.reduce((sum, b) => sum + (b.amount || 0), 0)
   const totalLaborCost = laborEntries.reduce((sum, entry) => {
@@ -232,7 +238,7 @@ export default function ProjectDetailPage() {
   const totalMilesMiles = mileageEntries.reduce((sum, m) => sum + (m.miles_driven || 0), 0)
   const totalCosts = totalExpenses + totalBills + totalLaborCost + totalMileageCost
   const totalProfit = totalInvoiced - totalCosts
-  const budget = project.contract_budget || 0
+  const budget = project.revised_contract_value || project.contract_budget || 0
   const budgetUsedPct = budget > 0 ? Math.min((totalCosts / budget) * 100, 100) : 0
   const invoicedPct = budget > 0 ? Math.min((totalInvoiced / budget) * 100, 100) : 0
 
@@ -325,8 +331,15 @@ export default function ProjectDetailPage() {
                   <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>{project.project_number || '—'}</p>
                 </div>
                 <div>
-                  <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Contract Budget</p>
+                  <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
+                    {project.revised_contract_value ? 'Revised Contract Value' : 'Contract Budget'}
+                  </p>
                   <p className="font-semibold" style={{ color: 'var(--color-navy)' }}>{fmtFull(budget)}</p>
+                  {project.revised_contract_value && (
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
+                      Original: {fmtFull(project.contract_budget)}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Status</p>
@@ -539,9 +552,19 @@ export default function ProjectDetailPage() {
           <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>Budget Summary</h3>
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-                <span style={{ color: 'var(--color-muted)' }}>Contract Budget</span>
-                <span className="text-base font-bold" style={{ color: 'var(--color-navy)' }}>{fmtFull(budget)}</span>
+              <div className="pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--color-muted)' }}>
+                    {project.revised_contract_value ? 'Revised Contract Value' : 'Contract Budget'}
+                  </span>
+                  <span className="text-base font-bold" style={{ color: 'var(--color-navy)' }}>{fmtFull(budget)}</span>
+                </div>
+                {project.revised_contract_value && (
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-xs" style={{ color: 'var(--color-muted)' }}>Original Contract</span>
+                    <span className="text-xs" style={{ color: 'var(--color-muted)' }}>{fmtFull(project.contract_budget)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Revenue */}
