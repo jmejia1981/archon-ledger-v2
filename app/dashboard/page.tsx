@@ -153,8 +153,15 @@ export default function DashboardPage() {
         const totalCollected = invoices.data?.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0) || 0
         const accountsReceivable = totalInvoiced - totalCollected
         const overdueReceivables = invoices.data
-          ?.filter((inv: any) => inv.status !== 'paid' && (inv.invoice_amount || inv.amount || 0) > (inv.amount_paid || 0) && (inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < new Date())))
-          .reduce((sum, inv) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0) || 0
+          ?.filter((inv: any) => {
+            if (inv.status === 'paid') return false
+            const bal = (inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)
+            if (bal <= 0) return false
+            if (inv.status === 'overdue') return true
+            if (!inv.due_date) return false
+            return new Date(inv.due_date + (inv.due_date.includes('T') ? '' : 'T00:00:00')) < new Date()
+          })
+          .reduce((sum: number, inv: any) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0) || 0
 
         console.log('Totals - Invoiced:', totalInvoiced, 'Collected:', totalCollected, 'Receivable:', accountsReceivable)
 
@@ -282,7 +289,14 @@ export default function DashboardPage() {
     const totalCollected = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.amount_paid || 0), 0)
     const accountsReceivable = totalInvoiced - totalCollected
     const overdueReceivables = filteredInvoices
-      .filter((inv: any) => inv.status !== 'paid' && (inv.invoice_amount || inv.amount || 0) > (inv.amount_paid || 0) && (inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < new Date())))
+      .filter((inv: any) => {
+        if (inv.status === 'paid') return false
+        const bal = (inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)
+        if (bal <= 0) return false
+        if (inv.status === 'overdue') return true
+        if (!inv.due_date) return false
+        return new Date(inv.due_date + (inv.due_date.includes('T') ? '' : 'T00:00:00')) < new Date()
+      })
       .reduce((sum: number, inv: any) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0)
 
     const totalCosts = totalExpenses + laborCosts
@@ -339,9 +353,8 @@ export default function DashboardPage() {
       color: metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600',
       onDetail: () => openDetail('Net Profit Breakdown', [
         { label: 'Total Invoiced (Revenue)', value: formatCurrency(metrics.totalInvoiced) },
-        { label: 'Total Expenses', value: `− ${formatCurrency(metrics.totalExpenses)}` },
+        { label: 'Expenses (direct + bills + mileage)', value: `− ${formatCurrency(metrics.totalExpenses)}` },
         { label: 'Labor Costs', value: `− ${formatCurrency(metrics.laborCosts)}` },
-        { label: 'Mileage Costs', value: `− ${formatCurrency(metrics.mileageCosts)}` },
         { label: 'Net Profit', value: formatCurrency(metrics.netProfit), sub: `${metrics.profitMargin.toFixed(1)}% margin` },
       ]),
     },
