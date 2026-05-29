@@ -151,7 +151,13 @@ export default function DashboardPage() {
 
         const totalInvoiced = invoices.data?.reduce((sum, inv) => sum + (inv.invoice_amount || inv.amount || 0), 0) || 0
         const totalCollected = invoices.data?.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0) || 0
-        const accountsReceivable = totalInvoiced - totalCollected
+        const accountsReceivable = invoices.data
+          ?.filter((inv: any) => {
+            if (inv.status === 'paid') return false
+            const bal = (inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)
+            return bal > 0
+          })
+          .reduce((sum: number, inv: any) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0) || 0
         const overdueReceivables = invoices.data
           ?.filter((inv: any) => {
             if (inv.status === 'paid') return false
@@ -287,7 +293,13 @@ export default function DashboardPage() {
 
     const totalInvoiced = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.invoice_amount || inv.amount || 0), 0)
     const totalCollected = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.amount_paid || 0), 0)
-    const accountsReceivable = totalInvoiced - totalCollected
+    const accountsReceivable = filteredInvoices
+      .filter((inv: any) => {
+        if (inv.status === 'paid') return false
+        const bal = (inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)
+        return bal > 0
+      })
+      .reduce((sum: number, inv: any) => sum + ((inv.invoice_amount || inv.amount || 0) - (inv.amount_paid || 0)), 0)
     const overdueReceivables = filteredInvoices
       .filter((inv: any) => {
         if (inv.status === 'paid') return false
