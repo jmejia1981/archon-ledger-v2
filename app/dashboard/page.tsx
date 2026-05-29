@@ -150,7 +150,12 @@ export default function DashboardPage() {
         console.log('Total expenses (incl. mileage):', totalExpenses)
 
         const totalInvoiced = invoices.data?.reduce((sum, inv) => sum + (inv.invoice_amount || inv.amount || 0), 0) || 0
-        const totalCollected = invoices.data?.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0) || 0
+        const totalCollected = invoices.data?.reduce((sum: number, inv: any) => {
+          const invoiceAmt = inv.invoice_amount || inv.amount || 0
+          const amountPaid = inv.amount_paid || 0
+          // If marked paid, count full invoice amount regardless of how payment was recorded
+          return sum + (inv.status === 'paid' ? Math.max(amountPaid, invoiceAmt) : amountPaid)
+        }, 0) || 0
         const accountsReceivable = invoices.data
           ?.filter((inv: any) => {
             if (inv.status === 'paid') return false
@@ -292,7 +297,11 @@ export default function DashboardPage() {
       + mileageCosts
 
     const totalInvoiced = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.invoice_amount || inv.amount || 0), 0)
-    const totalCollected = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.amount_paid || 0), 0)
+    const totalCollected = filteredInvoices.reduce((sum: number, inv: any) => {
+      const invoiceAmt = inv.invoice_amount || inv.amount || 0
+      const amountPaid = inv.amount_paid || 0
+      return sum + (inv.status === 'paid' ? Math.max(amountPaid, invoiceAmt) : amountPaid)
+    }, 0)
     const accountsReceivable = filteredInvoices
       .filter((inv: any) => {
         if (inv.status === 'paid') return false
