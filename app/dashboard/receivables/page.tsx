@@ -102,8 +102,9 @@ export default function ReceivablesPage() {
   }
 
   const isOverdue = (invoice: Invoice) => {
+    if (invoice.status === 'paid') return false
     const outstanding = getOutstandingBalance(invoice)
-    return outstanding > 0 && new Date(invoice.due_date) < new Date()
+    return outstanding > 0 && new Date(invoice.due_date + (invoice.due_date.includes('T') ? '' : 'T00:00:00')) < new Date()
   }
 
   const formatCurrency = (value: number) => {
@@ -116,7 +117,7 @@ export default function ReceivablesPage() {
   }
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
+    return new Date(date + (date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -125,6 +126,7 @@ export default function ReceivablesPage() {
 
   const calculateMetrics = () => {
     const outstanding = invoices.filter((inv) => {
+      if (inv.status === 'paid') return false
       const bal = getOutstandingBalance(inv)
       return bal > 0
     })
@@ -295,22 +297,22 @@ export default function ReceivablesPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
               { label: 'Current', days: [0, 30], items: filteredInvoices.filter((inv) => {
-                const due = new Date(inv.due_date)
+                const due = new Date(inv.due_date + (inv.due_date.includes('T') ? '' : 'T00:00:00'))
                 const diff = Math.ceil((new Date().getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
                 return diff <= 0
               }) },
               { label: '31-60 Days', days: [31, 60], items: filteredInvoices.filter((inv) => {
-                const due = new Date(inv.due_date)
+                const due = new Date(inv.due_date + (inv.due_date.includes('T') ? '' : 'T00:00:00'))
                 const diff = Math.ceil((new Date().getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
                 return diff > 0 && diff <= 60
               }) },
               { label: '61-90 Days', days: [61, 90], items: filteredInvoices.filter((inv) => {
-                const due = new Date(inv.due_date)
+                const due = new Date(inv.due_date + (inv.due_date.includes('T') ? '' : 'T00:00:00'))
                 const diff = Math.ceil((new Date().getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
                 return diff > 60 && diff <= 90
               }) },
               { label: '90+ Days', days: [91, Infinity], items: filteredInvoices.filter((inv) => {
-                const due = new Date(inv.due_date)
+                const due = new Date(inv.due_date + (inv.due_date.includes('T') ? '' : 'T00:00:00'))
                 const diff = Math.ceil((new Date().getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
                 return diff > 90
               }) },
