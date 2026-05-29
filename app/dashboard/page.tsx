@@ -115,11 +115,9 @@ export default function DashboardPage() {
         // Calculate metrics
         const totalContractedRevenue =
           projects.data?.reduce((sum, p) => sum + (p.contract_budget || 0), 0) || 0
+        // Revised contract value = sum of revised_contract_value if set, else falls back to contract_budget
         const revisedContractValue =
-          projects.data?.reduce(
-            (sum, p) => sum + (p.contract_budget || 0),
-            0
-          ) || 0
+          projects.data?.reduce((sum, p) => sum + (p.revised_contract_value || p.contract_budget || 0), 0) || 0
 
         const billsTotal = billsRes.data?.reduce((sum, b) => sum + (b.amount || 0), 0) || 0
 
@@ -190,7 +188,9 @@ export default function DashboardPage() {
 
         // Process invoices by month
         invoices.data?.forEach((inv: any) => {
-          const date = new Date(inv.created_at || new Date())
+          const rawDate = inv.invoice_date || inv.created_at
+          const dateStr = rawDate + (rawDate && !rawDate.includes('T') ? 'T00:00:00' : '')
+          const date = new Date(dateStr || new Date())
           const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
 
           if (!monthlyData[monthKey]) {
@@ -201,7 +201,9 @@ export default function DashboardPage() {
 
         // Process expenses by month
         expenses.data?.forEach((exp: any) => {
-          const date = new Date(exp.created_at || new Date())
+          const rawDate = exp.date || exp.created_at
+          const dateStr = rawDate + (rawDate && !rawDate.includes('T') ? 'T00:00:00' : '')
+          const date = new Date(dateStr || new Date())
           const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
 
           if (!monthlyData[monthKey]) {
@@ -279,7 +281,7 @@ export default function DashboardPage() {
 
     // Recalculate all metrics
     const totalContractedRevenue = filteredProjects.reduce((sum: number, p: any) => sum + (p.contract_budget || 0), 0)
-    const revisedContractValue = filteredProjects.reduce((sum: number, p: any) => sum + (p.contract_budget || 0), 0)
+    const revisedContractValue = filteredProjects.reduce((sum: number, p: any) => sum + (p.revised_contract_value || p.contract_budget || 0), 0)
     let laborCosts = 0
     filteredLabor.forEach((entry: any) => {
       const empRate = allData.employees?.find((e: any) => e.id === entry.employee_id)?.hourly_rate || 0
@@ -327,7 +329,7 @@ export default function DashboardPage() {
     const activeProjects = filteredProjects.filter((p: any) => p.status === 'active').length
     const activeClients = selectedProjectId === 'all'
       ? allData.clients.filter((c: any) => c.status === 'active').length
-      : 1
+      : new Set(filteredProjects.map((p: any) => p.client_id).filter(Boolean)).size || 0
 
     setMetrics({
       totalContractedRevenue,
@@ -563,11 +565,28 @@ export default function DashboardPage() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <RevenueChart monthlyRevenueData={chartData} />
-        <BudgetVsActualChart budgetVsActualData={allData ? allData.projects.map((p: any) => ({
-          name: p.project_name,
-          budget: p.contract_budget || 0,
-          actual: (allData.expenses || []).filter((e: any) => e.project_id === p.id).reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
-        })) : []} />
+        <BudgetVsActualChart budgetVsActualData={allData ? allData.projects.map((p: any) => {
+          const directExpenses = (allData.expenses || [])
+            .filter((e: any) => e.project_id === p.id)
+            .reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+          const bills = (allData.bills || [])
+            .filter((b: any) => b.project_id === p.id)
+            .reduce((sum: number, b: any) => sum + (b.amount || 0), 0)
+          const laborForProject = (allData.labor || [])
+            .filter((l: any) => l.project_id === p.id)
+            .reduce((sum: number, l: any) => {
+              const rate = (allData.employees || []).find((e: any) => e.id === l.employee_id)?.hourly_rate || 0
+              return sum + (l.regular_hours || 0) * rate + (l.overtime_hours || 0) * rate * 1.5
+            }, 0)
+          const mileageForProject = (allData.mileage || [])
+            .filter((m: any) => m.project_id === p.id)
+            .reduce((sum: number, m: any) => sum + (m.miles_driven || 0) * (m.reimbursement_rate || 0.65), 0)
+          return {
+            name: p.project_name,
+            budget: p.revised_contract_value || p.contract_budget || 0,
+            actual: directExpenses + bills + laborForProject + mileageForProject,
+          }
+        }) : []} />
         <ExpenseBreakdownChart expenseCategoryData={allData ? Object.entries(
           (allData.expenses || []).reduce((acc: any, e: any) => {
             const cat = e.category || 'Other'
@@ -575,14 +594,25 @@ export default function DashboardPage() {
             return acc
           }, {})
         ).map(([name, value]) => ({ name, value })) : []} />
-        <CashflowChart cashflowData={allData ? Object.entries(
-          (allData.invoices || []).reduce((acc: any, inv: any) => {
-            const date = new Date(inv.created_at || new Date())
-            const weekKey = `Week ${Math.ceil(date.getDate() / 7)}`
-            acc[weekKey] = (acc[weekKey] || 0) + (inv.invoice_amount || inv.amount || 0)
-            return acc
-          }, {})
-        ).map(([name, value]) => ({ name, value })) : []} />
+        <CashflowChart cashflowData={allData ? (() => {
+          const buckets: Record<string, number> = {}
+          ;(allData.invoices || []).forEach((inv: any) => {
+            const collected = inv.status === 'paid'
+              ? Math.max(inv.amount_paid || 0, inv.invoice_amount || inv.amount || 0)
+              : (inv.amount_paid || 0)
+            if (collected <= 0) return
+            const rawDate = inv.invoice_date || inv.created_at
+            const dateStr = rawDate + (rawDate && !rawDate.includes('T') ? 'T00:00:00' : '')
+            const date = new Date(dateStr || new Date())
+            const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+            const weekNum = Math.ceil(date.getDate() / 7)
+            const key = `${monthLabel} W${weekNum}`
+            buckets[key] = (buckets[key] || 0) + collected
+          })
+          return Object.entries(buckets)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([name, value]) => ({ name, value }))
+        })() : []} />
         <ProfitTrendChart monthlyRevenueData={chartData} />
       </div>
 
