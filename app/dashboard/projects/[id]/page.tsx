@@ -57,7 +57,7 @@ interface LaborEntry {
   employee_id: string
   regular_hours: number
   overtime_hours: number
-  work_date?: string
+  date?: string
 }
 
 interface MileageEntry {
@@ -121,7 +121,7 @@ export default function ProjectDetailPage() {
           supabase.from('invoices').select('id, invoice_number, invoice_amount, amount_paid, status').eq('project_id', projectId),
           supabase.from('expenses').select('id, amount, category, description, created_at').eq('project_id', projectId),
           supabase.from('vendor_bills').select('id, vendor, amount, description, tax_category, created_at').eq('project_id', projectId),
-          supabase.from('labor_entries').select('id, employee_id, regular_hours, overtime_hours, work_date').eq('project_id', projectId),
+          supabase.from('labor_entries').select('id, employee_id, regular_hours, overtime_hours, date').eq('project_id', projectId),
           supabase.from('mileage_entries').select('id, employee_id, date, starting_location, destination, miles_driven, reimbursement_rate').eq('project_id', projectId).order('date', { ascending: false }),
           supabase.from('employees').select('id, first_name, last_name, hourly_rate'),
         ])
@@ -472,7 +472,7 @@ export default function ProjectDetailPage() {
                         </p>
                         <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
                           {entry.regular_hours}h reg{entry.overtime_hours > 0 ? ` · ${entry.overtime_hours}h OT` : ''} @ ${rate}/hr
-                          {entry.work_date ? ` · ${fmtDate(entry.work_date)}` : ''}
+                          {entry.date ? ` · ${fmtDate(entry.date)}` : ''}
                         </p>
                       </div>
                       <p className="font-semibold text-sm" style={{ color: 'var(--color-navy)' }}>{fmtFull(cost)}</p>
