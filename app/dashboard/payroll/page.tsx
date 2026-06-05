@@ -199,8 +199,13 @@ export default function PayrollPage() {
   }
 
   const handleMarkPaid = async (id: string) => {
-    await supabase.from('payroll').update({ status: 'paid' }).eq('id', id)
-    setPayrollRecords(prev => prev.map(r => r.id === id ? { ...r, status: 'paid' } : r))
+    const { error } = await supabase.from('payroll').update({ status: 'paid' }).eq('id', id)
+    if (error) {
+      console.error('Mark paid error:', (error as any).message || JSON.stringify(error))
+      alert('Error marking as paid: ' + ((error as any).message || JSON.stringify(error)))
+      return
+    }
+    await loadData()
   }
 
   const handleDelete = async (id: string) => {
