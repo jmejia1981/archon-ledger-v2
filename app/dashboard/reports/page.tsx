@@ -44,17 +44,19 @@ export default function ReportsPage() {
   useEffect(() => {
     const loadReportsData = async () => {
       try {
-        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes] = await Promise.all([
+        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes] = await Promise.all([
           supabase.from('expenses').select('*'),
           supabase.from('invoices').select('*'),
           supabase.from('labor_entries').select('*'),
           supabase.from('projects').select('*'),
           supabase.from('employees').select('id, name, hourly_rate, department'),
+          supabase.from('mileage_entries').select('*'),
         ])
 
         let expenses = expensesRes.data || []
         let invoices = invoicesRes.data || []
-        const laborEntries = laborRes.data || []
+        let laborEntries = laborRes.data || []
+        let mileageEntries = mileageRes.data || []
         const projects = projectsRes.data || []
         const employees = employeesRes.data || []
 
@@ -62,12 +64,24 @@ export default function ReportsPage() {
         const endDate   = new Date(dateRange.endDate)
         endDate.setHours(23, 59, 59, 999)
 
-        invoices = invoices.filter(inv => {
+        invoices = invoices.filter((inv: any) => {
           const d = new Date(inv.invoice_date || inv.created_at)
           return d >= startDate && d <= endDate
         })
-        expenses = expenses.filter(exp => {
+        expenses = expenses.filter((exp: any) => {
           const d = new Date(exp.date || exp.created_at)
+          return d >= startDate && d <= endDate
+        })
+        // Filter labor entries by date range
+        laborEntries = laborEntries.filter((entry: any) => {
+          if (!entry.date) return true
+          const d = new Date(entry.date + 'T00:00:00')
+          return d >= startDate && d <= endDate
+        })
+        // Filter mileage entries by date range
+        mileageEntries = mileageEntries.filter((entry: any) => {
+          if (!entry.date) return true
+          const d = new Date(entry.date + 'T00:00:00')
           return d >= startDate && d <= endDate
         })
 
@@ -92,6 +106,11 @@ export default function ReportsPage() {
           return s + (entry.regular_hours || 0) * rate + (entry.overtime_hours || 0) * rate * 1.5
         }, 0)
 
+        // ── Mileage ───────────────────────────────────────────────────────────
+        const mileageCosts = mileageEntries.reduce((s: number, entry: any) => {
+          return s + (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
+        }, 0)
+
         // ── Overhead ──────────────────────────────────────────────────────────
         const overheadExpenses = expenses.filter((e: any) => e.category_group === 'company-overhead')
         const overheadByCategory: Record<string, number> = {}
@@ -101,8 +120,8 @@ export default function ReportsPage() {
         })
         const overhead = overheadExpenses.reduce((s: number, e: any) => s + (e.amount || 0), 0)
 
-        const totalExpenses = directCosts + laborCosts + overhead
-        const grossProfit   = totalRevenue - directCosts - laborCosts
+        const totalExpenses = directCosts + laborCosts + mileageCosts + overhead
+        const grossProfit   = totalRevenue - directCosts - laborCosts - mileageCosts
         const netProfit     = grossProfit - overhead
         const profitMargin  = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
 
@@ -129,7 +148,8 @@ export default function ReportsPage() {
           { label: 'COST OF GOODS SOLD', amount: 0, bold: true },
           ...Object.entries(directByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
           { label: 'Labor Costs', amount: laborCosts, indent: true },
-          { label: 'Total COGS', amount: directCosts + laborCosts, bold: true },
+          ...(mileageCosts > 0 ? [{ label: 'Mileage', amount: mileageCosts, indent: true }] : []),
+          { label: 'Total COGS', amount: directCosts + laborCosts + mileageCosts, bold: true },
           { label: '', amount: 0, separator: true },
           { label: 'GROSS PROFIT', amount: grossProfit, bold: true },
           { label: '', amount: 0, separator: true },
@@ -176,6 +196,26 @@ export default function ReportsPage() {
           if (!monthlyObj[key]) monthlyObj[key] = { month: key, revenue: 0, expenses: 0 }
           monthlyObj[key].expenses += exp.amount || 0
         })
+        // Add labor costs to monthly chart
+        laborEntries.forEach((entry: any) => {
+          const emp = employees.find((e: any) => e.id === entry.employee_id)
+          const rate = emp?.hourly_rate || 0
+          const cost = (entry.regular_hours || 0) * rate + (entry.overtime_hours || 0) * rate * 1.5
+          if (cost <= 0) return
+          const rawDate = entry.date || entry.created_at
+          const key = new Date(rawDate + (rawDate && !rawDate.includes('T') ? 'T00:00:00' : '')).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+          if (!monthlyObj[key]) monthlyObj[key] = { month: key, revenue: 0, expenses: 0 }
+          monthlyObj[key].expenses += cost
+        })
+        // Add mileage costs to monthly chart
+        mileageEntries.forEach((entry: any) => {
+          const cost = (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
+          if (cost <= 0) return
+          const rawDate = entry.date || entry.created_at
+          const key = new Date(rawDate + (rawDate && !rawDate.includes('T') ? 'T00:00:00' : '')).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+          if (!monthlyObj[key]) monthlyObj[key] = { month: key, revenue: 0, expenses: 0 }
+          monthlyObj[key].expenses += cost
+        })
         setMonthlyData(Object.values(monthlyObj).sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime()))
 
         const projDist = projects.map((p: any) => ({
@@ -194,7 +234,7 @@ export default function ReportsPage() {
         })
         setLaborByDept(Object.values(deptLabor))
 
-        setMetrics({ totalRevenue, totalCollected, totalExpenses, directCosts, laborCosts, overhead, grossProfit, netProfit, profitMargin })
+        setMetrics({ totalRevenue, totalCollected, totalExpenses, directCosts, laborCosts: laborCosts + mileageCosts, overhead, grossProfit, netProfit, profitMargin })
       } catch (error) { console.error('Error:', error) }
       finally { setLoading(false) }
     }
