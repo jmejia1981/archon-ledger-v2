@@ -132,29 +132,42 @@ export default function PayrollPage() {
     })
     .filter(Boolean) as EmpWeekRow[]
 
+  // Insert a payroll row — tries with payment_method first; falls back
+  // without it if the column hasn't been added to the DB yet.
+  const insertPayrollRow = async (data: Record<string, any>) => {
+    let { error } = await supabase.from('payroll').insert([data])
+    if (error) {
+      const msg = (error as any).message || JSON.stringify(error)
+      // column "payment_method" does not exist → retry without it
+      if (msg.includes('payment_method') || (error as any).code === '42703') {
+        const { payment_method, ...rest } = data
+        const retry = await supabase.from('payroll').insert([rest])
+        return retry.error
+      }
+      console.error('Payroll insert error:', msg, error)
+      return error
+    }
+    return null
+  }
+
   const handleApprove = async (row: EmpWeekRow) => {
     setSaving(true)
-    const method = paymentMethods[row.employee.id] || 'Check'
-    const grossPay = row.grossPay
-
-    const { error } = await supabase.from('payroll').insert([{
+    const err = await insertPayrollRow({
       payroll_period_start: weekStart,
       payroll_period_end: weekEnd,
       employee_id: row.employee.id,
       regular_hours: row.regularHours,
       overtime_hours: row.overtimeHours,
-      gross_pay: grossPay,
+      gross_pay: row.grossPay,
       taxes: 0,
       benefits: 0,
       reimbursements: 0,
-      total_employer_cost: grossPay,
+      total_employer_cost: row.grossPay,
       status: 'approved',
-      payment_method: method,
-    }])
-
-    if (error) {
-      console.error('Payroll insert error:', error)
-      alert('Error saving payroll: ' + error.message)
+      payment_method: paymentMethods[row.employee.id] || 'Check',
+    })
+    if (err) {
+      alert('Error saving payroll: ' + ((err as any).message || JSON.stringify(err)))
     } else {
       await loadData()
     }
@@ -166,8 +179,7 @@ export default function PayrollPage() {
     if (pending.length === 0) return
     setSaving(true)
     for (const row of pending) {
-      const method = paymentMethods[row.employee.id] || 'Check'
-      await supabase.from('payroll').insert([{
+      await insertPayrollRow({
         payroll_period_start: weekStart,
         payroll_period_end: weekEnd,
         employee_id: row.employee.id,
@@ -179,8 +191,8 @@ export default function PayrollPage() {
         reimbursements: 0,
         total_employer_cost: row.grossPay,
         status: 'approved',
-        payment_method: method,
-      }])
+        payment_method: paymentMethods[row.employee.id] || 'Check',
+      })
     }
     await loadData()
     setSaving(false)
