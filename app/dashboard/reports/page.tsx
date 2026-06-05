@@ -156,7 +156,7 @@ export default function ReportsPage() {
           { label: '', amount: 0, separator: true },
           { label: 'COST OF GOODS SOLD', amount: totalCOGS, bold: true },
           ...Object.entries(directByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
-          { label: 'Labor Costs', amount: laborCosts, indent: true },
+          ...(laborCosts > 0 ? [{ label: 'Employee Labor (Timesheets)', amount: laborCosts, indent: true }] : []),
           ...(mileageCosts > 0 ? [{ label: 'Mileage', amount: mileageCosts, indent: true }] : []),
           { label: 'Total COGS', amount: totalCOGS, bold: true },
           { label: '', amount: 0, separator: true },
