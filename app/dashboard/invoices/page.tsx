@@ -363,8 +363,8 @@ export default function InvoicesPage() {
   }
 
   const getOutstandingBalance = (invoice: Invoice) => {
-    const total = invoice.invoice_amount + (invoice.invoice_amount * 0.1) // Approximate tax
-    return total - invoice.amount_paid
+    if (invoice.status === 'paid') return 0
+    return Math.max(0, invoice.invoice_amount - (invoice.amount_paid || 0))
   }
 
   const formatCurrency = (value: number) => {
