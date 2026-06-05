@@ -148,21 +148,21 @@ export default function ReportsPage() {
         )
 
         // ── P&L lines ─────────────────────────────────────────────────────────
+        const totalCOGS = directCosts + laborCosts + mileageCosts
         const pl: PLLine[] = [
-          { label: 'REVENUE', amount: 0, bold: true },
+          { label: 'REVENUE', amount: totalRevenue, bold: true },
           { label: 'Total Invoiced', amount: totalRevenue, indent: true },
           { label: 'Total Collected', amount: totalCollected, indent: true },
-          { label: 'Gross Revenue', amount: totalRevenue, bold: true },
           { label: '', amount: 0, separator: true },
-          { label: 'COST OF GOODS SOLD', amount: 0, bold: true },
+          { label: 'COST OF GOODS SOLD', amount: totalCOGS, bold: true },
           ...Object.entries(directByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
           { label: 'Labor Costs', amount: laborCosts, indent: true },
           ...(mileageCosts > 0 ? [{ label: 'Mileage', amount: mileageCosts, indent: true }] : []),
-          { label: 'Total COGS', amount: directCosts + laborCosts + mileageCosts, bold: true },
+          { label: 'Total COGS', amount: totalCOGS, bold: true },
           { label: '', amount: 0, separator: true },
           { label: 'GROSS PROFIT', amount: grossProfit, bold: true },
           { label: '', amount: 0, separator: true },
-          { label: 'OPERATING EXPENSES', amount: 0, bold: true },
+          { label: 'OPERATING EXPENSES', amount: overhead, bold: true },
           ...Object.entries(overheadByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
           { label: 'Total Operating Expenses', amount: overhead, bold: true },
           { label: '', amount: 0, separator: true },
@@ -176,16 +176,16 @@ export default function ReportsPage() {
         const equity = totalAssets - totalLiabilities
 
         const bs: BSLine[] = [
-          { label: 'ASSETS', amount: 0, bold: true },
+          { label: 'ASSETS', amount: totalAssets, bold: true },
           { label: 'Cash / Revenue Collected', amount: totalCollected, indent: true },
           { label: 'Accounts Receivable', amount: accountsReceivable, indent: true },
           { label: 'Total Assets', amount: totalAssets, bold: true },
           { label: '', amount: 0, separator: true },
-          { label: 'LIABILITIES', amount: 0, bold: true },
+          { label: 'LIABILITIES', amount: totalLiabilities, bold: true },
           { label: 'Accounts Payable (Overhead)', amount: totalLiabilities, indent: true },
           { label: 'Total Liabilities', amount: totalLiabilities, bold: true },
           { label: '', amount: 0, separator: true },
-          { label: 'EQUITY', amount: 0, bold: true },
+          { label: 'EQUITY', amount: equity, bold: true },
           { label: 'Retained Earnings', amount: equity, indent: true },
           { label: 'Total Equity', amount: equity, bold: true },
           { label: '', amount: 0, separator: true },
