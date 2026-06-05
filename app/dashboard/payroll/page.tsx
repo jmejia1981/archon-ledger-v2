@@ -1,8 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, FileText, CheckCircle } from 'lucide-react'
+import { CheckCircle, DollarSign, Clock, Users } from 'lucide-react'
+
+interface LaborEntry {
+  id: string
+  employee_id: string
+  project_id: string
+  date: string
+  regular_hours: number
+  overtime_hours: number
+}
+
+interface Employee {
+  id: string
+  name: string
+  hourly_rate: number
+}
 
 interface PayrollRecord {
   id: string
@@ -13,490 +28,354 @@ interface PayrollRecord {
   overtime_hours: number
   gross_pay: number
   taxes: number
-  benefits: number
   reimbursements: number
   total_employer_cost: number
   status: string
+  payment_method: string
 }
 
-interface Employee {
-  id: string
-  name: string
-  hourly_rate: number
+// Monday of current week
+function getWeekStart(d = new Date()) {
+  const day = d.getDay() // 0=Sun
+  const diff = (day === 0 ? -6 : 1 - day)
+  const mon = new Date(d)
+  mon.setDate(d.getDate() + diff)
+  return mon.toISOString().split('T')[0]
 }
+
+function addDays(dateStr: string, n: number) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + n)
+  return d.toISOString().split('T')[0]
+}
+
+function fmtDate(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function fmtCurrency(v: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v)
+}
+
+const PAYMENT_METHODS = ['Check', 'Direct Deposit', 'Cash', 'Venmo', 'Zelle']
 
 const supabase = createClient()
 
 export default function PayrollPage() {
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
-  const [filteredRecords, setFilteredRecords] = useState<PayrollRecord[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [laborEntries, setLaborEntries] = useState<LaborEntry[]>([])
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Week selector
+  const [weekStart, setWeekStart] = useState(getWeekStart())
+  const weekEnd = addDays(weekStart, 6)
+
+  // Payment method per employee for current week
+  const [paymentMethods, setPaymentMethods] = useState<Record<string, string>>({})
+
+  // Status filter for history
   const [statusFilter, setStatusFilter] = useState('all')
-  const [showNewPayrollForm, setShowNewPayrollForm] = useState(false)
-  const [formData, setFormData] = useState({
-    payroll_period_start: '',
-    payroll_period_end: '',
-    employee_id: '',
-    regular_hours: '',
-    overtime_hours: '',
-    gross_pay: '',
-    taxes: '',
-    benefits: '',
-    reimbursements: '',
-    status: 'pending',
-  })
 
-  // Load payroll records and employees
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [payrollData, employeesData] = await Promise.all([
-          supabase.from('payroll').select('*'),
-          supabase.from('employees').select('id, name, first_name, last_name, hourly_rate'),
-        ])
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    const [empRes, laborRes, payrollRes] = await Promise.all([
+      supabase.from('employees').select('id, name, first_name, last_name, hourly_rate'),
+      supabase.from('labor_entries').select('id, employee_id, project_id, date, regular_hours, overtime_hours'),
+      supabase.from('payroll').select('*').order('payroll_period_start', { ascending: false }),
+    ])
 
-        // Map employees to handle both old (name) and new (first_name + last_name) formats
-        const formattedEmployees = (employeesData.data || []).map((emp: any) => ({
-          id: emp.id,
-          name: emp.name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim(),
-          hourly_rate: emp.hourly_rate,
-        }))
+    const emps: Employee[] = (empRes.data || []).map((e: any) => ({
+      id: e.id,
+      name: e.name || `${e.first_name || ''} ${e.last_name || ''}`.trim(),
+      hourly_rate: e.hourly_rate || 0,
+    }))
 
-        console.log('Payroll records:', payrollData.data)
-        console.log('Employees:', formattedEmployees)
-        setPayrollRecords(payrollData.data || [])
-        setEmployees(formattedEmployees)
-      } catch (error) {
-        console.error('Error loading data:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadData()
+    setEmployees(emps)
+    setLaborEntries(laborRes.data || [])
+    setPayrollRecords(payrollRes.data || [])
+    setLoading(false)
   }, [])
 
-  // Filter and search payroll records
-  useEffect(() => {
-    let filtered = payrollRecords
+  useEffect(() => { loadData() }, [loadData])
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((record) => record.status === statusFilter)
-    }
+  // Labor entries for selected week
+  const weekEntries = laborEntries.filter(e => e.date >= weekStart && e.date <= weekEnd)
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (record) =>
-          record.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
+  // Group by employee
+  type EmpWeekRow = {
+    employee: Employee
+    regularHours: number
+    overtimeHours: number
+    regularPay: number
+    overtimePay: number
+    grossPay: number
+    alreadyApproved: boolean
+  }
+
+  const weekRows: EmpWeekRow[] = employees
+    .map(emp => {
+      const entries = weekEntries.filter(e => e.employee_id === emp.id)
+      if (entries.length === 0) return null
+      const regularHours = entries.reduce((s, e) => s + (e.regular_hours || 0), 0)
+      const overtimeHours = entries.reduce((s, e) => s + (e.overtime_hours || 0), 0)
+      const regularPay = regularHours * emp.hourly_rate
+      const overtimePay = overtimeHours * emp.hourly_rate * 1.5
+      const grossPay = regularPay + overtimePay
+      const alreadyApproved = payrollRecords.some(
+        r => r.employee_id === emp.id &&
+             r.payroll_period_start === weekStart &&
+             r.payroll_period_end === weekEnd
       )
+      return { employee: emp, regularHours, overtimeHours, regularPay, overtimePay, grossPay, alreadyApproved }
+    })
+    .filter(Boolean) as EmpWeekRow[]
+
+  const handleApprove = async (row: EmpWeekRow) => {
+    setSaving(true)
+    const method = paymentMethods[row.employee.id] || 'Check'
+    const grossPay = row.grossPay
+
+    const { error } = await supabase.from('payroll').insert([{
+      payroll_period_start: weekStart,
+      payroll_period_end: weekEnd,
+      employee_id: row.employee.id,
+      regular_hours: row.regularHours,
+      overtime_hours: row.overtimeHours,
+      gross_pay: grossPay,
+      taxes: 0,
+      benefits: 0,
+      reimbursements: 0,
+      total_employer_cost: grossPay,
+      status: 'approved',
+      payment_method: method,
+    }])
+
+    if (error) {
+      console.error('Payroll insert error:', error)
+      alert('Error saving payroll: ' + error.message)
+    } else {
+      await loadData()
     }
-
-    setFilteredRecords(filtered)
-  }, [payrollRecords, statusFilter, searchTerm])
-
-  // Handle create payroll record
-  const handleCreatePayrollRecord = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.employee_id || !formData.payroll_period_start) {
-      alert('Employee and payroll period start date are required')
-      return
-    }
-
-    try {
-      console.log('Creating payroll record:', formData)
-      const grossPay = parseFloat(formData.gross_pay) || 0
-      const taxes = parseFloat(formData.taxes) || grossPay * 0.18
-      const benefits = parseFloat(formData.benefits) || 0
-      const reimbursements = parseFloat(formData.reimbursements) || 0
-      const totalEmployerCost = grossPay + taxes + benefits + reimbursements
-
-      const { data, error } = await supabase
-        .from('payroll')
-        .insert([
-          {
-            payroll_period_start: formData.payroll_period_start,
-            payroll_period_end: formData.payroll_period_end,
-            employee_id: formData.employee_id,
-            regular_hours: parseFloat(formData.regular_hours) || 0,
-            overtime_hours: parseFloat(formData.overtime_hours) || 0,
-            gross_pay: grossPay,
-            taxes: taxes,
-            benefits: benefits,
-            reimbursements: reimbursements,
-            total_employer_cost: totalEmployerCost,
-            status: formData.status,
-          },
-        ])
-        .select()
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw new Error(`Failed to create: ${error.message}`)
-      }
-
-      console.log('Payroll record created successfully:', data)
-      if (data) {
-        setPayrollRecords([...payrollRecords, ...data])
-        setFormData({
-          payroll_period_start: '',
-          payroll_period_end: '',
-          employee_id: '',
-          regular_hours: '',
-          overtime_hours: '',
-          gross_pay: '',
-          taxes: '',
-          benefits: '',
-          reimbursements: '',
-          status: 'pending',
-        })
-        setShowNewPayrollForm(false)
-        alert('Payroll record created successfully!')
-      }
-    } catch (error) {
-      console.error('Error creating payroll record:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Failed to create payroll record'}`)
-    }
+    setSaving(false)
   }
 
-  // Handle delete payroll record
-  const handleDeletePayrollRecord = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this payroll record?')) return
-
-    try {
-      const { error } = await supabase.from('payroll').delete().eq('id', id)
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw new Error(`Failed to delete: ${error.message}`)
-      }
-
-      setPayrollRecords(payrollRecords.filter((r) => r.id !== id))
-      alert('Payroll record deleted successfully!')
-    } catch (error) {
-      console.error('Error deleting payroll record:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Failed to delete payroll record'}`)
+  const handleApproveAll = async () => {
+    const pending = weekRows.filter(r => !r.alreadyApproved)
+    if (pending.length === 0) return
+    setSaving(true)
+    for (const row of pending) {
+      const method = paymentMethods[row.employee.id] || 'Check'
+      await supabase.from('payroll').insert([{
+        payroll_period_start: weekStart,
+        payroll_period_end: weekEnd,
+        employee_id: row.employee.id,
+        regular_hours: row.regularHours,
+        overtime_hours: row.overtimeHours,
+        gross_pay: row.grossPay,
+        taxes: 0,
+        benefits: 0,
+        reimbursements: 0,
+        total_employer_cost: row.grossPay,
+        status: 'approved',
+        payment_method: method,
+      }])
     }
+    await loadData()
+    setSaving(false)
   }
 
-  // Handle approve payroll record
-  const handleApprovePayrollRecord = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('payroll')
-        .update({ status: 'approved' })
-        .eq('id', id)
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw new Error(`Failed to approve: ${error.message}`)
-      }
-
-      setPayrollRecords(
-        payrollRecords.map((r) =>
-          r.id === id ? { ...r, status: 'approved' } : r
-        )
-      )
-      alert('Payroll record approved!')
-    } catch (error) {
-      console.error('Error approving payroll record:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Failed to approve payroll record'}`)
-    }
+  const handleMarkPaid = async (id: string) => {
+    await supabase.from('payroll').update({ status: 'paid' }).eq('id', id)
+    setPayrollRecords(prev => prev.map(r => r.id === id ? { ...r, status: 'paid' } : r))
   }
 
-  const getEmployeeName = (employeeId: string) => {
-    return employees.find((e) => e.id === employeeId)?.name || 'Unknown'
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this payroll record?')) return
+    await supabase.from('payroll').delete().eq('id', id)
+    setPayrollRecords(prev => prev.filter(r => r.id !== id))
   }
+
+  const getEmployeeName = (id: string) => employees.find(e => e.id === id)?.name || 'Unknown'
+
+  const filteredRecords = payrollRecords.filter(r => statusFilter === 'all' || r.status === statusFilter)
 
   const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    paid: 'bg-blue-100 text-blue-800',
+    pending:  'bg-yellow-100 text-yellow-800',
+    approved: 'bg-blue-100 text-blue-800',
+    paid:     'bg-green-100 text-green-800',
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value)
-  }
+  const totalGross = filteredRecords.reduce((s, r) => s + (r.gross_pay || 0), 0)
+  const totalApproved = payrollRecords.filter(r => r.status === 'approved').reduce((s, r) => s + (r.gross_pay || 0), 0)
+  const totalPaid = payrollRecords.filter(r => r.status === 'paid').reduce((s, r) => s + (r.gross_pay || 0), 0)
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  const totalGrossPay = filteredRecords.reduce((sum, r) => sum + r.gross_pay, 0)
-  const totalTaxes = filteredRecords.reduce((sum, r) => sum + r.taxes, 0)
-  const totalEmployerCost = filteredRecords.reduce((sum, r) => sum + r.total_employer_cost, 0)
+  if (loading) return <div className="text-center py-20" style={{ color: 'var(--color-muted)' }}>Loading...</div>
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-playfair font-bold mb-1" style={{ color: 'var(--color-navy)' }}>Payroll</h1>
-          <p style={{ color: 'var(--color-muted)' }}>Manage payroll periods and employee payments</p>
-        </div>
-        <button
-          onClick={() => setShowNewPayrollForm(true)}
-          className="flex items-center gap-2 text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition"
-          style={{ backgroundColor: 'var(--color-navy)' }}
-        >
-          <Plus className="w-5 h-5" />
-          New Payroll
-        </button>
+      <div>
+        <h1 className="text-3xl font-playfair font-bold mb-1" style={{ color: 'var(--color-navy)' }}>Payroll</h1>
+        <p style={{ color: 'var(--color-muted)' }}>Weekly payroll from labor hours</p>
       </div>
 
-      {/* New Payroll Form Modal */}
-      {showNewPayrollForm && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.05)' }}>
-          <div className="bg-white rounded-lg p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ border: `1px solid var(--color-border)` }}>
-            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-navy)' }}>Create Payroll Record</h2>
-            <form onSubmit={handleCreatePayrollRecord} className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { label: 'Total Payroll', value: fmtCurrency(totalGross), icon: DollarSign },
+          { label: 'Awaiting Payment', value: fmtCurrency(totalApproved), icon: Clock },
+          { label: 'Total Paid Out', value: fmtCurrency(totalPaid), icon: Users },
+        ].map(({ label, value, icon: Icon }) => (
+          <div key={label} className="bg-white rounded-lg p-5 shadow-sm" style={{ border: '1px solid var(--color-border)' }}>
+            <div className="flex items-center gap-3">
+              <Icon className="w-5 h-5 opacity-40" style={{ color: 'var(--color-gold)' }} />
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Employee *
-                </label>
-                <select
-                  id="payroll-employee_id"
-                  name="employee_id"
-                  value={formData.employee_id}
-                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                  required
-                >
-                  <option value="">Select an employee</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} (${emp.hourly_rate}/hr)
-                    </option>
+                <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>{label}</p>
+                <p className="text-xl font-bold" style={{ color: 'var(--color-navy)' }}>{value}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Week Pay Period ─────────────────────────────────────── */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>Process Payroll</h2>
+            <p className="text-sm" style={{ color: 'var(--color-muted)' }}>Based on approved labor hours</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium" style={{ color: 'var(--color-muted)' }}>Week starting</label>
+            <input
+              type="date"
+              value={weekStart}
+              onChange={e => setWeekStart(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border text-sm focus:outline-none"
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}
+            />
+            <span className="text-sm" style={{ color: 'var(--color-muted)' }}>→ {fmtDate(weekEnd)}</span>
+          </div>
+        </div>
+
+        {weekRows.length === 0 ? (
+          <div className="px-6 py-12 text-center" style={{ color: 'var(--color-muted)' }}>
+            No labor hours recorded for this week.
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
+                <thead style={{ backgroundColor: 'var(--color-linen)' }}>
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Employee</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Reg Hrs</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>OT Hrs</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Reg Pay</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>OT Pay</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Gross Pay</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Payment Method</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weekRows.map(row => (
+                    <tr key={row.employee.id} className="border-t hover:bg-gray-50 transition" style={{ borderColor: 'var(--color-border)' }}>
+                      <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>
+                        {row.employee.name}
+                        <span className="ml-2 text-xs font-normal" style={{ color: 'var(--color-muted)' }}>
+                          ${row.employee.hourly_rate}/hr
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-center" style={{ color: 'var(--color-navy)' }}>
+                        {row.regularHours.toFixed(1)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-center" style={{ color: row.overtimeHours > 0 ? '#d97706' : 'var(--color-muted)' }}>
+                        {row.overtimeHours.toFixed(1)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right" style={{ color: 'var(--color-navy)' }}>
+                        {fmtCurrency(row.regularPay)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right" style={{ color: row.overtimePay > 0 ? '#d97706' : 'var(--color-muted)' }}>
+                        {fmtCurrency(row.overtimePay)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right font-semibold" style={{ color: 'var(--color-navy)' }}>
+                        {fmtCurrency(row.grossPay)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-center">
+                        {row.alreadyApproved ? (
+                          <span className="text-xs" style={{ color: 'var(--color-muted)' }}>—</span>
+                        ) : (
+                          <select
+                            value={paymentMethods[row.employee.id] || 'Check'}
+                            onChange={e => setPaymentMethods(prev => ({ ...prev, [row.employee.id]: e.target.value }))}
+                            className="px-2 py-1 rounded border text-xs focus:outline-none"
+                            style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}
+                          >
+                            {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
+                          </select>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {row.alreadyApproved ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                            <CheckCircle className="w-3 h-3" /> Approved
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleApprove(row)}
+                            disabled={saving}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                            style={{ backgroundColor: 'var(--color-navy)' }}
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" /> Approve
+                          </button>
+                        )}
+                      </td>
+                    </tr>
                   ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Period Start *
-                  </label>
-                  <input
-                    type="date"
-                    id="payroll-payroll_period_start"
-                    name="payroll_period_start"
-                    value={formData.payroll_period_start}
-                    onChange={(e) => setFormData({ ...formData, payroll_period_start: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Period End
-                  </label>
-                  <input
-                    type="date"
-                    id="payroll-payroll_period_end"
-                    name="payroll_period_end"
-                    value={formData.payroll_period_end}
-                    onChange={(e) => setFormData({ ...formData, payroll_period_end: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Regular Hours
-                  </label>
-                  <input
-                    type="number"
-                    id="payroll-regular_hours"
-                    name="regular_hours"
-                    step="0.25"
-                    value={formData.regular_hours}
-                    onChange={(e) => setFormData({ ...formData, regular_hours: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Overtime Hours
-                  </label>
-                  <input
-                    type="number"
-                    id="payroll-overtime_hours"
-                    name="overtime_hours"
-                    step="0.25"
-                    value={formData.overtime_hours}
-                    onChange={(e) => setFormData({ ...formData, overtime_hours: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Gross Pay
-                </label>
-                <input
-                  type="number"
-                  id="payroll-gross_pay"
-                  name="gross_pay"
-                  step="0.01"
-                  value={formData.gross_pay}
-                  onChange={(e) => setFormData({ ...formData, gross_pay: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Taxes
-                  </label>
-                  <input
-                    type="number"
-                    id="payroll-taxes"
-                    name="taxes"
-                    step="0.01"
-                    value={formData.taxes}
-                    onChange={(e) => setFormData({ ...formData, taxes: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Benefits
-                  </label>
-                  <input
-                    type="number"
-                    id="payroll-benefits"
-                    name="benefits"
-                    step="0.01"
-                    value={formData.benefits}
-                    onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Reimbursements
-                  </label>
-                  <input
-                    type="number"
-                    id="payroll-reimbursements"
-                    name="reimbursements"
-                    step="0.01"
-                    value={formData.reimbursements}
-                    onChange={(e) => setFormData({ ...formData, reimbursements: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  id="payroll-status"
-                  name="status"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="paid">Paid</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowNewPayrollForm(false)}
-                  className="flex-1 px-4 py-2 rounded-lg hover:opacity-80 transition"
-                  style={{ border: `1px solid var(--color-border)`, backgroundColor: 'white', color: 'var(--color-navy)' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
-                  style={{ backgroundColor: 'var(--color-navy)' }}
-                >
-                  Create Payroll
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Summary Cards */}
-      <div className="rounded-lg p-6" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-        <div className="grid grid-cols-3 gap-8">
-          <div>
-            <p className="text-sm mb-1" style={{ color: 'var(--color-muted)' }}>Total Gross Pay</p>
-            <p className="text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>{formatCurrency(totalGrossPay)}</p>
-          </div>
-          <div>
-            <p className="text-sm mb-1" style={{ color: 'var(--color-muted)' }}>Total Taxes</p>
-            <p className="text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>{formatCurrency(totalTaxes)}</p>
-          </div>
-          <div>
-            <p className="text-sm mb-1" style={{ color: 'var(--color-muted)' }}>Total Employer Cost</p>
-            <p className="text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>{formatCurrency(totalEmployerCost)}</p>
-          </div>
-        </div>
+                </tbody>
+                {weekRows.some(r => !r.alreadyApproved) && (
+                  <tfoot style={{ borderTop: `2px solid var(--color-border)` }}>
+                    <tr>
+                      <td colSpan={5} className="px-6 py-3 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                        Week Total
+                      </td>
+                      <td className="px-6 py-3 text-sm font-bold text-right" style={{ color: 'var(--color-navy)' }}>
+                        {fmtCurrency(weekRows.filter(r => !r.alreadyApproved).reduce((s, r) => s + r.grossPay, 0))}
+                      </td>
+                      <td />
+                      <td className="px-6 py-3 text-center">
+                        <button
+                          onClick={handleApproveAll}
+                          disabled={saving}
+                          className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                          style={{ backgroundColor: '#16a34a' }}
+                        >
+                          Approve All
+                        </button>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Controls */}
-      <div className="flex gap-4 items-center">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            id="payroll-search"
-            name="search"
-            placeholder="Search payroll records..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="relative">
+      {/* ── Payroll History ─────────────────────────────────────── */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>Payroll History</h2>
           <select
-            id="payroll-statusFilter"
-            name="statusFilter"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-10"
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border text-sm focus:outline-none"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
@@ -504,86 +383,85 @@ export default function PayrollPage() {
             <option value="paid">Paid</option>
           </select>
         </div>
+
+        {filteredRecords.length === 0 ? (
+          <div className="px-6 py-12 text-center" style={{ color: 'var(--color-muted)' }}>
+            No payroll records yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px]">
+              <thead style={{ backgroundColor: 'var(--color-linen)' }}>
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Employee</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Pay Period</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Hours</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Gross Pay</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Payment</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Status</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRecords.map(record => (
+                  <tr key={record.id} className="border-t hover:bg-gray-50 transition" style={{ borderColor: 'var(--color-border)' }}>
+                    <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>
+                      {getEmployeeName(record.employee_id)}
+                    </td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>
+                      {fmtDate(record.payroll_period_start)} – {fmtDate(record.payroll_period_end)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-center" style={{ color: 'var(--color-navy)' }}>
+                      {((record.regular_hours || 0) + (record.overtime_hours || 0)).toFixed(1)}h
+                      {(record.overtime_hours || 0) > 0 && (
+                        <span className="ml-1 text-xs" style={{ color: '#d97706' }}>
+                          ({record.overtime_hours}h OT)
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
+                      {fmtCurrency(record.gross_pay)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-center" style={{ color: 'var(--color-muted)' }}>
+                      {record.payment_method || '—'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[record.status] || 'bg-gray-100 text-gray-800'}`}>
+                        {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {record.status === 'approved' && (
+                          <button
+                            onClick={() => handleMarkPaid(record.id)}
+                            className="text-xs font-semibold text-white px-3 py-1 rounded-lg hover:opacity-90 transition"
+                            style={{ backgroundColor: '#16a34a' }}
+                          >
+                            Mark Paid
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(record.id)}
+                          className="text-xs text-red-500 hover:text-red-700 transition"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Payroll Table */}
-      {loading ? (
-        <div className="text-center py-12">
-          <p className="text-gray-600">Loading payroll records...</p>
-        </div>
-      ) : filteredRecords.length === 0 ? (
-        <div className="bg-white rounded-lg p-12 text-center border border-gray-200">
-          <p className="text-gray-600">No payroll records found. Create your first payroll record to get started!</p>
-        </div>
-      ) : (
-        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
-          <table className="w-full min-w-[640px]">
-            <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Employee</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Period</th>
-                <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900">Hours</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Gross Pay</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Taxes</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Benefits</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Employer Cost</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRecords.map((record) => (
-                <tr key={record.id} style={{ borderBottom: `1px solid var(--color-border)` }} className="hover:opacity-75">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{getEmployeeName(record.employee_id)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {formatDate(record.payroll_period_start)} to {formatDate(record.payroll_period_end)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-center text-gray-900">
-                    {(record.regular_hours + record.overtime_hours).toFixed(1)}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900 text-right">
-                    {formatCurrency(record.gross_pay)}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900 text-right">
-                    {formatCurrency(record.taxes)}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900 text-right">
-                    {formatCurrency(record.benefits)}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900 text-right">
-                    {formatCurrency(record.total_employer_cost)}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[record.status]}`}>
-                      {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm flex gap-2">
-                    {record.status === 'pending' && (
-                      <button
-                        onClick={() => handleApprovePayrollRecord(record.id)}
-                        className="text-green-600 hover:text-green-900 transition"
-                        title="Approve"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button className="text-blue-600 hover:text-blue-900 transition" title="Generate Slip">
-                      <FileText className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeletePayrollRecord(record.id)}
-                      className="text-red-600 hover:text-red-900 transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* SQL migration note */}
+      <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+        Note: if payment method doesn&apos;t save, run in Supabase SQL editor:{' '}
+        <code className="bg-gray-100 px-1 rounded">ALTER TABLE payroll ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT &apos;check&apos;;</code>
+      </p>
     </div>
   )
 }
