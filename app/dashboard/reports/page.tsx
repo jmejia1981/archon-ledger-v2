@@ -125,13 +125,22 @@ export default function ReportsPage() {
         const netProfit     = grossProfit - overhead
         const profitMargin  = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
 
-        // ── Tax category breakdown ────────────────────────────────────────────
+        // ── Tax category breakdown (Schedule C) ──────────────────────────────
         const taxMap: Record<string, number> = {}
+        // Expenses with explicit tax_category tags
         expenses.forEach((e: any) => {
           if (e.tax_category) {
             taxMap[e.tax_category] = (taxMap[e.tax_category] || 0) + (e.amount || 0)
           }
         })
+        // Labor costs → Schedule C Line 26: Wages & salaries
+        if (laborCosts > 0) {
+          taxMap['Wages & Salaries (Line 26)'] = (taxMap['Wages & Salaries (Line 26)'] || 0) + laborCosts
+        }
+        // Mileage → Schedule C Line 9: Car and truck expenses
+        if (mileageCosts > 0) {
+          taxMap['Car & Truck Expenses (Line 9)'] = (taxMap['Car & Truck Expenses (Line 9)'] || 0) + mileageCosts
+        }
         setTaxBreakdown(
           Object.entries(taxMap)
             .map(([category, amount]) => ({ category, amount }))

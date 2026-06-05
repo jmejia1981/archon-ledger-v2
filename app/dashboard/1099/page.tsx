@@ -37,34 +37,46 @@ export default function Page1099() {
       const yearEnd = `${selectedYear}-12-31`
 
       const [billsRes, expensesRes, vendorsRes] = await Promise.all([
-        supabase.from('vendor_bills').select('id, vendor, amount_paid, due_date, is_1099_vendor, vendor_tax_id').gte('due_date', yearStart).lte('due_date', yearEnd),
+        // Fetch all bills then filter by year — avoids missing bills where issue_date ≠ due_date
+        supabase.from('vendor_bills').select('id, vendor, vendor_id, amount, amount_paid, issue_date, due_date'),
         supabase.from('expenses').select('id, vendor, amount, date, category').gte('date', yearStart).lte('date', yearEnd),
-        supabase.from('vendors').select('name, ein, is_1099_required'),
+        supabase.from('vendors').select('id, name, ein, is_1099_required'),
       ])
 
-      const bills = billsRes.data || []
+      // Filter bills to selected year using either issue_date or due_date
+      const allBills = billsRes.data || []
+      const bills = allBills.filter((b: any) => {
+        const d = b.issue_date || b.due_date
+        if (!d) return false
+        return d >= yearStart && d <= yearEnd
+      })
       const expenses = (expensesRes.data || []).filter((e: any) => e.category === 'Subcontractors' && e.vendor)
 
-      // Build vendor records map from vendors table
+      // Build vendor records map by name AND by id
       const vendorRecords: Record<string, { ein: string; is_1099_required: boolean }> = {}
+      const vendorById: Record<string, { name: string; ein: string; is_1099_required: boolean }> = {}
       ;(vendorsRes.data || []).forEach((v: any) => {
         vendorRecords[v.name.trim()] = { ein: v.ein || '', is_1099_required: v.is_1099_required }
+        vendorById[v.id] = { name: v.name.trim(), ein: v.ein || '', is_1099_required: v.is_1099_required }
       })
 
       const map: Record<string, VendorSummary> = {}
 
       bills.forEach((b: any) => {
-        if (!b.vendor || !b.amount_paid) return
-        const key = b.vendor.trim()
+        if (!b.vendor && !b.vendor_id) return
+        // Resolve canonical name — prefer vendors table name via vendor_id for consistency
+        const canonicalName = (b.vendor_id && vendorById[b.vendor_id]?.name) || b.vendor?.trim()
+        if (!canonicalName) return
+        const key = canonicalName
         if (!map[key]) map[key] = { vendor: key, totalPaid: 0, needs1099: false, taxId: '', sources: [], billIds: [] }
-        map[key].totalPaid += b.amount_paid || 0
+        // Use amount_paid if recorded, otherwise fall back to full bill amount
+        map[key].totalPaid += (b.amount_paid > 0 ? b.amount_paid : b.amount) || 0
         map[key].billIds.push(b.id)
         if (!map[key].sources.includes('Vendor Bills')) map[key].sources.push('Vendor Bills')
-        if (b.is_1099_vendor) map[key].needs1099 = true
-        if (b.vendor_tax_id) map[key].taxId = b.vendor_tax_id
-        if (vendorRecords[key]) {
-          if (vendorRecords[key].ein && !map[key].taxId) map[key].taxId = vendorRecords[key].ein
-          if (vendorRecords[key].is_1099_required) map[key].needs1099 = true
+        const vRec = (b.vendor_id && vendorById[b.vendor_id]) || vendorRecords[key]
+        if (vRec) {
+          if (vRec.ein && !map[key].taxId) map[key].taxId = vRec.ein
+          if (vRec.is_1099_required) map[key].needs1099 = true
         }
       })
 
