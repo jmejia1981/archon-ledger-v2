@@ -257,7 +257,7 @@ export default function AssetsPage() {
 );
 
 ALTER TABLE fixed_assets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all" ON fixed_assets FOR ALL USING (true) WITH CHECK (true);`}</pre>
+CREATE POLICY "Org members can read assets" ON fixed_assets FOR SELECT USING (organization_id = current_org_id());`}</pre>
         <button onClick={() => { setTableReady(true); loadAssets() }} className="mt-6 px-6 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: 'var(--color-navy)', color: 'white' }}>
           I&apos;ve run the SQL — Retry
         </button>

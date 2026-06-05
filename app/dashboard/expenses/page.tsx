@@ -12,6 +12,7 @@ interface Expense {
   amount: number
   date: string
   receipt_url?: string
+  receipt_path?: string
   approval_status: 'pending' | 'approved' | 'rejected'
   description: string
   notes?: string
@@ -25,6 +26,14 @@ interface Project {
 }
 
 const supabase = createClient()
+
+const isRemoteUrl = (value?: string | null) => Boolean(value && /^https?:\/\//i.test(value))
+
+async function signReceiptUrl(value?: string | null) {
+  if (!value || isRemoteUrl(value)) return value || ''
+  const { data } = await supabase.storage.from('receipts').createSignedUrl(value, 60 * 60)
+  return data?.signedUrl || ''
+}
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -46,6 +55,7 @@ export default function ExpensesPage() {
     taxCategory: '',
     amount: '',
     receiptUrl: '',
+    receiptPath: '',
     approvalStatus: 'pending' as 'pending' | 'approved' | 'rejected',
     description: '',
     notes: '',
@@ -62,7 +72,13 @@ export default function ExpensesPage() {
           supabase.from('projects').select('id, project_name'),
         ])
 
-        setExpenses(expensesData.data || [])
+        const signedExpenses = await Promise.all((expensesData.data || []).map(async (expense) => ({
+          ...expense,
+          receipt_path: expense.receipt_path || (!isRemoteUrl(expense.receipt_url) ? expense.receipt_url : null),
+          receipt_url: await signReceiptUrl(expense.receipt_path || expense.receipt_url),
+        })))
+
+        setExpenses(signedExpenses)
         setProjects(projectsData.data || [])
       } catch (error) {
         console.error('Error loading data:', error)
@@ -113,7 +129,8 @@ export default function ExpensesPage() {
             tax_category: formData.taxCategory || null,
             amount: parseFloat(formData.amount),
             date: formData.date,
-            receipt_url: formData.receiptUrl || null,
+            receipt_url: formData.receiptPath || formData.receiptUrl || null,
+            receipt_path: formData.receiptPath || null,
             approval_status: formData.approvalStatus,
             description: formData.description,
             notes: formData.notes || null,
@@ -134,6 +151,7 @@ export default function ExpensesPage() {
           taxCategory: '',
           amount: '',
           receiptUrl: '',
+          receiptPath: '',
           approvalStatus: 'pending',
           description: '',
           notes: '',
@@ -246,15 +264,17 @@ export default function ExpensesPage() {
     })
   }
 
-  const handleReceiptUpload = async (file: File, onSuccess: (url: string) => void) => {
+  const handleReceiptUpload = async (file: File, onSuccess: (path: string, signedUrl: string) => void) => {
     setUploadingReceipt(true)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('You must be signed in to upload receipts')
       const compressed = await compressImage(file)
-      const fileName = `expenses/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+      const fileName = `${user.id}/expenses/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
       const { error } = await supabase.storage.from('receipts').upload(fileName, compressed, { contentType: 'image/jpeg' })
       if (error) throw error
-      const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(fileName)
-      onSuccess(publicUrl)
+      const signedUrl = await signReceiptUrl(fileName)
+      onSuccess(fileName, signedUrl)
     } catch (error) {
       console.error('Error uploading receipt:', error)
       alert('Failed to upload receipt.')
@@ -272,6 +292,7 @@ export default function ExpensesPage() {
       taxCategory: expense.tax_category || '',
       amount: expense.amount.toString(),
       receiptUrl: expense.receipt_url || '',
+      receiptPath: expense.receipt_path || (!isRemoteUrl(expense.receipt_url) ? expense.receipt_url || '' : ''),
       approvalStatus: expense.approval_status,
       description: expense.description,
       notes: expense.notes || '',
@@ -294,7 +315,8 @@ export default function ExpensesPage() {
           tax_category: editFormData.taxCategory || null,
           amount: parseFloat(editFormData.amount),
           date: editFormData.date,
-          receipt_url: editFormData.receiptUrl || null,
+          receipt_url: editFormData.receiptPath || editFormData.receiptUrl || null,
+          receipt_path: editFormData.receiptPath || null,
           approval_status: editFormData.approvalStatus,
           description: editFormData.description,
           notes: editFormData.notes || null,
@@ -315,6 +337,7 @@ export default function ExpensesPage() {
               amount: parseFloat(editFormData.amount),
               date: editFormData.date,
               receipt_url: editFormData.receiptUrl || undefined,
+              receipt_path: editFormData.receiptPath || undefined,
               approval_status: editFormData.approvalStatus,
               description: editFormData.description,
               notes: editFormData.notes || undefined,
@@ -543,9 +566,9 @@ export default function ExpensesPage() {
                         <Camera className="w-4 h-4" />
                         Change
                         <input type="file" accept="image/*" capture="environment" className="hidden"
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (url) => setFormData(prev => ({ ...prev, receiptUrl: url }))) }} />
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (path, url) => setFormData(prev => ({ ...prev, receiptPath: path, receiptUrl: url }))) }} />
                       </label>
-                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, receiptUrl: '' }))}
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, receiptPath: '', receiptUrl: '' }))}
                         className="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50 transition"
                         style={{ borderColor: 'var(--color-border)', color: 'var(--color-destructive)' }}>
                         Remove
@@ -563,7 +586,7 @@ export default function ExpensesPage() {
                       </>
                     )}
                     <input type="file" accept="image/*" capture="environment" className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (url) => setFormData(prev => ({ ...prev, receiptUrl: url }))) }} />
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (path, url) => setFormData(prev => ({ ...prev, receiptPath: path, receiptUrl: url }))) }} />
                   </label>
                 )}
               </div>
@@ -914,9 +937,9 @@ export default function ExpensesPage() {
                         <Camera className="w-4 h-4" />
                         Change
                         <input type="file" accept="image/*" capture="environment" className="hidden"
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (url) => setEditFormData(prev => prev ? { ...prev, receiptUrl: url } : prev)) }} />
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (path, url) => setEditFormData(prev => prev ? { ...prev, receiptPath: path, receiptUrl: url } : prev)) }} />
                       </label>
-                      <button type="button" onClick={() => setEditFormData(prev => prev ? { ...prev, receiptUrl: '' } : prev)}
+                      <button type="button" onClick={() => setEditFormData(prev => prev ? { ...prev, receiptPath: '', receiptUrl: '' } : prev)}
                         className="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50 transition"
                         style={{ borderColor: 'var(--color-border)', color: 'var(--color-destructive)' }}>
                         Remove
@@ -934,7 +957,7 @@ export default function ExpensesPage() {
                       </>
                     )}
                     <input type="file" accept="image/*" capture="environment" className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (url) => setEditFormData(prev => prev ? { ...prev, receiptUrl: url } : prev)) }} />
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f, (path, url) => setEditFormData(prev => prev ? { ...prev, receiptPath: path, receiptUrl: url } : prev)) }} />
                   </label>
                 )}
               </div>

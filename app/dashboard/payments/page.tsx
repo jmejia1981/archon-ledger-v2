@@ -184,38 +184,21 @@ export default function PaymentsPage() {
       if (!selectedInvoice) throw new Error('Invoice not found')
 
       const paymentAmount = parseFloat(formData.amount)
-      const newAmountPaid = selectedInvoice.amount_paid + paymentAmount
-      const totalAmount = selectedInvoice.invoice_amount + (selectedInvoice.status === 'paid' ? 0 : 0)
-      const newStatus = newAmountPaid >= totalAmount ? 'paid' : 'pending'
+      const outstanding = calculateOutstanding(selectedInvoice)
+      if (paymentAmount > outstanding) {
+        setFormError('Payment amount cannot exceed the outstanding balance')
+        return
+      }
 
-      // Insert payment record
-      const { error: insertError } = await supabase
-        .from('payments')
-        .insert([
-          {
-            invoice_id: formData.invoice_id,
-            amount: paymentAmount,
-            payment_date: formData.payment_date,
-            payment_method: formData.payment_method,
-            status: 'completed',
-            notes: formData.notes || null,
-            created_at: new Date().toISOString(),
-          },
-        ])
+      const { error: paymentError } = await supabase.rpc('record_invoice_payment', {
+        p_invoice_id: formData.invoice_id,
+        p_amount: paymentAmount,
+        p_payment_date: formData.payment_date,
+        p_payment_method: formData.payment_method,
+        p_notes: formData.notes || null,
+      })
 
-      if (insertError) throw insertError
-
-      // Update invoice with new payment amount and status
-      const { error: updateError } = await supabase
-        .from('invoices')
-        .update({
-          amount_paid: newAmountPaid,
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', formData.invoice_id)
-
-      if (updateError) throw updateError
+      if (paymentError) throw paymentError
 
       setFormSuccess('Payment recorded successfully!')
       await fetchData()
@@ -554,7 +537,7 @@ export default function PaymentsPage() {
                       style={{ borderColor: 'var(--color-border)' }}
                       placeholder="0.00"
                       step="0.01"
-                      min="0"
+                      min="0.01"
                     />
                   </div>
                   <div>

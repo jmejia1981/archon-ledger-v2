@@ -89,8 +89,9 @@ export default function ProjectsPage() {
   }
 
   // Handle open new project form
-  const handleOpenNewProjectForm = () => {
-    const nextNumber = generateNextProjectNumber()
+  const handleOpenNewProjectForm = async () => {
+    const { data } = await supabase.rpc('next_project_number')
+    const nextNumber = data || generateNextProjectNumber()
     setFormData({
       project_number: nextNumber,
       project_name: '',

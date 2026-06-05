@@ -3,6 +3,18 @@
  * Handles sending invoices and payment reminders
  */
 
+function escapeHTML(value: string) {
+  return value.replace(/[&<>"']/g, (char) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }
+    return entities[char] || char
+  })
+}
 interface EmailOptions {
   to: string
   subject: string
@@ -89,6 +101,9 @@ export function generateInvoiceEmailTemplate(
     month: 'long',
     day: 'numeric',
   })
+  const safeInvoiceNumber = escapeHTML(invoiceNumber)
+  const safeClientName = escapeHTML(clientName)
+  const safePaymentLink = paymentLink ? escapeHTML(paymentLink) : undefined
 
   return `
     <!DOCTYPE html>
@@ -112,19 +127,19 @@ export function generateInvoiceEmailTemplate(
       <body>
         <div class="container">
           <div class="header">
-            <h1>Invoice ${invoiceNumber}</h1>
+            <h1>Invoice ${safeInvoiceNumber}</h1>
             <p>Archon Construction</p>
           </div>
 
           <div class="content">
-            <p>Hello ${clientName},</p>
+            <p>Hello ${safeClientName},</p>
 
             <p>We've sent you an invoice for services rendered. Please find the details below:</p>
 
             <div class="invoice-details">
               <div class="detail-row">
                 <span class="label">Invoice Number:</span>
-                <span class="value">${invoiceNumber}</span>
+                <span class="value">${safeInvoiceNumber}</span>
               </div>
               <div class="detail-row">
                 <span class="label">Amount Due:</span>
@@ -138,8 +153,8 @@ export function generateInvoiceEmailTemplate(
 
             <p>To pay this invoice online, click the button below:</p>
             ${
-              paymentLink
-                ? `<a href="${paymentLink}" class="button">Pay Now</a>`
+              safePaymentLink
+                ? `<a href="${safePaymentLink}" class="button">Pay Now</a>`
                 : '<p style="color: #999;">Please contact us to arrange payment.</p>'
             }
 
@@ -180,6 +195,9 @@ export function generatePaymentReminderTemplate(
     month: 'long',
     day: 'numeric',
   })
+  const safeInvoiceNumber = escapeHTML(invoiceNumber)
+  const safeClientName = escapeHTML(clientName)
+  const safePaymentLink = paymentLink ? escapeHTML(paymentLink) : undefined
 
   const reminderType = isOverdue ? 'OVERDUE PAYMENT NOTICE' : 'PAYMENT REMINDER'
   const reminderColor = isOverdue ? '#d32f2f' : '#1976d2'
@@ -208,7 +226,7 @@ export function generatePaymentReminderTemplate(
         <div class="container">
           <div class="header">
             <h1>${reminderType}</h1>
-            <p>Invoice ${invoiceNumber}</p>
+            <p>Invoice ${safeInvoiceNumber}</p>
           </div>
 
           <div class="content">
@@ -216,14 +234,14 @@ export function generatePaymentReminderTemplate(
               ${isOverdue ? 'This invoice is now overdue. Please remit payment immediately.' : 'This invoice will be due soon. Please arrange payment at your earliest convenience.'}
             </div>
 
-            <p>Hello ${clientName},</p>
+            <p>Hello ${safeClientName},</p>
 
             <p>${isOverdue ? 'Our records show that the following invoice remains unpaid.' : 'We wanted to remind you that the following invoice will be due soon:'}</p>
 
             <div class="invoice-details">
               <div class="detail-row">
                 <span class="label">Invoice Number:</span>
-                <span class="value">${invoiceNumber}</span>
+                <span class="value">${safeInvoiceNumber}</span>
               </div>
               <div class="detail-row">
                 <span class="label">Amount Due:</span>
@@ -237,8 +255,8 @@ export function generatePaymentReminderTemplate(
 
             <p>Please pay this invoice at your earliest convenience to avoid late fees.</p>
             ${
-              paymentLink
-                ? `<a href="${paymentLink}" class="button">Pay Now</a>`
+              safePaymentLink
+                ? `<a href="${safePaymentLink}" class="button">Pay Now</a>`
                 : '<p style="color: #999;">Please contact us to arrange payment.</p>'
             }
 

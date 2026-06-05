@@ -425,7 +425,7 @@ export default function PayablesPage() {
 );
 
 ALTER TABLE vendor_bills ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all" ON vendor_bills FOR ALL USING (true) WITH CHECK (true);`}</pre>
+CREATE POLICY "Org members can read bills" ON vendor_bills FOR SELECT USING (organization_id = current_org_id());`}</pre>
         <button onClick={() => { setTableReady(true); loadData() }} className="mt-6 px-6 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: 'var(--color-navy)', color: 'white' }}>
           I&apos;ve run the SQL — Retry
         </button>

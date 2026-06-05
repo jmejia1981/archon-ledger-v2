@@ -36,6 +36,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [user, setUser] = useState<any>(null)
+  const [role, setRole] = useState<string>('viewer')
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -56,20 +57,17 @@ export default function DashboardLayout({
         return
       }
 
-      // If user chose not to be remembered, sign out when browser is reopened
-      if (
-        localStorage.getItem('archon_remember') === 'false' &&
-        !sessionStorage.getItem('archon_active')
-      ) {
-        await supabase.auth.signOut()
-        router.push('/auth/login')
-        return
-      }
+      const { data: membership } = await supabase
+        .from('organization_memberships')
+        .select('role')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle()
 
       setUser(user)
+      setRole(membership?.role || 'viewer')
       setLoading(false)
 
-      // Fetch notifications for this user
       fetchNotifications(user.id)
     }
 
@@ -228,7 +226,7 @@ export default function DashboardLayout({
           </div>
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{user?.user_metadata?.name || user?.user_metadata?.username || 'User'}</p>
-            <p className="text-xs" style={{ color: 'var(--color-muted)' }}>Admin</p>
+            <p className="text-xs capitalize" style={{ color: 'var(--color-muted)' }}>{role}</p>
           </div>
         </div>
 
@@ -258,7 +256,6 @@ export default function DashboardLayout({
         <div className="p-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
           <button
             onClick={async () => {
-              sessionStorage.removeItem('archon_active')
               await supabase.auth.signOut()
               router.push('/auth/login')
             }}
@@ -376,7 +373,7 @@ export default function DashboardLayout({
               <div className="flex items-center gap-3 pl-6" style={{ borderLeft: `1px solid var(--color-border)` }}>
                 <div className="text-right">
                   <p className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{user?.user_metadata?.name || user?.user_metadata?.username || 'User'}</p>
-                  <p className="text-xs" style={{ color: 'var(--color-muted)' }}>Admin</p>
+                  <p className="text-xs capitalize" style={{ color: 'var(--color-muted)' }}>{role}</p>
                 </div>
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: 'var(--color-navy)' }}>
                   {(user?.user_metadata?.name || user?.user_metadata?.username || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()}

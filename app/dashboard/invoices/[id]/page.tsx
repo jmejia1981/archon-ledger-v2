@@ -188,29 +188,26 @@ export default function InvoiceDetailPage() {
     }
 
     const amount = parseFloat(paymentData.amount)
-    const newAmountPaid = (invoice.amount_paid || 0) + amount
-    const newStatus = newAmountPaid >= invoice.invoice_amount ? 'paid' : 'partial'
+    const totalDue = (invoice.invoice_amount || 0) + (invoice.tax || 0) - (invoice.retainage || 0)
+    const outstandingBalance = totalDue - (invoice.amount_paid || 0)
+    if (amount <= 0 || amount > outstandingBalance) {
+      alert('Payment amount must be greater than 0 and cannot exceed the outstanding balance')
+      return
+    }
 
     try {
-      const [updateRes] = await Promise.all([
-        supabase.from('invoices').update({
-          amount_paid: newAmountPaid,
-          status: newStatus,
-        }).eq('id', invoiceId),
-        supabase.from('payments').insert({
-          invoice_id: invoiceId,
-          invoice_number: invoice.invoice_number,
-          client_name: client?.name || '',
-          amount,
-          payment_date: paymentData.payment_date,
-          payment_method: paymentData.payment_method,
-          notes: paymentData.notes || null,
-          status: 'completed',
-        }),
-      ])
+      const { error } = await supabase.rpc('record_invoice_payment', {
+        p_invoice_id: invoiceId,
+        p_amount: amount,
+        p_payment_date: paymentData.payment_date,
+        p_payment_method: paymentData.payment_method,
+        p_notes: paymentData.notes || null,
+      })
 
-      if (updateRes.error) throw updateRes.error
+      if (error) throw error
 
+      const newAmountPaid = (invoice.amount_paid || 0) + amount
+      const newStatus = newAmountPaid >= totalDue ? 'paid' : 'partial'
       setInvoice({ ...invoice, amount_paid: newAmountPaid, status: newStatus })
       setPaymentData({ amount: '', payment_date: new Date().toISOString().split('T')[0], payment_method: 'check', notes: '' })
       setRecordingPayment(false)

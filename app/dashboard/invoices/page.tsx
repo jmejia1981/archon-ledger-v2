@@ -134,8 +134,9 @@ export default function InvoicesPage() {
   }
 
   // Handle open new invoice form
-  const handleOpenNewInvoiceForm = () => {
-    const nextNumber = generateNextInvoiceNumber()
+  const handleOpenNewInvoiceForm = async () => {
+    const { data } = await supabase.rpc('next_invoice_number')
+    const nextNumber = data || generateNextInvoiceNumber()
     setFormData({
       invoice_number: nextNumber,
       client_id: '',
@@ -376,6 +377,12 @@ export default function InvoicesPage() {
     }).format(value)
   }
 
+  const escapeCSVValue = (value: string | number) => {
+    const raw = String(value ?? '')
+    const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw
+    return `"${safe.replace(/"/g, '""')}"`
+  }
+
   const exportToCSV = () => {
     const headers = ['Invoice Number', 'Client', 'Project', 'Invoice Date', 'Due Date', 'Amount', 'Outstanding', 'Status']
     const rows = filteredInvoices.map((invoice) => [
@@ -390,8 +397,8 @@ export default function InvoicesPage() {
     ])
 
     const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
+      headers.map(escapeCSVValue).join(','),
+      ...rows.map((row) => row.map(escapeCSVValue).join(',')),
     ].join('\n')
 
     const element = document.createElement('a')
