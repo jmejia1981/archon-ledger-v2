@@ -34,13 +34,13 @@ interface PayrollRecord {
   payment_method: string
 }
 
-// Thursday of current week (Thu–Wed pay cycle)
+// Saturday of current week (Sat–Fri pay cycle)
 function getWeekStart(d = new Date()) {
-  const day = d.getDay() // 0=Sun,1=Mon,...,4=Thu,...,6=Sat
-  const diff = day >= 4 ? -(day - 4) : -(day + 3)
-  const thu = new Date(d)
-  thu.setDate(d.getDate() + diff)
-  return thu.toISOString().split('T')[0]
+  const day = d.getDay() // 0=Sun,1=Mon,...,5=Fri,6=Sat
+  const diff = day === 6 ? 0 : -(day + 1)
+  const sat = new Date(d)
+  sat.setDate(d.getDate() + diff)
+  return sat.toISOString().split('T')[0]
 }
 
 function addDays(dateStr: string, n: number) {
