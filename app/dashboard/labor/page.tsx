@@ -47,13 +47,13 @@ export default function LaborPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [listView, setListView] = useState<'entries' | 'week'>('week')
   const [editWeeklyData, setEditWeeklyData] = useState<Record<string, WeeklyDayEntry>>({
-    thu: { hours: '' },
-    fri: { hours: '' },
     sat: { hours: '' },
     sun: { hours: '' },
     mon: { hours: '' },
     tue: { hours: '' },
     wed: { hours: '' },
+    thu: { hours: '' },
+    fri: { hours: '' },
   })
 
   const [formData, setFormData] = useState({
@@ -66,23 +66,22 @@ export default function LaborPage() {
     status: 'pending',
   })
 
-  const [weekStartDate, setWeekStartDate] = useState(getThursday(new Date()))
+  const [weekStartDate, setWeekStartDate] = useState(getSaturday(new Date()))
   const [weeklyData, setWeeklyData] = useState<Record<string, WeeklyDayEntry>>({
-    thu: { hours: '' },
-    fri: { hours: '' },
     sat: { hours: '' },
     sun: { hours: '' },
     mon: { hours: '' },
     tue: { hours: '' },
     wed: { hours: '' },
+    thu: { hours: '' },
+    fri: { hours: '' },
   })
 
-  function getThursday(date: Date) {
+  function getSaturday(date: Date) {
     const d = new Date(date)
     const day = d.getDay()
-    const daysFromThu = (day + 3) % 7
-    d.setDate(d.getDate() - daysFromThu)
-    // Return local date string to avoid UTC-offset shifting the date
+    const diff = day === 6 ? 0 : -(day + 1)
+    d.setDate(d.getDate() + diff)
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, '0')
     const dd = String(d.getDate()).padStart(2, '0')
@@ -92,8 +91,8 @@ export default function LaborPage() {
   function getWeekDays(startDate: string) {
     const start = new Date(startDate + 'T00:00:00')
     const days = []
-    const dayNames = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed']
-    const dayKeys = ['thu', 'fri', 'sat', 'sun', 'mon', 'tue', 'wed']
+    const dayNames = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+    const dayKeys = ['sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri']
 
     for (let i = 0; i < 7; i++) {
       const date = new Date(start)
@@ -260,13 +259,13 @@ export default function LaborPage() {
             status: 'pending',
           })
           setWeeklyData({
-            thu: { hours: '' },
-            fri: { hours: '' },
             sat: { hours: '' },
             sun: { hours: '' },
             mon: { hours: '' },
             tue: { hours: '' },
             wed: { hours: '' },
+            thu: { hours: '' },
+            fri: { hours: '' },
           })
           setShowNewLaborForm(false)
           alert(`${data.length} labor entries created successfully!`)
@@ -302,13 +301,13 @@ export default function LaborPage() {
       const totalHours = entry.regular_hours
       const hoursPerDay = totalHours / 5 // Assume 5 working days
       setEditWeeklyData({
-        thu: { hours: hoursPerDay.toString() },
-        fri: { hours: hoursPerDay.toString() },
         sat: { hours: '0' },
         sun: { hours: '0' },
         mon: { hours: hoursPerDay.toString() },
         tue: { hours: hoursPerDay.toString() },
         wed: { hours: hoursPerDay.toString() },
+        thu: { hours: hoursPerDay.toString() },
+        fri: { hours: hoursPerDay.toString() },
       })
     }
 
@@ -432,16 +431,14 @@ export default function LaborPage() {
   const totalHours = filteredEntries.reduce((sum, e) => sum + e.regular_hours + e.overtime_hours, 0)
   const totalCost = filteredEntries.reduce((sum, e) => sum + calculateLaborCost(e), 0)
 
-  // Group entries by pay week (Thu–Wed)
+  // Group entries by pay week (Sat–Fri)
   const getWeekStart = (dateStr: string) => {
     const d = new Date(dateStr + 'T00:00:00')
-    // day: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
-    // We want Thursday (4) as day 0 of the week
-    const day = d.getDay()
-    const daysFromThu = (day + 3) % 7  // Thu=0, Fri=1, Sat=2, Sun=3, Mon=4, Tue=5, Wed=6
-    const thu = new Date(d)
-    thu.setDate(d.getDate() - daysFromThu)
-    return thu.toISOString().split('T')[0]
+    const day = d.getDay() // 0=Sun,...,5=Fri,6=Sat
+    const diff = day === 6 ? 0 : -(day + 1)
+    const sat = new Date(d)
+    sat.setDate(d.getDate() + diff)
+    return sat.toISOString().split('T')[0]
   }
 
   const groupedByWeek = filteredEntries.reduce<Record<string, LaborEntry[]>>((acc, entry) => {
@@ -456,10 +453,10 @@ export default function LaborPage() {
   const formatWeekRange = (weekStart: string) => {
     const start = new Date(weekStart + 'T00:00:00')
     const end = new Date(weekStart + 'T00:00:00')
-    end.setDate(end.getDate() + 6)  // Wed
+    end.setDate(end.getDate() + 6)  // Fri
     const f = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const year = end.getFullYear()
-    return `Thu ${f(start)} – Wed ${f(end)}, ${year}`
+    return `Sat ${f(start)} – Fri ${f(end)}, ${year}`
   }
 
   return (
@@ -706,13 +703,13 @@ export default function LaborPage() {
                         onChange={(e) => {
                           setWeekStartDate(e.target.value)
                           setWeeklyData({
+                            sat: { hours: '' },
+                            sun: { hours: '' },
                             mon: { hours: '' },
                             tue: { hours: '' },
                             wed: { hours: '' },
                             thu: { hours: '' },
                             fri: { hours: '' },
-                            sat: { hours: '' },
-                            sun: { hours: '' },
                           })
                         }}
                         className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
