@@ -429,7 +429,7 @@ export default function InvoiceDetailPage() {
             <Mail className="w-4 h-4" />
             {emailingInvoice ? 'Preparing...' : 'Email'}
           </button>
-          {!editing && invoice.status !== 'paid' && (
+          {!editing && (
             <button
               onClick={() => setRecordingPayment(!recordingPayment)}
               className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition"
