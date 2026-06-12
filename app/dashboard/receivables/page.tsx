@@ -90,7 +90,7 @@ export default function ReceivablesPage() {
   }
 
   const getOutstandingBalance = (invoice: Invoice) => {
-    return invoice.invoice_amount - invoice.amount_paid
+    return invoice.invoice_amount - (invoice.amount_paid || 0)
   }
 
   const getDaysOverdue = (dueDate: string) => {
