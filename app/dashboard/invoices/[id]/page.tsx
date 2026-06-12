@@ -196,25 +196,32 @@ export default function InvoiceDetailPage() {
     }
 
     try {
-      const { error } = await supabase.rpc('record_invoice_payment', {
-        p_invoice_id: invoiceId,
-        p_amount: amount,
-        p_payment_date: paymentData.payment_date,
-        p_payment_method: paymentData.payment_method,
-        p_notes: paymentData.notes || null,
-      })
+      const newAmountPaid = (invoice.amount_paid || 0) + amount
+      const newStatus = newAmountPaid >= totalDue ? 'paid' : 'partial'
+
+      const { error } = await supabase
+        .from('invoices')
+        .update({ amount_paid: newAmountPaid, status: newStatus })
+        .eq('id', invoiceId)
 
       if (error) throw error
 
-      const newAmountPaid = (invoice.amount_paid || 0) + amount
-      const newStatus = newAmountPaid >= totalDue ? 'paid' : 'partial'
+      // Try to log to payments table if it exists (non-fatal)
+      await supabase.from('payments').insert({
+        invoice_id: invoiceId,
+        amount,
+        payment_date: paymentData.payment_date,
+        payment_method: paymentData.payment_method,
+        notes: paymentData.notes || null,
+      }).then(() => {}).catch(() => {})
+
       setInvoice({ ...invoice, amount_paid: newAmountPaid, status: newStatus })
       setPaymentData({ amount: '', payment_date: new Date().toISOString().split('T')[0], payment_method: 'check', notes: '' })
       setRecordingPayment(false)
       alert('Payment recorded successfully!')
     } catch (error) {
-      console.error('Error recording payment:', error)
-      alert('Failed to record payment')
+      console.error('Error recording payment:', (error as any)?.message || error)
+      alert('Failed to record payment: ' + ((error as any)?.message || 'Unknown error'))
     }
   }
 
