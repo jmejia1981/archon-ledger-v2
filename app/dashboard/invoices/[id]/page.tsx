@@ -191,14 +191,33 @@ export default function InvoiceDetailPage() {
     const newAmountPaid = (invoice.amount_paid || 0) + amount
     const newStatus = newAmountPaid >= (invoice.invoice_amount || 0) ? 'paid' : 'partial'
 
-    const { error } = await supabase
+    // Insert into payments table so Payment Tracking page reflects it
+    const { error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        invoice_id: invoiceId,
+        amount,
+        payment_date: paymentData.payment_date,
+        payment_method: paymentData.payment_method,
+        status: 'completed',
+        notes: paymentData.notes || null,
+      }])
+
+    if (paymentError) {
+      console.error('Record payment error:', paymentError)
+      alert('Failed to record payment: ' + (paymentError.message || JSON.stringify(paymentError)))
+      return
+    }
+
+    // Update invoice amount_paid and status
+    const { error: invoiceError } = await supabase
       .from('invoices')
       .update({ amount_paid: newAmountPaid, status: newStatus })
       .eq('id', invoiceId)
 
-    if (error) {
-      console.error('Record payment error:', error)
-      alert('Failed to record payment: ' + (error.message || JSON.stringify(error)))
+    if (invoiceError) {
+      console.error('Invoice update error:', invoiceError)
+      alert('Payment recorded but invoice status failed to update: ' + invoiceError.message)
       return
     }
 
