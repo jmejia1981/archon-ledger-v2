@@ -198,7 +198,6 @@ export default function PaymentsPage() {
           amount: paymentAmount,
           payment_date: formData.payment_date,
           payment_method: formData.payment_method,
-          status: 'completed',
           notes: formData.notes || null,
         }])
 

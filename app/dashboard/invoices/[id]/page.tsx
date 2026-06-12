@@ -199,7 +199,6 @@ export default function InvoiceDetailPage() {
         amount,
         payment_date: paymentData.payment_date,
         payment_method: paymentData.payment_method,
-        status: 'completed',
         notes: paymentData.notes || null,
       }])
 
