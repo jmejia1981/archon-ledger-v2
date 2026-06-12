@@ -182,47 +182,30 @@ export default function InvoiceDetailPage() {
   }
 
   const handleRecordPayment = async () => {
-    if (!invoice || !paymentData.amount) {
-      alert('Please enter a payment amount')
-      return
-    }
-
     const amount = parseFloat(paymentData.amount)
-    const totalDue = (invoice.invoice_amount || 0) + (invoice.tax || 0) - (invoice.retainage || 0)
-    const outstandingBalance = totalDue - (invoice.amount_paid || 0)
-    if (amount <= 0 || amount > outstandingBalance) {
-      alert('Payment amount must be greater than 0 and cannot exceed the outstanding balance')
+    if (!invoice || !amount || amount <= 0) {
+      alert('Please enter a valid payment amount greater than 0')
       return
     }
 
-    try {
-      const newAmountPaid = (invoice.amount_paid || 0) + amount
-      const newStatus = newAmountPaid >= totalDue ? 'paid' : 'partial'
+    const newAmountPaid = (invoice.amount_paid || 0) + amount
+    const newStatus = newAmountPaid >= (invoice.invoice_amount || 0) ? 'paid' : 'partial'
 
-      const { error } = await supabase
-        .from('invoices')
-        .update({ amount_paid: newAmountPaid, status: newStatus })
-        .eq('id', invoiceId)
+    const { error } = await supabase
+      .from('invoices')
+      .update({ amount_paid: newAmountPaid, status: newStatus })
+      .eq('id', invoiceId)
 
-      if (error) throw error
-
-      // Try to log to payments table if it exists (non-fatal)
-      await supabase.from('payments').insert({
-        invoice_id: invoiceId,
-        amount,
-        payment_date: paymentData.payment_date,
-        payment_method: paymentData.payment_method,
-        notes: paymentData.notes || null,
-      }).then(() => {}).catch(() => {})
-
-      setInvoice({ ...invoice, amount_paid: newAmountPaid, status: newStatus })
-      setPaymentData({ amount: '', payment_date: new Date().toISOString().split('T')[0], payment_method: 'check', notes: '' })
-      setRecordingPayment(false)
-      alert('Payment recorded successfully!')
-    } catch (error) {
-      console.error('Error recording payment:', (error as any)?.message || error)
-      alert('Failed to record payment: ' + ((error as any)?.message || 'Unknown error'))
+    if (error) {
+      console.error('Record payment error:', error)
+      alert('Failed to record payment: ' + (error.message || JSON.stringify(error)))
+      return
     }
+
+    setInvoice({ ...invoice, amount_paid: newAmountPaid, status: newStatus })
+    setPaymentData({ amount: '', payment_date: new Date().toISOString().split('T')[0], payment_method: 'check', notes: '' })
+    setRecordingPayment(false)
+    alert('Payment recorded successfully!')
   }
 
   const handleDownloadPDF = async () => {
