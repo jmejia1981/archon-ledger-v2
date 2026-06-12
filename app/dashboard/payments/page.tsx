@@ -190,15 +190,29 @@ export default function PaymentsPage() {
         return
       }
 
-      const { error: paymentError } = await supabase.rpc('record_invoice_payment', {
-        p_invoice_id: formData.invoice_id,
-        p_amount: paymentAmount,
-        p_payment_date: formData.payment_date,
-        p_payment_method: formData.payment_method,
-        p_notes: formData.notes || null,
-      })
+      // Insert into payments table
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert([{
+          invoice_id: formData.invoice_id,
+          amount: paymentAmount,
+          payment_date: formData.payment_date,
+          payment_method: formData.payment_method,
+          status: 'completed',
+          notes: formData.notes || null,
+        }])
 
       if (paymentError) throw paymentError
+
+      // Update invoice amount_paid and status
+      const newAmountPaid = (selectedInvoice.amount_paid || 0) + paymentAmount
+      const newStatus = newAmountPaid >= (selectedInvoice.invoice_amount || 0) ? 'paid' : 'partial'
+      const { error: invoiceError } = await supabase
+        .from('invoices')
+        .update({ amount_paid: newAmountPaid, status: newStatus })
+        .eq('id', formData.invoice_id)
+
+      if (invoiceError) throw invoiceError
 
       setFormSuccess('Payment recorded successfully!')
       await fetchData()
