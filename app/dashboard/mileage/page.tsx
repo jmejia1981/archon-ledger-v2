@@ -228,8 +228,8 @@ export default function MileagePage() {
   const formatDate = (date: string) => {
     return new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
     })
   }
 
@@ -510,7 +510,7 @@ export default function MileagePage() {
                     className="hover:opacity-75 transition"
                     onDoubleClick={() => handleEditMileageEntry(entry)}
                   >
-                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</td>
+                    <td className="px-6 py-4 text-sm whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>{formatDate(entry.date)}</td>
                     <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{getEmployeeName(entry.employee_id)}</td>
                     <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(entry.project_id)}</td>
                     <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>
