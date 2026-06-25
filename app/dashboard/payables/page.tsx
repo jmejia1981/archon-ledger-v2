@@ -302,16 +302,16 @@ export default function PayablesPage() {
     setFiltered(result)
   }, [bills, statusFilter, searchTerm])
 
-  const totalPayable = bills.filter((b) => b.status !== 'paid').reduce((s, b) => s + (b.amount - b.amount_paid), 0)
+  const totalPayable = bills.filter((b) => b.amount_paid < b.amount).reduce((s, b) => s + (b.amount - b.amount_paid), 0)
   const totalOverdue = bills.filter((b) => {
     const balance = b.amount - b.amount_paid
-    return new Date(b.due_date) < new Date() && balance > 0 && b.status !== 'paid'
+    return new Date(b.due_date) < new Date() && balance > 0
   }).reduce((s, b) => s + (b.amount - b.amount_paid), 0)
   const dueThisWeek = bills.filter((b) => {
     const due = new Date(b.due_date)
     const now = new Date()
     const week = new Date(now); week.setDate(now.getDate() + 7)
-    return due >= now && due <= week && b.status !== 'paid'
+    return due >= now && due <= week && b.amount_paid < b.amount
   }).reduce((s, b) => s + (b.amount - b.amount_paid), 0)
   const paidThisMonth = bills.filter((b) => {
     const due = new Date(b.due_date)
