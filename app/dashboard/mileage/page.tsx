@@ -128,7 +128,7 @@ export default function MileagePage() {
 
       console.log('Mileage entry created successfully:', data)
       if (data) {
-        setMileageEntries([...mileageEntries, ...data])
+        setMileageEntries([...mileageEntries, ...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))
         setFormData({
           employee_id: '',
           project_id: '',
