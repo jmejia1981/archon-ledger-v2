@@ -162,8 +162,8 @@ export default function LaborPage() {
   // Handle create labor entry
   const handleCreateLaborEntry = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.employee_id) {
-      alert('Employee is required')
+    if (!formData.employee_id || !formData.project_id) {
+      alert('Employee and project are required')
       return
     }
 
@@ -172,18 +172,19 @@ export default function LaborPage() {
 
       if (formMode === 'single') {
         // Single day entry
-        const singleEntry: any = {
-          employee_id: formData.employee_id,
-          date: formData.date,
-          regular_hours: parseFloat(formData.regular_hours) || 0,
-          overtime_hours: parseFloat(formData.overtime_hours) || 0,
-          task_description: formData.task_description,
-          status: formData.status,
-        }
-        if (formData.project_id) singleEntry.project_id = formData.project_id
         const { data, error } = await supabase
           .from('labor_entries')
-          .insert([singleEntry])
+          .insert([
+            {
+              employee_id: formData.employee_id,
+              project_id: formData.project_id,
+              date: formData.date,
+              regular_hours: parseFloat(formData.regular_hours) || 0,
+              overtime_hours: parseFloat(formData.overtime_hours) || 0,
+              task_description: formData.task_description,
+              status: formData.status,
+            },
+          ])
           .select()
 
         if (error) {
@@ -221,8 +222,9 @@ export default function LaborPage() {
         weekEnd.setDate(weekEnd.getDate() + 6)
         const weekEndDateString = weekEnd.toISOString().split('T')[0]
 
-        const weeklyEntry: any = {
+        const weeklyEntry = {
           employee_id: formData.employee_id,
+          project_id: formData.project_id,
           date: weekStartDate,
           week_start_date: weekStartDate,
           week_end_date: weekEndDateString,
@@ -231,7 +233,6 @@ export default function LaborPage() {
           task_description: formData.task_description,
           status: formData.status,
         }
-        if (formData.project_id) weeklyEntry.project_id = formData.project_id
 
         console.log('Creating single weekly entry:', weeklyEntry)
         const { data, error } = await supabase
@@ -564,8 +565,9 @@ export default function LaborPage() {
                           onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
                           style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+                          required
                         >
-                          <option value="">Overhead (no project)</option>
+                          <option value="">Select project</option>
                           {projects.map((proj) => (
                             <option key={proj.id} value={proj.id}>
                               {proj.project_name}
@@ -677,8 +679,9 @@ export default function LaborPage() {
                           onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
                           style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
+                          required
                         >
-                          <option value="">Overhead (no project)</option>
+                          <option value="">Select project</option>
                           {projects.map((proj) => (
                             <option key={proj.id} value={proj.id}>
                               {proj.project_name}
@@ -1245,7 +1248,7 @@ export default function LaborPage() {
                         className="w-full px-4 py-2 rounded-lg border"
                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
                       >
-                        <option value="">Overhead (no project)</option>
+                        <option value="">Select project</option>
                         {projects.map((proj) => (
                           <option key={proj.id} value={proj.id}>
                             {proj.project_name}
