@@ -238,8 +238,10 @@ export default function ProposalDetailPage() {
     if (!proposal || !confirm('Approve this proposal? It will create an active project.')) return
     setIsApproving(true)
     try {
-      const { data: nextNumber } = await supabase.rpc('next_project_number')
-      const nextProjectNumber = nextNumber || '100'
+      // Generate project number from existing projects (RPC may not exist)
+      const { data: existingProjects } = await supabase.from('projects').select('project_number')
+      const nums = (existingProjects || []).map((p: any) => parseInt(p.project_number)).filter((n: number) => !isNaN(n))
+      const nextProjectNumber = (Math.max(...nums, 99) + 1).toString()
 
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
