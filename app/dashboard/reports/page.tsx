@@ -54,9 +54,12 @@ export default function ReportsPage() {
           supabase.from('mileage_entries').select('*'),
         ])
 
-        const vendorBillsRes = await supabase.from('vendor_bills').select('id, amount, amount_paid')
+        const vendorBillsRes = await supabase.from('vendor_bills').select('id, amount, amount_paid, category, tax_category, issue_date, due_date')
         if (vendorBillsRes.error) console.error('vendor_bills fetch error:', vendorBillsRes.error)
-        const vendorBillsData = vendorBillsRes.data || []
+        const vendorBillsData = (vendorBillsRes.data || []).filter((b: any) => {
+          const d = new Date((b.issue_date || b.due_date) + 'T00:00:00')
+          return d >= startDate && d <= endDate
+        })
 
         let expenses = expensesRes.data || []
         let invoices = invoicesRes.data || []
@@ -125,8 +128,16 @@ export default function ReportsPage() {
         })
         const overhead = overheadExpenses.reduce((s: number, e: any) => s + (e.amount || 0), 0)
 
-        const totalExpenses = directCosts + laborCosts + mileageCosts + overhead
-        const grossProfit   = totalRevenue - directCosts - laborCosts - mileageCosts
+        // ── Vendor bills paid (subcontractors / materials) ────────────────────
+        const vendorBillsByCategory: Record<string, number> = {}
+        vendorBillsData.forEach((b: any) => {
+          const cat = b.category || 'Vendor Bills'
+          vendorBillsByCategory[cat] = (vendorBillsByCategory[cat] || 0) + (b.amount_paid || 0)
+        })
+        const vendorBillsCost = vendorBillsData.reduce((s: number, b: any) => s + (b.amount_paid || 0), 0)
+
+        const totalExpenses = directCosts + laborCosts + mileageCosts + overhead + vendorBillsCost
+        const grossProfit   = totalRevenue - directCosts - laborCosts - mileageCosts - vendorBillsCost
         const netProfit     = grossProfit - overhead
         const profitMargin  = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
 
@@ -146,6 +157,13 @@ export default function ReportsPage() {
         if (mileageCosts > 0) {
           taxMap['Car & Truck Expenses (Line 9)'] = (taxMap['Car & Truck Expenses (Line 9)'] || 0) + mileageCosts
         }
+        // Vendor bills → by tax_category if tagged, else by category
+        vendorBillsData.forEach((b: any) => {
+          const paid = b.amount_paid || 0
+          if (paid <= 0) return
+          const key = b.tax_category || b.category || 'Subcontractors & Materials'
+          taxMap[key] = (taxMap[key] || 0) + paid
+        })
         setTaxBreakdown(
           Object.entries(taxMap)
             .map(([category, amount]) => ({ category, amount }))
@@ -153,7 +171,7 @@ export default function ReportsPage() {
         )
 
         // ── P&L lines ─────────────────────────────────────────────────────────
-        const totalCOGS = directCosts + laborCosts + mileageCosts
+        const totalCOGS = directCosts + laborCosts + mileageCosts + vendorBillsCost
         const pl: PLLine[] = [
           { label: 'REVENUE', amount: totalRevenue, bold: true },
           { label: 'Total Invoiced', amount: totalRevenue, indent: true },
@@ -163,6 +181,7 @@ export default function ReportsPage() {
           ...Object.entries(directByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
           ...(laborCosts > 0 ? [{ label: 'Employee Labor (Timesheets)', amount: laborCosts, indent: true }] : []),
           ...(mileageCosts > 0 ? [{ label: 'Mileage', amount: mileageCosts, indent: true }] : []),
+          ...Object.entries(vendorBillsByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
           { label: 'Total COGS', amount: totalCOGS, bold: true },
           { label: '', amount: 0, separator: true },
           { label: 'GROSS PROFIT', amount: grossProfit, bold: true },
