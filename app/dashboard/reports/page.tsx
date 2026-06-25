@@ -54,13 +54,6 @@ export default function ReportsPage() {
           supabase.from('mileage_entries').select('*'),
         ])
 
-        const vendorBillsRes = await supabase.from('vendor_bills').select('id, amount, amount_paid, category, tax_category, issue_date, due_date')
-        if (vendorBillsRes.error) console.error('vendor_bills fetch error:', vendorBillsRes.error)
-        const vendorBillsData = (vendorBillsRes.data || []).filter((b: any) => {
-          const d = new Date((b.issue_date || b.due_date) + 'T00:00:00')
-          return d >= startDate && d <= endDate
-        })
-
         let expenses = expensesRes.data || []
         let invoices = invoicesRes.data || []
         let laborEntries = laborRes.data || []
@@ -71,6 +64,13 @@ export default function ReportsPage() {
         const startDate = new Date(dateRange.startDate)
         const endDate   = new Date(dateRange.endDate)
         endDate.setHours(23, 59, 59, 999)
+
+        const vendorBillsRes = await supabase.from('vendor_bills').select('id, amount, amount_paid, category, tax_category, issue_date, due_date')
+        if (vendorBillsRes.error) console.error('vendor_bills fetch error:', vendorBillsRes.error)
+        const vendorBillsData = (vendorBillsRes.data || []).filter((b: any) => {
+          const d = new Date((b.issue_date || b.due_date) + 'T00:00:00')
+          return d >= startDate && d <= endDate
+        })
 
         invoices = invoices.filter((inv: any) => {
           const d = new Date(inv.invoice_date || inv.created_at)
