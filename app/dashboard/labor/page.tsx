@@ -162,8 +162,8 @@ export default function LaborPage() {
   // Handle create labor entry
   const handleCreateLaborEntry = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.employee_id || !formData.project_id) {
-      alert('Employee and project are required')
+    if (!formData.employee_id) {
+      alert('Employee is required')
       return
     }
 
@@ -178,7 +178,7 @@ export default function LaborPage() {
           .insert([
             {
               employee_id: formData.employee_id,
-              project_id: formData.project_id,
+              project_id: formData.project_id || null,
               date: formData.date,
               regular_hours: parseFloat(formData.regular_hours) || 0,
               overtime_hours: parseFloat(formData.overtime_hours) || 0,
@@ -397,6 +397,7 @@ export default function LaborPage() {
   }
 
   const getProjectName = (projectId: string) => {
+    if (!projectId) return 'Overhead'
     return projects.find((p) => p.id === projectId)?.project_name || 'Unknown'
   }
 
@@ -565,9 +566,8 @@ export default function LaborPage() {
                           onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
                           style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                          required
                         >
-                          <option value="">Select project</option>
+                          <option value="">Overhead (no project)</option>
                           {projects.map((proj) => (
                             <option key={proj.id} value={proj.id}>
                               {proj.project_name}
@@ -679,9 +679,8 @@ export default function LaborPage() {
                           onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
                           className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
                           style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                          required
                         >
-                          <option value="">Select project</option>
+                          <option value="">Overhead (no project)</option>
                           {projects.map((proj) => (
                             <option key={proj.id} value={proj.id}>
                               {proj.project_name}
@@ -1248,6 +1247,7 @@ export default function LaborPage() {
                         className="w-full px-4 py-2 rounded-lg border"
                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
                       >
+                        <option value="">Overhead (no project)</option>
                         {projects.map((proj) => (
                           <option key={proj.id} value={proj.id}>
                             {proj.project_name}
