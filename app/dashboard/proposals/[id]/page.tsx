@@ -238,23 +238,31 @@ export default function ProposalDetailPage() {
     if (!proposal || !confirm('Approve this proposal? It will create an active project.')) return
     setIsApproving(true)
     try {
-      // Generate project number from existing projects (RPC may not exist)
+      // Generate project number — retry on duplicate key collision
       const { data: existingProjects } = await supabase.from('projects').select('project_number')
       const nums = (existingProjects || []).map((p: any) => parseInt(p.project_number)).filter((n: number) => !isNaN(n))
-      const nextProjectNumber = (Math.max(...nums, 99) + 1).toString()
+      let candidate = Math.max(...nums, 99) + 1
 
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
-        .insert([{
-          project_number: nextProjectNumber,
-          project_name: proposal.project_name,
-          client_id: proposal.client_id || null,
-          project_address: proposal.project_address,
-          status: 'active',
-          contract_budget: proposal.total_amount,
-        }])
-        .select()
-        .single()
+      let projectData: any = null
+      let projectError: any = null
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const result = await supabase
+          .from('projects')
+          .insert([{
+            project_number: candidate.toString(),
+            project_name: proposal.project_name,
+            client_id: proposal.client_id || null,
+            project_address: proposal.project_address,
+            status: 'active',
+            contract_budget: proposal.total_amount,
+          }])
+          .select()
+          .single()
+        projectData = result.data
+        projectError = result.error
+        if (!projectError || projectError.code !== '23505') break
+        candidate++
+      }
 
       if (projectError) throw projectError
 
