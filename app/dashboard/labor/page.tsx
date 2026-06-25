@@ -225,7 +225,7 @@ export default function LaborPage() {
 
         const weeklyEntry = {
           employee_id: formData.employee_id,
-          project_id: formData.project_id,
+          project_id: formData.project_id || null,
           date: weekStartDate,
           week_start_date: weekStartDate,
           week_end_date: weekEndDateString,
