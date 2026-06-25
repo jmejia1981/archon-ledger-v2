@@ -44,13 +44,14 @@ export default function ReportsPage() {
   useEffect(() => {
     const loadReportsData = async () => {
       try {
-        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes] = await Promise.all([
+        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes, vendorBillsRes] = await Promise.all([
           supabase.from('expenses').select('*'),
           supabase.from('invoices').select('*'),
           supabase.from('labor_entries').select('*'),
           supabase.from('projects').select('*'),
           supabase.from('employees').select('id, name, hourly_rate, department'),
           supabase.from('mileage_entries').select('*'),
+          supabase.from('vendor_bills').select('id, amount, amount_paid, status'),
         ])
 
         let expenses = expensesRes.data || []
@@ -171,8 +172,12 @@ export default function ReportsPage() {
         setPlLines(pl)
 
         // ── Balance sheet lines ───────────────────────────────────────────────
+        const accountsPayable = (vendorBillsRes.data || [])
+          .filter((b: any) => b.status !== 'paid')
+          .reduce((s: number, b: any) => s + ((b.amount || 0) - (b.amount_paid || 0)), 0)
+
         const totalAssets = totalCollected + accountsReceivable
-        const totalLiabilities = overhead  // simplified: unpaid overhead as payable
+        const totalLiabilities = accountsPayable
         const equity = totalAssets - totalLiabilities
 
         const bs: BSLine[] = [
@@ -182,7 +187,7 @@ export default function ReportsPage() {
           { label: 'Total Assets', amount: totalAssets, bold: true },
           { label: '', amount: 0, separator: true },
           { label: 'LIABILITIES', amount: totalLiabilities, bold: true },
-          { label: 'Accounts Payable (Overhead)', amount: totalLiabilities, indent: true },
+          { label: 'Accounts Payable', amount: accountsPayable, indent: true },
           { label: 'Total Liabilities', amount: totalLiabilities, bold: true },
           { label: '', amount: 0, separator: true },
           { label: 'EQUITY', amount: equity, bold: true },
