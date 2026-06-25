@@ -172,20 +172,18 @@ export default function LaborPage() {
 
       if (formMode === 'single') {
         // Single day entry
-        console.log('Creating single day entry:', formData)
+        const singleEntry: any = {
+          employee_id: formData.employee_id,
+          date: formData.date,
+          regular_hours: parseFloat(formData.regular_hours) || 0,
+          overtime_hours: parseFloat(formData.overtime_hours) || 0,
+          task_description: formData.task_description,
+          status: formData.status,
+        }
+        if (formData.project_id) singleEntry.project_id = formData.project_id
         const { data, error } = await supabase
           .from('labor_entries')
-          .insert([
-            {
-              employee_id: formData.employee_id,
-              project_id: formData.project_id || null,
-              date: formData.date,
-              regular_hours: parseFloat(formData.regular_hours) || 0,
-              overtime_hours: parseFloat(formData.overtime_hours) || 0,
-              task_description: formData.task_description,
-              status: formData.status,
-            },
-          ])
+          .insert([singleEntry])
           .select()
 
         if (error) {
@@ -223,9 +221,8 @@ export default function LaborPage() {
         weekEnd.setDate(weekEnd.getDate() + 6)
         const weekEndDateString = weekEnd.toISOString().split('T')[0]
 
-        const weeklyEntry = {
+        const weeklyEntry: any = {
           employee_id: formData.employee_id,
-          project_id: formData.project_id || null,
           date: weekStartDate,
           week_start_date: weekStartDate,
           week_end_date: weekEndDateString,
@@ -234,6 +231,7 @@ export default function LaborPage() {
           task_description: formData.task_description,
           status: formData.status,
         }
+        if (formData.project_id) weeklyEntry.project_id = formData.project_id
 
         console.log('Creating single weekly entry:', weeklyEntry)
         const { data, error } = await supabase
