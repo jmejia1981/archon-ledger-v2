@@ -538,7 +538,8 @@ export default function ProjectsPage() {
                     id={`projects-status-${project.id}`}
                     name={`status-${project.id}`}
                     value={project.status || 'active'}
-                    onChange={(e) => handleUpdateStatus(project.id, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => { e.stopPropagation(); handleUpdateStatus(project.id, e.target.value) }}
                     className="px-2 py-1 rounded border text-xs"
                     style={{
                       borderColor: 'var(--color-border)',
@@ -602,7 +603,8 @@ export default function ProjectsPage() {
                       id={`projects-list-status-${project.id}`}
                       name={`status-${project.id}`}
                       value={project.status || 'active'}
-                      onChange={(e) => handleUpdateStatus(project.id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => { e.stopPropagation(); handleUpdateStatus(project.id, e.target.value) }}
                       className="px-2 py-1 rounded border text-xs"
                       style={{
                         borderColor: 'var(--color-border)',
