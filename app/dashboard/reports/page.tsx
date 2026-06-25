@@ -52,7 +52,7 @@ export default function ReportsPage() {
           supabase.from('projects').select('*'),
           supabase.from('employees').select('id, name, hourly_rate, department'),
           supabase.from('mileage_entries').select('*'),
-          supabase.from('vendor_bills').select('id, amount, amount_paid, status'),
+          supabase.from('vendor_bills').select('id, amount, amount_paid'),
         ])
 
         let expenses = expensesRes.data || []
@@ -174,7 +174,7 @@ export default function ReportsPage() {
 
         // ── Balance sheet lines ───────────────────────────────────────────────
         const accountsPayable = (vendorBillsRes.data || [])
-          .filter((b: any) => b.status !== 'paid')
+          .filter((b: any) => (b.amount_paid || 0) < (b.amount || 0))
           .reduce((s: number, b: any) => s + ((b.amount || 0) - (b.amount_paid || 0)), 0)
 
         const totalAssets = totalCollected + accountsReceivable
