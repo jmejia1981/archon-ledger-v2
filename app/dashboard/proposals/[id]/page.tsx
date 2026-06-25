@@ -270,9 +270,9 @@ export default function ProposalDetailPage() {
         alert('Proposal approved! Project created successfully.')
         router.push('/dashboard/projects')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error approving proposal:', error)
-      alert('Failed to approve proposal')
+      alert('Failed to approve proposal: ' + (error?.message || JSON.stringify(error)))
     } finally {
       setIsApproving(false)
     }
