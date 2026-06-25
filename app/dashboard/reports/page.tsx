@@ -31,6 +31,7 @@ export default function ReportsPage() {
   const [plLines, setPlLines]   = useState<PLLine[]>([])
   const [bsLines, setBsLines]   = useState<BSLine[]>([])
   const [taxBreakdown, setTaxBreakdown] = useState<{ category: string; amount: number }[]>([])
+  const [taxEstimate, setTaxEstimate] = useState({ netProfit: 0, accountsPayable: 0, taxableIncome: 0, taxOwed: 0 })
   const [monthlyData, setMonthlyData] = useState<any[]>([])
   const [projectDistribution, setProjectDistribution] = useState<any[]>([])
   const [laborByDept, setLaborByDept] = useState<any[]>([])
@@ -197,6 +198,11 @@ export default function ReportsPage() {
           { label: 'TOTAL LIABILITIES & EQUITY', amount: totalLiabilities + equity, bold: true },
         ]
         setBsLines(bs)
+
+        // ── Tax estimate ──────────────────────────────────────────────────────
+        const taxableIncome = netProfit - accountsPayable
+        const taxOwed = Math.max(0, taxableIncome * 0.30)
+        setTaxEstimate({ netProfit, accountsPayable, taxableIncome, taxOwed })
 
         // ── Monthly chart data ────────────────────────────────────────────────
         const monthlyObj: Record<string, any> = {}
@@ -590,6 +596,35 @@ export default function ReportsPage() {
                 </div>
               </button>
             ))}
+          </div>
+
+          {/* Tax Estimate */}
+          <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'white', border: '1px solid #E0E0E0' }}>
+            <div className="px-6 py-4 border-b" style={{ borderColor: '#E0E0E0', backgroundColor: '#f9fafb' }}>
+              <h3 className="text-sm font-semibold" style={{ color: '#1A3A6B' }}>Estimated Taxes Owed — {yearEndYear}</h3>
+              <p className="text-xs text-gray-500 mt-0.5">30% of taxable income (net profit minus outstanding accounts payable)</p>
+            </div>
+            <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
+              {[
+                { label: 'Net Profit (P&L)', value: taxEstimate.netProfit },
+                { label: 'Less: Accounts Payable (unpaid vendor bills)', value: -taxEstimate.accountsPayable },
+                { label: 'Taxable Income', value: taxEstimate.taxableIncome, bold: true },
+              ].map(({ label, value, bold }) => (
+                <div key={label} className="flex items-center justify-between px-6 py-3">
+                  <span className={`text-sm ${bold ? 'font-semibold' : ''}`} style={{ color: '#374151' }}>{label}</span>
+                  <span className={`text-sm ${bold ? 'font-semibold' : ''}`} style={{ color: value < 0 ? '#dc2626' : '#1A3A6B' }}>{fmt(value)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: '#1A3A6B' }}>
+                <span className="text-sm font-bold text-white">Estimated Tax Owed (30%)</span>
+                <span className="text-lg font-bold text-white">{fmt(taxEstimate.taxOwed)}</span>
+              </div>
+              {taxEstimate.taxableIncome <= 0 && (
+                <div className="px-6 py-3">
+                  <p className="text-xs text-gray-500">No tax owed — taxable income is zero or negative.</p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Checklist */}
