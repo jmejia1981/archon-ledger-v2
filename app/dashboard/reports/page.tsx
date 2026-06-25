@@ -45,15 +45,18 @@ export default function ReportsPage() {
   useEffect(() => {
     const loadReportsData = async () => {
       try {
-        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes, vendorBillsRes] = await Promise.all([
+        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes] = await Promise.all([
           supabase.from('expenses').select('*'),
           supabase.from('invoices').select('*'),
           supabase.from('labor_entries').select('*'),
           supabase.from('projects').select('*'),
           supabase.from('employees').select('id, name, hourly_rate, department'),
           supabase.from('mileage_entries').select('*'),
-          supabase.from('vendor_bills').select('id, amount, amount_paid'),
         ])
+
+        const vendorBillsRes = await supabase.from('vendor_bills').select('id, amount, amount_paid')
+        if (vendorBillsRes.error) console.error('vendor_bills fetch error:', vendorBillsRes.error)
+        const vendorBillsData = vendorBillsRes.data || []
 
         let expenses = expensesRes.data || []
         let invoices = invoicesRes.data || []
@@ -173,7 +176,7 @@ export default function ReportsPage() {
         setPlLines(pl)
 
         // ── Balance sheet lines ───────────────────────────────────────────────
-        const accountsPayable = (vendorBillsRes.data || [])
+        const accountsPayable = vendorBillsData
           .filter((b: any) => (b.amount_paid || 0) < (b.amount || 0))
           .reduce((s: number, b: any) => s + ((b.amount || 0) - (b.amount_paid || 0)), 0)
 
