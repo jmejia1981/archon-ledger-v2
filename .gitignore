@@ -38,3 +38,9 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
+
+# Claude Code worktrees
+.claude/worktrees/
