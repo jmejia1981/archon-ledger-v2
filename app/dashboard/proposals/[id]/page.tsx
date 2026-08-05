@@ -433,7 +433,7 @@ export default function ProposalDetailPage() {
           <p style={{ color: 'var(--color-muted)' }}>{proposal.client_name}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {proposal.status === 'draft' && (
+          {!proposal.project_id && (
             <button onClick={handleApproveProposal} disabled={isApproving}
               className="flex items-center gap-1.5 px-3 py-2 text-white rounded-lg font-medium text-sm disabled:opacity-50"
               style={{ backgroundColor: '#28a745' }}>
