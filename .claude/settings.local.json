@@ -5,7 +5,25 @@
       "Bash(python -c ' *)",
       "Bash(Remove-Item \"C:\\\\Users\\\\mejia\\\\OneDrive\\\\Documents\\\\Claude\\\\Projects\\\\Archon\\\\archon-ledger-v2\\\\.claude\\\\worktrees\\\\confident-grothendieck-fc0838\\\\lib\\\\supabase\\\\mock-client.ts\")",
       "Bash(rm \"C:\\\\Users\\\\mejia\\\\OneDrive\\\\Documents\\\\Claude\\\\Projects\\\\Archon\\\\archon-ledger-v2\\\\.claude\\\\worktrees\\\\confident-grothendieck-fc0838\\\\lib\\\\supabase\\\\mock-client.ts\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(gh auth *)",
+      "Read(//c/Users/mejia/**)",
+      "Read(//c/Users/mejia/app/**)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)",
+      "Bash(git reset *)",
+      "Bash(git branch *)",
+      "Bash(git rev-list *)",
+      "Bash(git push *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git checkout *)",
+      "Bash(git commit -m '@ *)",
+      "Bash(git commit *)",
+      "Bash(git ls-remote *)",
+      "Bash(git merge *)",
+      "Bash(git rm *)"
     ]
   }
 }
