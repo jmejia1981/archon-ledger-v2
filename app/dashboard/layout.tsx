@@ -26,6 +26,7 @@ import {
   Package,
   ClipboardList,
   Building2,
+  Shield,
 } from 'lucide-react'
 
 const supabase = createClient()
@@ -145,6 +146,7 @@ export default function DashboardLayout({
     { icon: TrendingUp, label: 'Receivables', href: '/dashboard/receivables' },
     { icon: Receipt, label: 'Payables', href: '/dashboard/payables' },
     { icon: Package, label: 'Fixed Assets', href: '/dashboard/assets' },
+    { icon: Shield, label: 'Insurance', href: '/dashboard/insurance' },
     { icon: Building2, label: 'Vendors', href: '/dashboard/vendors' },
     { icon: ClipboardList, label: '1099 Tracking', href: '/dashboard/1099' },
     { icon: CreditCard, label: 'Payroll', href: '/dashboard/payroll' },
