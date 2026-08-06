@@ -113,13 +113,10 @@ export default function InsurancePage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('You must be signed in to upload a policy document.')
-      // Objects are keyed by organization so every member of the org can open the
-      // file, not just whoever uploaded it. The storage policies enforce this.
-      const { data: orgId, error: orgError } = await supabase.rpc('current_org_id')
-      if (orgError) throw orgError
-      if (!orgId) throw new Error('No organization found for your account.')
+      // Flat `insurance/` prefix: this schema has no tenancy column to scope by, and
+      // the bucket's policies grant the authenticated role access to the whole bucket.
       const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'pdf'
-      const path = `${orgId}/insurance/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const path = `insurance/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
         contentType: file.type || 'application/pdf',
       })
