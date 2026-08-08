@@ -19,6 +19,7 @@ interface FinancialMetrics {
 
 interface PLLine { label: string; amount: number; indent?: boolean; bold?: boolean; separator?: boolean }
 interface BSLine  { label: string; amount: number; indent?: boolean; bold?: boolean; separator?: boolean }
+interface ReviewFlag { severity: 'critical' | 'high' | 'medium'; title: string; detail: string; amount?: number }
 
 const supabase = createClient()
 
@@ -32,6 +33,7 @@ export default function ReportsPage() {
   const [bsLines, setBsLines]   = useState<BSLine[]>([])
   const [taxBreakdown, setTaxBreakdown] = useState<{ category: string; amount: number }[]>([])
   const [taxEstimate, setTaxEstimate] = useState({ netProfit: 0, accountsPayable: 0, taxableIncome: 0, taxOwed: 0 })
+  const [reviewFlags, setReviewFlags] = useState<ReviewFlag[]>([])
   const [monthlyData, setMonthlyData] = useState<any[]>([])
   const [projectDistribution, setProjectDistribution] = useState<any[]>([])
   const [laborByDept, setLaborByDept] = useState<any[]>([])
@@ -45,13 +47,15 @@ export default function ReportsPage() {
   useEffect(() => {
     const loadReportsData = async () => {
       try {
-        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes] = await Promise.all([
+        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes, payrollRes, paymentsRes] = await Promise.all([
           supabase.from('expenses').select('*'),
           supabase.from('invoices').select('*'),
           supabase.from('labor_entries').select('*'),
           supabase.from('projects').select('*'),
           supabase.from('employees').select('id, name, hourly_rate, department'),
           supabase.from('mileage_entries').select('*'),
+          supabase.from('payroll').select('*'),
+          supabase.from('payments').select('id, invoice_id, amount, payment_date'),
         ])
 
         let expenses = expensesRes.data || []
@@ -108,11 +112,28 @@ export default function ReportsPage() {
         const directCosts = directExpenses.reduce((s: number, e: any) => s + (e.amount || 0), 0)
 
         // ── Labor ─────────────────────────────────────────────────────────────
-        const laborCosts = laborEntries.reduce((s: number, entry: any) => {
+        // The P&L must use money actually paid, not timesheet hours priced at a
+        // stored rate. Timesheets are a job-costing estimate; payroll is the
+        // expense. Keeping the estimate as the P&L figure overstated labor by
+        // ~$24.7k against recorded payroll during the 2026 audit.
+        const payrollInRange = (payrollRes.data || []).filter((p: any) => {
+          const raw = p.payroll_period_end || p.payroll_period_start
+          if (!raw) return false
+          const d = new Date(raw + (String(raw).includes('T') ? '' : 'T00:00:00'))
+          return d >= startDate && d <= endDate
+        })
+        const payrollGross    = payrollInRange.reduce((s: number, p: any) => s + (p.gross_pay || 0), 0)
+        const payrollTaxes    = payrollInRange.reduce((s: number, p: any) => s + (p.taxes || 0), 0)
+        const payrollBenefits = payrollInRange.reduce((s: number, p: any) => s + (p.benefits || 0), 0)
+        const laborCosts      = payrollGross + payrollTaxes + payrollBenefits
+
+        // Timesheet valuation, kept only to surface the variance against payroll.
+        const laborImputed = laborEntries.reduce((s: number, entry: any) => {
           const emp = employees.find((e: any) => e.id === entry.employee_id)
           const rate = emp?.hourly_rate || 0
           return s + (entry.regular_hours || 0) * rate + (entry.overtime_hours || 0) * rate * 1.5
         }, 0)
+        const laborVariance = laborImputed - laborCosts
 
         // ── Mileage ───────────────────────────────────────────────────────────
         const mileageCosts = mileageEntries.reduce((s: number, entry: any) => {
@@ -143,20 +164,41 @@ export default function ReportsPage() {
 
         // ── Tax category breakdown (Schedule C) ──────────────────────────────
         const taxMap: Record<string, number> = {}
-        // Expenses with explicit tax_category tags
+        // Expenses with explicit tax_category tags. Meals tagged 50% deductible are
+        // halved here — the breakdown reports the deductible amount, which is why it
+        // will not foot to book expenses. The disallowed half is shown as its own line.
+        let mealsDisallowed = 0
         expenses.forEach((e: any) => {
-          if (e.tax_category) {
-            taxMap[e.tax_category] = (taxMap[e.tax_category] || 0) + (e.amount || 0)
+          if (!e.tax_category) return
+          const amount = e.amount || 0
+          if (/50%\s*deductible/i.test(e.tax_category)) {
+            mealsDisallowed += amount * 0.5
+            taxMap[e.tax_category] = (taxMap[e.tax_category] || 0) + amount * 0.5
+          } else {
+            taxMap[e.tax_category] = (taxMap[e.tax_category] || 0) + amount
           }
         })
-        // Labor costs → Schedule C Line 26: Wages & salaries
-        if (laborCosts > 0) {
-          taxMap['Wages & Salaries (Line 26)'] = (taxMap['Wages & Salaries (Line 26)'] || 0) + laborCosts
+        // Payroll → Schedule C: gross to Line 26, employer taxes to Line 23,
+        // benefits to Line 14. Each is a distinct line on the return.
+        if (payrollGross > 0) {
+          taxMap['Wages & Salaries (Line 26)'] = (taxMap['Wages & Salaries (Line 26)'] || 0) + payrollGross
+        }
+        if (payrollTaxes > 0) {
+          taxMap['Taxes & Licenses (Line 23)'] = (taxMap['Taxes & Licenses (Line 23)'] || 0) + payrollTaxes
+        }
+        if (payrollBenefits > 0) {
+          taxMap['Employee Benefit Programs (Line 14)'] = (taxMap['Employee Benefit Programs (Line 14)'] || 0) + payrollBenefits
         }
         // Mileage → Schedule C Line 9: Car and truck expenses
         if (mileageCosts > 0) {
           taxMap['Car & Truck Expenses (Line 9)'] = (taxMap['Car & Truck Expenses (Line 9)'] || 0) + mileageCosts
         }
+        // Standard mileage and actual vehicle costs generally cannot both be claimed
+        // for the same vehicle. Detect the overlap rather than silently summing them.
+        const actualVehicleCosts = expenses
+          .filter((e: any) => /car\s*&?\s*truck/i.test(e.tax_category || ''))
+          .reduce((s: number, e: any) => s + (e.amount || 0), 0)
+        const vehicleMethodConflict = actualVehicleCosts > 0 && mileageCosts > 0
         // Vendor bills → by tax_category if tagged, else by category
         vendorBillsData.forEach((b: any) => {
           const paid = b.amount_paid || 0
@@ -179,7 +221,9 @@ export default function ReportsPage() {
           { label: '', amount: 0, separator: true },
           { label: 'COST OF GOODS SOLD', amount: totalCOGS, bold: true },
           ...Object.entries(directByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
-          ...(laborCosts > 0 ? [{ label: 'Employee Labor (Timesheets)', amount: laborCosts, indent: true }] : []),
+          ...(payrollGross > 0 ? [{ label: 'Payroll — Gross Wages', amount: payrollGross, indent: true }] : []),
+          ...(payrollTaxes > 0 ? [{ label: 'Payroll — Employer Taxes', amount: payrollTaxes, indent: true }] : []),
+          ...(payrollBenefits > 0 ? [{ label: 'Payroll — Benefits', amount: payrollBenefits, indent: true }] : []),
           ...(mileageCosts > 0 ? [{ label: 'Mileage', amount: mileageCosts, indent: true }] : []),
           ...Object.entries(vendorBillsByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
           { label: 'Total COGS', amount: totalCOGS, bold: true },
@@ -199,32 +243,135 @@ export default function ReportsPage() {
           .filter((b: any) => (b.amount_paid || 0) < (b.amount || 0))
           .reduce((s: number, b: any) => s + ((b.amount || 0) - (b.amount_paid || 0)), 0)
 
-        const totalAssets = totalCollected + accountsReceivable
-        const totalLiabilities = accountsPayable
-        const equity = totalAssets - totalLiabilities
+        // This is a working-capital position, not a balance sheet. A balance sheet
+        // needs cash, fixed assets, debt and owner equity; none of those exist in
+        // this system. The previous version reported `collected + AR` as total
+        // assets, which made assets identically equal revenue and equity equal to
+        // assets — it never tied to net income. Report only what is supported and
+        // name the gaps rather than inventing figures.
+        const workingCapital = accountsReceivable - accountsPayable
 
         const bs: BSLine[] = [
-          { label: 'ASSETS', amount: totalAssets, bold: true },
-          { label: 'Cash / Revenue Collected', amount: totalCollected, indent: true },
+          { label: 'RECORDED ASSETS', amount: accountsReceivable, bold: true },
           { label: 'Accounts Receivable', amount: accountsReceivable, indent: true },
-          { label: 'Total Assets', amount: totalAssets, bold: true },
+          { label: 'Total Recorded Assets', amount: accountsReceivable, bold: true },
           { label: '', amount: 0, separator: true },
-          { label: 'LIABILITIES', amount: totalLiabilities, bold: true },
+          { label: 'RECORDED LIABILITIES', amount: accountsPayable, bold: true },
           { label: 'Accounts Payable', amount: accountsPayable, indent: true },
-          { label: 'Total Liabilities', amount: totalLiabilities, bold: true },
+          { label: 'Total Recorded Liabilities', amount: accountsPayable, bold: true },
           { label: '', amount: 0, separator: true },
-          { label: 'EQUITY', amount: equity, bold: true },
-          { label: 'Retained Earnings', amount: equity, indent: true },
-          { label: 'Total Equity', amount: equity, bold: true },
-          { label: '', amount: 0, separator: true },
-          { label: 'TOTAL LIABILITIES & EQUITY', amount: totalLiabilities + equity, bold: true },
+          { label: 'NET WORKING CAPITAL', amount: workingCapital, bold: true },
         ]
         setBsLines(bs)
 
         // ── Tax estimate ──────────────────────────────────────────────────────
-        const taxableIncome = netProfit - accountsPayable
+        // Accounts payable is NOT subtracted here. Vendor bills are expensed at
+        // amount_paid, so unpaid bills were never deducted in the first place;
+        // subtracting them again would double-deduct.
+        const taxableIncome = netProfit
         const taxOwed = Math.max(0, taxableIncome * 0.30)
         setTaxEstimate({ netProfit, accountsPayable, taxableIncome, taxOwed })
+
+        // ── CPA review flags ──────────────────────────────────────────────────
+        // Surface reconciliation breaks instead of letting them sit silently inside
+        // otherwise clean-looking totals.
+        const flags: ReviewFlag[] = []
+
+        if (Math.abs(laborVariance) > 1) {
+          flags.push({
+            severity: 'critical',
+            title: 'Timesheet labor does not match payroll',
+            detail: `Timesheets value labor at ${fmt(laborImputed)}; payroll records ${fmt(laborCosts)}. The P&L uses payroll. Reconcile the difference — one of the two is wrong.`,
+            amount: laborVariance,
+          })
+        }
+
+        if (payrollGross > 0 && payrollTaxes === 0) {
+          flags.push({
+            severity: 'critical',
+            title: 'No employer payroll taxes recorded',
+            detail: `${fmt(payrollGross)} of gross wages carries zero employer tax. Either withholding happens outside this system, or worker classification needs review. Employer FICA alone would be roughly ${fmt(payrollGross * 0.0765)}.`,
+          })
+        }
+
+        const paymentsInRange = (paymentsRes.data || []).filter((p: any) => {
+          if (!p.payment_date) return false
+          const d = new Date(p.payment_date + (String(p.payment_date).includes('T') ? '' : 'T00:00:00'))
+          return d >= startDate && d <= endDate
+        })
+        const paymentsTotal = paymentsInRange.reduce((s: number, p: any) => s + (p.amount || 0), 0)
+        const paymentsGap = totalCollected - paymentsTotal
+        if (Math.abs(paymentsGap) > 1) {
+          flags.push({
+            severity: 'critical',
+            title: 'Invoice collections do not tie to payment records',
+            detail: `Invoices report ${fmt(totalCollected)} collected but the payments ledger holds ${fmt(paymentsTotal)}. Revenue cannot be traced to cash received until this is resolved.`,
+            amount: paymentsGap,
+          })
+        }
+
+        if (vehicleMethodConflict) {
+          flags.push({
+            severity: 'high',
+            title: 'Both mileage and actual vehicle costs claimed',
+            detail: `${fmt(actualVehicleCosts)} of actual vehicle expenses plus ${fmt(mileageCosts)} of standard mileage. These generally cannot both be claimed for the same vehicle — your CPA must pick one method.`,
+            amount: actualVehicleCosts + mileageCosts,
+          })
+        }
+
+        // Duplicate detection: same vendor + amount + date.
+        const seen = new Map<string, number>()
+        expenses.forEach((e: any) => {
+          const k = `${(e.vendor || '').trim().toLowerCase()}|${e.amount}|${e.date}`
+          seen.set(k, (seen.get(k) || 0) + 1)
+        })
+        const dupExpenses = [...seen.values()].filter((n) => n > 1).length
+        if (dupExpenses > 0) {
+          flags.push({
+            severity: 'high',
+            title: `${dupExpenses} possible duplicate expense${dupExpenses > 1 ? 's' : ''}`,
+            detail: 'Same vendor, amount, and date recorded more than once. Confirm each is a genuine separate purchase.',
+          })
+        }
+
+        // Gaps in invoice numbering can mean deleted or unrecorded revenue.
+        const invoiceNums = invoices
+          .map((inv: any) => parseInt(String(inv.invoice_number || '').replace(/\D/g, ''), 10))
+          .filter((n: number) => !isNaN(n))
+          .sort((a: number, b: number) => a - b)
+        if (invoiceNums.length > 1) {
+          const missing: number[] = []
+          for (let n = invoiceNums[0]; n < invoiceNums[invoiceNums.length - 1]; n++) {
+            if (!invoiceNums.includes(n)) missing.push(n)
+          }
+          if (missing.length > 0) {
+            flags.push({
+              severity: 'high',
+              title: `${missing.length} gap${missing.length > 1 ? 's' : ''} in invoice numbering`,
+              detail: `Missing invoice number${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}. Confirm these were voided rather than unrecorded revenue.`,
+            })
+          }
+        }
+
+        const missingReceipts = expenses.filter((e: any) => !e.receipt_url && (e.amount || 0) >= 75).length
+        if (missingReceipts > 0) {
+          flags.push({
+            severity: 'medium',
+            title: `${missingReceipts} expense${missingReceipts > 1 ? 's' : ''} over $75 without a receipt`,
+            detail: 'IRS substantiation generally requires a receipt at $75 and above.',
+          })
+        }
+
+        if (mealsDisallowed > 0) {
+          flags.push({
+            severity: 'medium',
+            title: 'Meals reported at 50%',
+            detail: `${fmt(mealsDisallowed)} of meal cost is excluded from the deduction. Employee-event meals may qualify at 100% — confirm the tagging with your CPA.`,
+            amount: mealsDisallowed,
+          })
+        }
+
+        setReviewFlags(flags)
 
         // ── Monthly chart data ────────────────────────────────────────────────
         const monthlyObj: Record<string, any> = {}
@@ -568,11 +715,17 @@ export default function ReportsPage() {
       {activeTab === 'balance sheet' && (
         <div className="rounded-lg shadow-sm overflow-hidden" style={{ backgroundColor: 'white', border: '1px solid #E0E0E0' }}>
           <div className="px-6 py-4 border-b" style={{ borderColor: '#E0E0E0', backgroundColor: '#f9fafb' }}>
-            <h2 className="text-base font-semibold" style={{ color: '#1A3A6B' }}>Balance Sheet</h2>
+            <h2 className="text-base font-semibold" style={{ color: '#1A3A6B' }}>Working Capital Position</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               As of {new Date(dateRange.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Simplified — based on invoices and expenses recorded in this system</p>
+          </div>
+          <div className="px-6 py-3" style={{ backgroundColor: '#fef3c7', borderBottom: '1px solid #E0E0E0' }}>
+            <p className="text-xs" style={{ color: '#92400e' }}>
+              <strong>This is not a balance sheet.</strong> It shows only receivables and payables — the two balances this system tracks.
+              Cash and bank accounts, credit cards, loans, fixed assets, and owner equity are not recorded anywhere, so a real
+              balance sheet cannot be produced from this data. Your accountant will need bank and credit card statements.
+            </p>
           </div>
           <table className="w-full">
             <tbody>
@@ -585,6 +738,44 @@ export default function ReportsPage() {
       {/* ── Year-End Package ── */}
       {activeTab === 'year-end' && (
         <div className="space-y-6">
+          {/* CPA review items — bookkeeping problems, kept separate from the statements */}
+          <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'white', border: '1px solid #E0E0E0' }}>
+            <div className="px-6 py-4 border-b" style={{ borderColor: '#E0E0E0', backgroundColor: '#f9fafb' }}>
+              <h3 className="text-sm font-semibold" style={{ color: '#1A3A6B' }}>
+                Items Needing CPA Review {reviewFlags.length > 0 && `(${reviewFlags.length})`}
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">Resolve these before sending the package — they affect reported income</p>
+            </div>
+            {reviewFlags.length === 0 ? (
+              <div className="px-6 py-8 text-center">
+                <p className="text-sm text-gray-400">No issues detected for this period.</p>
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
+                {reviewFlags.map((flag, i) => {
+                  const tone = flag.severity === 'critical'
+                    ? { bg: '#fee2e2', fg: '#991b1b', label: 'CRITICAL' }
+                    : flag.severity === 'high'
+                    ? { bg: '#fef3c7', fg: '#92400e', label: 'HIGH' }
+                    : { bg: '#e0e7ff', fg: '#3730a3', label: 'MEDIUM' }
+                  return (
+                    <div key={i} className="px-6 py-4 flex gap-4">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold h-fit flex-shrink-0"
+                        style={{ backgroundColor: tone.bg, color: tone.fg }}>{tone.label}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium" style={{ color: '#1A3A6B' }}>{flag.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">{flag.detail}</p>
+                      </div>
+                      {flag.amount !== undefined && (
+                        <span className="text-sm font-semibold flex-shrink-0" style={{ color: '#dc2626' }}>{fmt(flag.amount)}</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-semibold" style={{ color: '#1A3A6B' }}>Year-End Accountant Package</h2>
@@ -624,13 +815,14 @@ export default function ReportsPage() {
           <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'white', border: '1px solid #E0E0E0' }}>
             <div className="px-6 py-4 border-b" style={{ borderColor: '#E0E0E0', backgroundColor: '#f9fafb' }}>
               <h3 className="text-sm font-semibold" style={{ color: '#1A3A6B' }}>Estimated Taxes Owed — {yearEndYear}</h3>
-              <p className="text-xs text-gray-500 mt-0.5">30% of taxable income (net profit minus outstanding accounts payable)</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Rough placeholder only — a flat 30% of net profit. Ignores self-employment tax, entity type, QBI, and state tax. Not a tax calculation.
+              </p>
             </div>
             <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
               {[
                 { label: 'Net Profit (P&L)', value: taxEstimate.netProfit },
-                { label: 'Less: Accounts Payable (unpaid vendor bills)', value: -taxEstimate.accountsPayable },
-                { label: 'Taxable Income', value: taxEstimate.taxableIncome, bold: true },
+                { label: 'Taxable Income (before CPA adjustments)', value: taxEstimate.taxableIncome, bold: true },
               ].map(({ label, value, bold }) => (
                 <div key={label} className="flex items-center justify-between px-6 py-3">
                   <span className={`text-sm ${bold ? 'font-semibold' : ''}`} style={{ color: '#374151' }}>{label}</span>

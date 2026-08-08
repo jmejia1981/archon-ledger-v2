@@ -74,6 +74,11 @@ export default function PayrollPage() {
 
   // Payment method per employee for current week
   const [paymentMethods, setPaymentMethods] = useState<Record<string, string>>({})
+  // Employer payroll tax was previously hardcoded to 0, which understated labour
+  // cost and left the P&L with wages but no employer burden. Default is statutory
+  // employer FICA (6.2% Social Security + 1.45% Medicare); FUTA/SUTA vary by state
+  // and experience rating, so raise the rate to include them if applicable.
+  const [employerTaxRate, setEmployerTaxRate] = useState(7.65)
 
   // Status filter for history
   const [statusFilter, setStatusFilter] = useState('all')
@@ -150,6 +155,8 @@ export default function PayrollPage() {
     return null
   }
 
+  const employerTax = (gross: number) => Math.round(gross * (employerTaxRate / 100) * 100) / 100
+
   const handleApprove = async (row: EmpWeekRow) => {
     setSaving(true)
     const err = await insertPayrollRow({
@@ -159,10 +166,10 @@ export default function PayrollPage() {
       regular_hours: row.regularHours,
       overtime_hours: row.overtimeHours,
       gross_pay: row.grossPay,
-      taxes: 0,
+      taxes: employerTax(row.grossPay),
       benefits: 0,
       reimbursements: 0,
-      total_employer_cost: row.grossPay,
+      total_employer_cost: row.grossPay + employerTax(row.grossPay),
       status: 'approved',
       payment_method: paymentMethods[row.employee.id] || 'Check',
     })
@@ -186,10 +193,10 @@ export default function PayrollPage() {
         regular_hours: row.regularHours,
         overtime_hours: row.overtimeHours,
         gross_pay: row.grossPay,
-        taxes: 0,
+        taxes: employerTax(row.grossPay),
         benefits: 0,
         reimbursements: 0,
-        total_employer_cost: row.grossPay,
+        total_employer_cost: row.grossPay + employerTax(row.grossPay),
         status: 'approved',
         payment_method: paymentMethods[row.employee.id] || 'Check',
       })
@@ -276,6 +283,28 @@ export default function PayrollPage() {
             />
             <span className="text-sm" style={{ color: 'var(--color-muted)' }}>→ {fmtDate(weekEnd)}</span>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <label htmlFor="employer-tax-rate" className="text-sm font-medium" style={{ color: 'var(--color-muted)' }}>
+            Employer payroll tax rate
+          </label>
+          <input
+            id="employer-tax-rate"
+            name="employerTaxRate"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={employerTaxRate}
+            onChange={e => setEmployerTaxRate(parseFloat(e.target.value) || 0)}
+            className="w-24 px-3 py-1.5 rounded-lg border text-sm focus:outline-none"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}
+          />
+          <span className="text-sm" style={{ color: 'var(--color-muted)' }}>%</span>
+          <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+            Default 7.65% is employer FICA only. Add FUTA/SUTA if they apply — confirm the rate with your payroll provider.
+          </span>
         </div>
 
         {weekRows.length === 0 ? (
