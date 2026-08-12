@@ -52,7 +52,8 @@ export default function ReportsPage() {
           supabase.from('invoices').select('*'),
           supabase.from('labor_entries').select('*'),
           supabase.from('projects').select('*'),
-          supabase.from('employees').select('id, name, hourly_rate, department'),
+          // name is null for every row in practice; first/last are the populated fields
+          supabase.from('employees').select('id, name, first_name, last_name, hourly_rate, department'),
           supabase.from('mileage_entries').select('*'),
           supabase.from('payroll').select('*'),
           supabase.from('payments').select('id, invoice_id, amount, payment_date'),
@@ -178,10 +179,12 @@ export default function ReportsPage() {
             taxMap[e.tax_category] = (taxMap[e.tax_category] || 0) + amount
           }
         })
-        // Payroll → Schedule C: gross to Line 26, employer taxes to Line 23,
-        // benefits to Line 14. Each is a distinct line on the return.
+        // The crew is engaged as 1099 contractors, so their pay is contract labor
+        // (Line 11), not wages (Line 26). Employer taxes and benefits are mapped
+        // anyway for the case where W-2 staff are added later; for contractors they
+        // stay at zero, since the business owes no employer FICA on 1099 pay.
         if (payrollGross > 0) {
-          taxMap['Wages & Salaries (Line 26)'] = (taxMap['Wages & Salaries (Line 26)'] || 0) + payrollGross
+          taxMap['Contract Labor (Line 11)'] = (taxMap['Contract Labor (Line 11)'] || 0) + payrollGross
         }
         if (payrollTaxes > 0) {
           taxMap['Taxes & Licenses (Line 23)'] = (taxMap['Taxes & Licenses (Line 23)'] || 0) + payrollTaxes
@@ -221,7 +224,7 @@ export default function ReportsPage() {
           { label: '', amount: 0, separator: true },
           { label: 'COST OF GOODS SOLD', amount: totalCOGS, bold: true },
           ...Object.entries(directByCategory).map(([label, amount]) => ({ label, amount, indent: true })),
-          ...(payrollGross > 0 ? [{ label: 'Payroll — Gross Wages', amount: payrollGross, indent: true }] : []),
+          ...(payrollGross > 0 ? [{ label: 'Contract Labor (1099 crew)', amount: payrollGross, indent: true }] : []),
           ...(payrollTaxes > 0 ? [{ label: 'Payroll — Employer Taxes', amount: payrollTaxes, indent: true }] : []),
           ...(payrollBenefits > 0 ? [{ label: 'Payroll — Benefits', amount: payrollBenefits, indent: true }] : []),
           ...(mileageCosts > 0 ? [{ label: 'Mileage', amount: mileageCosts, indent: true }] : []),
@@ -286,11 +289,28 @@ export default function ReportsPage() {
           })
         }
 
-        if (payrollGross > 0 && payrollTaxes === 0) {
+        // The crew is paid as 1099 contractors, so employer FICA is correctly zero.
+        // What that creates instead is a filing obligation for anyone over $600.
+        const contractorTotals = new Map<string, number>()
+        payrollInRange.forEach((p: any) => {
+          const emp = employees.find((e: any) => e.id === p.employee_id)
+          const name = emp?.name || [emp?.first_name, emp?.last_name].filter(Boolean).join(' ') || 'Unknown'
+          contractorTotals.set(name, (contractorTotals.get(name) || 0) + (p.gross_pay || 0))
+        })
+        const over600 = [...contractorTotals.entries()].filter(([, v]) => v >= 600)
+        if (over600.length > 0) {
           flags.push({
-            severity: 'critical',
-            title: 'No employer payroll taxes recorded',
-            detail: `${fmt(payrollGross)} of gross wages carries zero employer tax. Either withholding happens outside this system, or worker classification needs review. Employer FICA alone would be roughly ${fmt(payrollGross * 0.0765)}.`,
+            severity: 'high',
+            title: `${over600.length} contractor${over600.length > 1 ? 's' : ''} require a 1099-NEC`,
+            detail: `Paid $600 or more this year: ${over600.map(([n, v]) => `${n} ${fmt(v)}`).join(', ')}. Each needs a W-9 on file and a 1099-NEC filed.`,
+            amount: over600.reduce((s, [, v]) => s + v, 0),
+          })
+        }
+        if (payrollGross > 0) {
+          flags.push({
+            severity: 'high',
+            title: 'Worker classification needs confirmation',
+            detail: `${fmt(payrollGross)} is paid as 1099 contract labor, but the crew is tracked on hourly rates and weekly timesheets, several at 40+ hours. That pattern draws IRS and state scrutiny. Have your CPA confirm the classification — this system cannot determine it.`,
           })
         }
 
