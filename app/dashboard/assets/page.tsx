@@ -164,7 +164,12 @@ export default function AssetsPage() {
   const inputStyle = { border: '1px solid var(--color-border)', backgroundColor: 'white' }
   const labelClass = "block text-xs font-medium mb-1"
 
-  const AssetForm = ({ data, onChange, onSave, onCancel, title }: {
+  // Called as a function below, never rendered as <AssetForm />. A component
+  // defined in the page body gets a fresh identity on every render, so React sees
+  // a different component type each keystroke, unmounts the form and mounts a new
+  // one — destroying the focused input mid-word. Calling it inlines the JSX into
+  // this component's tree, so the inputs stay mounted and keep focus.
+  const renderAssetForm = ({ data, onChange, onSave, onCancel, title }: {
     data: typeof emptyForm
     onChange: (d: typeof emptyForm) => void
     onSave: () => void
@@ -380,14 +385,20 @@ CREATE POLICY "Org members can read assets" ON fixed_assets FOR SELECT USING (or
         )}
       </div>
 
-      {showForm && (
-        <AssetForm data={formData} onChange={setFormData} onSave={handleSave}
-          onCancel={() => { setShowForm(false); setFormData(emptyForm) }} title="Add Fixed Asset" />
-      )}
-      {selectedAsset && editFormData && (
-        <AssetForm data={editFormData} onChange={setEditFormData} onSave={handleUpdate}
-          onCancel={() => { setSelectedAsset(null); setEditFormData(null) }} title="Edit Fixed Asset" />
-      )}
+      {showForm && renderAssetForm({
+        data: formData,
+        onChange: setFormData,
+        onSave: handleSave,
+        onCancel: () => { setShowForm(false); setFormData(emptyForm) },
+        title: 'Add Fixed Asset',
+      })}
+      {selectedAsset && editFormData && renderAssetForm({
+        data: editFormData,
+        onChange: setEditFormData,
+        onSave: handleUpdate,
+        onCancel: () => { setSelectedAsset(null); setEditFormData(null) },
+        title: 'Edit Fixed Asset',
+      })}
     </div>
   )
 }
