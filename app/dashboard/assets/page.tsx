@@ -9,7 +9,9 @@ interface FixedAsset {
   name: string
   category: string
   purchase_date: string
-  cost: number
+  // Column is purchase_price in the database. The form state below still calls it
+  // `cost`; only the payload keys and row reads have to match the schema.
+  purchase_price: number
   salvage_value: number
   useful_life_years: number
   depreciation_method: 'straight-line' | 'section-179'
@@ -49,17 +51,17 @@ function calcDepreciation(asset: FixedAsset, asOfYear?: number) {
 
   if (asset.depreciation_method === 'section-179') {
     return {
-      annualDepreciation: asset.cost,
-      accumulatedDepreciation: asset.cost,
+      annualDepreciation: asset.purchase_price || 0,
+      accumulatedDepreciation: asset.purchase_price || 0,
       bookValue: asset.salvage_value,
       fullyDepreciated: true,
     }
   }
 
-  const depreciableBase = asset.cost - asset.salvage_value
+  const depreciableBase = (asset.purchase_price || 0) - asset.salvage_value
   const annualDepreciation = asset.useful_life_years > 0 ? depreciableBase / asset.useful_life_years : 0
   const accumulated = Math.min(depreciableBase, annualDepreciation * yearsOwned)
-  const bookValue = Math.max(asset.salvage_value, asset.cost - accumulated)
+  const bookValue = Math.max(asset.salvage_value, (asset.purchase_price || 0) - accumulated)
   const fullyDepreciated = accumulated >= depreciableBase
 
   return { annualDepreciation, accumulatedDepreciation: accumulated, bookValue, fullyDepreciated }
@@ -89,7 +91,7 @@ export default function AssetsPage() {
 
   useEffect(() => { loadAssets() }, [loadAssets])
 
-  const totalCost = assets.reduce((s, a) => s + a.cost, 0)
+  const totalCost = assets.reduce((s, a) => s + (a.purchase_price || 0), 0)
   const totalBookValue = assets.reduce((s, a) => s + calcDepreciation(a, selectedYear).bookValue, 0)
   const currentYearDepr = assets.reduce((s, a) => {
     const { annualDepreciation, fullyDepreciated } = calcDepreciation(a, selectedYear)
@@ -106,7 +108,7 @@ export default function AssetsPage() {
         name: formData.name,
         category: formData.category,
         purchase_date: formData.purchase_date,
-        cost: parseFloat(formData.cost) || 0,
+        purchase_price: parseFloat(formData.cost) || 0,
         salvage_value: parseFloat(formData.salvage_value) || 0,
         useful_life_years: parseInt(formData.useful_life_years) || 5,
         depreciation_method: formData.depreciation_method,
@@ -117,7 +119,12 @@ export default function AssetsPage() {
       setFormData(emptyForm)
       setShowForm(false)
       loadAssets()
-    } catch (err) { console.error(err) }
+    } catch (err: any) {
+      // Swallowing this left the form sitting open with no explanation when the
+      // insert was rejected — the symptom that hid the cost/purchase_price mismatch.
+      console.error('Error saving asset:', err)
+      alert('Failed to save asset: ' + (err?.message || JSON.stringify(err)))
+    }
     finally { setSaving(false) }
   }
 
@@ -129,7 +136,7 @@ export default function AssetsPage() {
         name: editFormData.name,
         category: editFormData.category,
         purchase_date: editFormData.purchase_date,
-        cost: parseFloat(editFormData.cost) || 0,
+        purchase_price: parseFloat(editFormData.cost) || 0,
         salvage_value: parseFloat(editFormData.salvage_value) || 0,
         useful_life_years: parseInt(editFormData.useful_life_years) || 5,
         depreciation_method: editFormData.depreciation_method,
@@ -140,7 +147,10 @@ export default function AssetsPage() {
       setSelectedAsset(null)
       setEditFormData(null)
       loadAssets()
-    } catch (err) { console.error(err) }
+    } catch (err: any) {
+      console.error('Error updating asset:', err)
+      alert('Failed to update asset: ' + (err?.message || JSON.stringify(err)))
+    }
     finally { setSaving(false) }
   }
 
@@ -248,7 +258,7 @@ export default function AssetsPage() {
   name TEXT NOT NULL,
   category TEXT,
   purchase_date DATE NOT NULL,
-  cost NUMERIC(12,2) NOT NULL DEFAULT 0,
+  purchase_price NUMERIC(12,2) NOT NULL DEFAULT 0,
   salvage_value NUMERIC(12,2) NOT NULL DEFAULT 0,
   useful_life_years INTEGER NOT NULL DEFAULT 5,
   depreciation_method TEXT NOT NULL DEFAULT 'straight-line',
@@ -331,17 +341,17 @@ CREATE POLICY "Org members can read assets" ON fixed_assets FOR SELECT USING (or
                   const purchaseYear = new Date(asset.purchase_date).getFullYear()
                   const activeThisYear = purchaseYear <= selectedYear
                   const section179 = asset.depreciation_method === 'section-179'
-                  const deprThisYear = !activeThisYear ? 0 : section179 ? (purchaseYear === selectedYear ? asset.cost : 0) : (fullyDepreciated ? 0 : annualDepreciation)
+                  const deprThisYear = !activeThisYear ? 0 : section179 ? (purchaseYear === selectedYear ? (asset.purchase_price || 0) : 0) : (fullyDepreciated ? 0 : annualDepreciation)
 
                   return (
                     <tr key={asset.id} className="border-t hover:bg-gray-50 cursor-pointer transition-colors" style={{ borderColor: 'var(--color-border)' }}
-                      onClick={() => { setSelectedAsset(asset); setEditFormData({ name: asset.name, category: asset.category, purchase_date: asset.purchase_date, cost: asset.cost.toString(), salvage_value: asset.salvage_value.toString(), useful_life_years: asset.useful_life_years.toString(), depreciation_method: asset.depreciation_method, notes: asset.notes || '' }) }}>
+                      onClick={() => { setSelectedAsset(asset); setEditFormData({ name: asset.name, category: asset.category, purchase_date: asset.purchase_date, cost: (asset.purchase_price || 0).toString(), salvage_value: asset.salvage_value.toString(), useful_life_years: asset.useful_life_years.toString(), depreciation_method: asset.depreciation_method, notes: asset.notes || '' }) }}>
                       <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{asset.name}</td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>{asset.category}</td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
                         {new Date(asset.purchase_date + (asset.purchase_date.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{fmt(asset.cost)}</td>
+                      <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--color-navy)' }}>{fmt(asset.purchase_price || 0)}</td>
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
                         {section179 ? 'Section 179' : `SL / ${asset.useful_life_years}yr`}
                       </td>
