@@ -20,6 +20,7 @@ import {
   CashflowChart,
   ProfitTrendChart,
 } from '@/app/dashboard/dashboard-charts'
+import { allocatePayrollToEntries } from '@/lib/calculations'
 
 interface DashboardMetrics {
   totalContractedRevenue: number
@@ -75,7 +76,7 @@ export default function DashboardPage() {
       try {
         console.log('Starting dashboard data load...')
         // Fetch all necessary data
-        const [projectsRes, expensesRes, laborRes, mileageRes, invoicesRes, clientsRes, billsRes] = await Promise.all([
+        const [projectsRes, expensesRes, laborRes, mileageRes, invoicesRes, clientsRes, billsRes, payrollRes] = await Promise.all([
           supabase.from('projects').select('*'),
           supabase.from('expenses').select('*'),
           supabase.from('labor_entries').select('*'),
@@ -83,6 +84,7 @@ export default function DashboardPage() {
           supabase.from('invoices').select('*'),
           supabase.from('clients').select('*'),
           supabase.from('vendor_bills').select('*'),
+          supabase.from('payroll').select('*'),
         ])
 
         const employeesRes = await supabase.from('employees').select('id, name, hourly_rate')
@@ -125,19 +127,13 @@ export default function DashboardPage() {
         // bill happens to be paid in full.
         const billsTotal = billsRes.data?.reduce((sum, b) => sum + (b.amount_paid || 0), 0) || 0
 
-        let laborCosts = 0
-        if (labor.data) {
-          console.log('Calculating labor costs from entries:', labor.data.length)
-          labor.data.forEach((entry: any) => {
-            const empRate = employees?.find((e: any) => e.id === entry.employee_id)?.hourly_rate || 0
-            const regularCost = (entry.regular_hours || 0) * empRate
-            const overtimeCost = (entry.overtime_hours || 0) * empRate * 1.5
-            console.log('Labor entry:', entry.employee_id, 'regular hours:', entry.regular_hours, 'overtime:', entry.overtime_hours, 'rate:', empRate, 'cost:', regularCost + overtimeCost)
-            laborCosts += regularCost
-            laborCosts += overtimeCost
-          })
-          console.log('Total labor costs calculated:', laborCosts)
-        }
+        // Labour comes from payroll, the same source the P&L uses, so the two pages
+        // report one number. Timesheets only apportion it across projects. This
+        // previously re-derived cost as hours x rate, which is an estimate: it read
+        // $49,607 against $24,874 of recorded payroll until payroll was reconciled,
+        // and nothing stopped it drifting again.
+        const payrollAllocation = allocatePayrollToEntries(payrollRes.data || [], labor.data || [])
+        const laborCosts = payrollAllocation.total
 
         let mileageCosts = 0
         if (mileage.data) {
@@ -235,6 +231,7 @@ export default function DashboardPage() {
           invoices: invoices.data || [],
           clients: clients.data || [],
           employees: employees || [],
+          payroll: payrollRes.data || [],
         })
 
         setProjects(projects.data || [])
@@ -286,12 +283,14 @@ export default function DashboardPage() {
     // Recalculate all metrics
     const totalContractedRevenue = filteredProjects.reduce((sum: number, p: any) => sum + (p.contract_budget || 0), 0)
     const revisedContractValue = filteredProjects.reduce((sum: number, p: any) => sum + (p.revised_contract_value || p.contract_budget || 0), 0)
-    let laborCosts = 0
-    filteredLabor.forEach((entry: any) => {
-      const empRate = allData.employees?.find((e: any) => e.id === entry.employee_id)?.hourly_rate || 0
-      laborCosts += (entry.regular_hours || 0) * empRate
-      laborCosts += (entry.overtime_hours || 0) * empRate * 1.5
-    })
+    // Same payroll-backed figure as the unfiltered view. Selecting a project sums
+    // only that project's share of each pay week; showing every project returns the
+    // full payroll, including weeks whose pay no timesheet claims and which
+    // therefore belong to no project.
+    const allocation = allocatePayrollToEntries(allData.payroll || [], allData.labor || [])
+    const laborCosts = selectedProjectId === 'all'
+      ? allocation.total
+      : filteredLabor.reduce((sum: number, entry: any) => sum + (allocation.byEntryId.get(entry.id) || 0), 0)
 
     let mileageCosts = 0
     filteredMileage.forEach((entry: any) => {
