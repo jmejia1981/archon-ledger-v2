@@ -627,8 +627,13 @@ export default function ExpensesPage() {
       <div className="rounded-lg p-6" style={{ backgroundColor: 'white', border: `1px solid var(--color-border)` }}>
         <div className="grid grid-cols-3 gap-8">
           <div>
-            <p className="text-sm mb-1" style={{ color: 'var(--color-muted)' }}>Total Expenses</p>
+            {/* Named for what it covers: this page holds direct expenses only.
+                Vendor bills, mileage and contract labour are tracked elsewhere and
+                appear in the P&L, so a bare "Total Expenses" here read as a
+                company-wide total and did not match the dashboard. */}
+            <p className="text-sm mb-1" style={{ color: 'var(--color-muted)' }}>Total Direct Expenses</p>
             <p className="text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>{formatCurrency(totalExpenses)}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>Excludes vendor bills, mileage and contract labor</p>
           </div>
           <div>
             <p className="text-sm mb-1" style={{ color: 'var(--color-muted)' }}>Number of Expenses</p>

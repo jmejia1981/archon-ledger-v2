@@ -119,7 +119,11 @@ export default function DashboardPage() {
         const revisedContractValue =
           projects.data?.reduce((sum, p) => sum + (p.revised_contract_value || p.contract_budget || 0), 0) || 0
 
-        const billsTotal = billsRes.data?.reduce((sum, b) => sum + (b.amount || 0), 0) || 0
+        // amount_paid, not amount: the P&L expenses vendor bills when paid, so
+        // summing the billed figure here would report a higher cost than the P&L
+        // as soon as any bill is outstanding. Identical today only because every
+        // bill happens to be paid in full.
+        const billsTotal = billsRes.data?.reduce((sum, b) => sum + (b.amount_paid || 0), 0) || 0
 
         let laborCosts = 0
         if (labor.data) {
@@ -295,7 +299,7 @@ export default function DashboardPage() {
     })
 
     const totalExpenses = filteredExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
-      + filteredBills.reduce((sum: number, b: any) => sum + (b.amount || 0), 0)
+      + filteredBills.reduce((sum: number, b: any) => sum + (b.amount_paid || 0), 0)
       + mileageCosts
 
     const totalInvoiced = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.invoice_amount || inv.amount || 0), 0)
@@ -364,7 +368,11 @@ export default function DashboardPage() {
   const kpiCards = [
     { label: 'Total Contracted Revenue', key: 'totalContractedRevenue', icon: DollarSign, color: 'text-blue-600', href: '/dashboard/projects' },
     { label: 'Revised Contract Value', key: 'revisedContractValue', icon: TrendingUp, color: 'text-green-600', href: '/dashboard/projects' },
-    { label: 'Total Expenses', key: 'totalExpenses', icon: AlertCircle, color: 'text-red-600', href: '/dashboard/expenses' },
+    // Not "Total Expenses": this bundles direct expenses, vendor bills and mileage,
+    // and excludes labour, which has its own card. Labelling it as a grand total
+    // while linking to the expenses page invited the obvious comparison against
+    // that page's much smaller direct-expenses figure.
+    { label: 'Expenses + Bills + Mileage', key: 'totalExpenses', icon: AlertCircle, color: 'text-red-600', href: '/dashboard/expenses' },
     { label: 'Labor Costs', key: 'laborCosts', icon: Users, color: 'text-orange-600', href: '/dashboard/labor' },
     { label: 'Mileage Costs', key: 'mileageCosts', icon: Clock, color: 'text-purple-600', href: '/dashboard/mileage' },
     { label: 'Total Invoiced', key: 'totalInvoiced', icon: Briefcase, color: 'text-indigo-600', href: '/dashboard/invoices' },
