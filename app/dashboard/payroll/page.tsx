@@ -34,19 +34,32 @@ interface PayrollRecord {
   payment_method: string
 }
 
+// Format by local calendar day. toISOString() converts to UTC first, and the date
+// being formatted here carries the current time of day: west of UTC an evening
+// timestamp rolls into tomorrow, so after ~8pm Eastern getWeekStart returned the
+// Sunday instead of the Saturday. The week filter then excluded that Saturday's
+// own entries and the page reported no hours for a week that had them. The labor
+// page's getSaturday already formats this way, which is why hours showed there.
+function toLocalISODate(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
+
 // Saturday of current week (Sat–Fri pay cycle)
 function getWeekStart(d = new Date()) {
   const day = d.getDay() // 0=Sun,1=Mon,...,5=Fri,6=Sat
   const diff = day === 6 ? 0 : -(day + 1)
   const sat = new Date(d)
   sat.setDate(d.getDate() + diff)
-  return sat.toISOString().split('T')[0]
+  return toLocalISODate(sat)
 }
 
 function addDays(dateStr: string, n: number) {
   const d = new Date(dateStr + 'T00:00:00')
   d.setDate(d.getDate() + n)
-  return d.toISOString().split('T')[0]
+  return toLocalISODate(d)
 }
 
 function fmtDate(d: string) {

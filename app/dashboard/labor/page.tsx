@@ -431,14 +431,16 @@ export default function LaborPage() {
   const totalHours = filteredEntries.reduce((sum, e) => sum + e.regular_hours + e.overtime_hours, 0)
   const totalCost = filteredEntries.reduce((sum, e) => sum + calculateLaborCost(e), 0)
 
-  // Group entries by pay week (Sat–Fri)
+  // Group entries by pay week (Sat–Fri). Formats from local calendar parts like
+  // getSaturday above, not via toISOString: the UTC conversion moves the date east
+  // of UTC, where local midnight is still the previous day.
   const getWeekStart = (dateStr: string) => {
     const d = new Date(dateStr + 'T00:00:00')
     const day = d.getDay() // 0=Sun,...,5=Fri,6=Sat
     const diff = day === 6 ? 0 : -(day + 1)
     const sat = new Date(d)
     sat.setDate(d.getDate() + diff)
-    return sat.toISOString().split('T')[0]
+    return `${sat.getFullYear()}-${String(sat.getMonth() + 1).padStart(2, '0')}-${String(sat.getDate()).padStart(2, '0')}`
   }
 
   const groupedByWeek = filteredEntries.reduce<Record<string, LaborEntry[]>>((acc, entry) => {
