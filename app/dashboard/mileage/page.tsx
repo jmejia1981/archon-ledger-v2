@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { irsMileageRate } from '@/lib/calculations'
 import { Plus, Search, Trash2, Navigation, X } from 'lucide-react'
 
 interface MileageEntry {
@@ -46,7 +47,7 @@ export default function MileagePage() {
     starting_location: '',
     destination: '',
     miles_driven: '',
-    reimbursement_rate: '0.65',
+    reimbursement_rate: String(irsMileageRate(new Date().toISOString().split('T')[0])),
     notes: '',
   })
 
@@ -115,7 +116,7 @@ export default function MileagePage() {
             starting_location: formData.starting_location,
             destination: formData.destination,
             miles_driven: parseFloat(formData.miles_driven),
-            reimbursement_rate: parseFloat(formData.reimbursement_rate) || 0.65,
+            reimbursement_rate: parseFloat(formData.reimbursement_rate) || irsMileageRate(formData.date),
             notes: formData.notes,
           },
         ])
@@ -136,7 +137,7 @@ export default function MileagePage() {
           starting_location: '',
           destination: '',
           miles_driven: '',
-          reimbursement_rate: '0.65',
+          reimbursement_rate: String(irsMileageRate(new Date().toISOString().split('T')[0])),
           notes: '',
         })
         setShowNewMileageForm(false)
@@ -187,7 +188,7 @@ export default function MileagePage() {
         starting_location: editFormData.starting_location,
         destination: editFormData.destination,
         miles_driven: parseFloat(editFormData.miles_driven) || 0,
-        reimbursement_rate: parseFloat(editFormData.reimbursement_rate) || 0.65,
+        reimbursement_rate: parseFloat(editFormData.reimbursement_rate) || irsMileageRate(editFormData.date),
         notes: editFormData.notes,
       }
 
@@ -361,7 +362,7 @@ export default function MileagePage() {
                     step="0.01"
                     value={formData.reimbursement_rate}
                     onChange={(e) => setFormData({ ...formData, reimbursement_rate: e.target.value })}
-                    placeholder="0.65"
+                    placeholder="0.76"
                     className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
                     style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
                   />

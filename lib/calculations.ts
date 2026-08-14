@@ -139,3 +139,31 @@ export function allocatePayrollToEntries(payroll: any[], laborEntries: any[]): P
 
   return { byEntryId, unallocated, total }
 }
+
+// ── IRS standard mileage rates ──────────────────────────────────────────────
+// Set by the IRS and changed mid-2026, so the rate depends on the date of the
+// trip, not on when it is entered. Rates were previously hardcoded as a flat 0.65
+// fallback in four files, which understated every 2026 trip.
+//
+// Note: reimbursement_rate is numeric(6,3) — the column was numeric(6,2) and
+// silently rounded 0.725 to 0.73.
+const IRS_MILEAGE_RATES: { from: string; rate: number }[] = [
+  { from: '2026-07-01', rate: 0.76 },  // Jul 1 – Dec 31, 2026
+  { from: '2026-01-01', rate: 0.725 }, // Jan 1 – Jun 30, 2026
+]
+
+/** Standard business mileage rate in effect on the given date (YYYY-MM-DD). */
+export function irsMileageRate(dateStr?: string | null): number {
+  if (!dateStr) return IRS_MILEAGE_RATES[0].rate
+  const d = String(dateStr).slice(0, 10)
+  // Ordered newest first, so the first match is the period containing the date.
+  const match = IRS_MILEAGE_RATES.find((r) => d >= r.from)
+  // Dates before the earliest published period fall back to the oldest known rate
+  // rather than zero, so a mistyped year cannot silently erase the deduction.
+  return match ? match.rate : IRS_MILEAGE_RATES[IRS_MILEAGE_RATES.length - 1].rate
+}
+
+/** Cost of one mileage entry, using its stored rate or the rate for its date. */
+export function mileageEntryCost(entry: { miles_driven?: number; reimbursement_rate?: number; date?: string }): number {
+  return (entry.miles_driven || 0) * (entry.reimbursement_rate || irsMileageRate(entry.date))
+}

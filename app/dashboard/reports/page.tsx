@@ -7,6 +7,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { SkeletonKPICards } from '@/app/components/skeleton-loader'
+import { mileageEntryCost } from '@/lib/calculations'
 import { Download } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -138,7 +139,7 @@ export default function ReportsPage() {
 
         // ── Mileage ───────────────────────────────────────────────────────────
         const mileageCosts = mileageEntries.reduce((s: number, entry: any) => {
-          return s + (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
+          return s + mileageEntryCost(entry)
         }, 0)
 
         // ── Overhead ──────────────────────────────────────────────────────────
@@ -418,7 +419,7 @@ export default function ReportsPage() {
         })
         // Add mileage costs to monthly chart
         mileageEntries.forEach((entry: any) => {
-          const cost = (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
+          const cost = mileageEntryCost(entry)
           if (cost <= 0) return
           const rawDate = entry.date || entry.created_at
           const key = new Date(rawDate + (rawDate && !rawDate.includes('T') ? 'T00:00:00' : '')).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })

@@ -20,7 +20,7 @@ import {
   CashflowChart,
   ProfitTrendChart,
 } from '@/app/dashboard/dashboard-charts'
-import { allocatePayrollToEntries } from '@/lib/calculations'
+import { allocatePayrollToEntries, mileageEntryCost } from '@/lib/calculations'
 
 interface DashboardMetrics {
   totalContractedRevenue: number
@@ -139,7 +139,7 @@ export default function DashboardPage() {
         if (mileage.data) {
           console.log('Calculating mileage costs from entries:', mileage.data.length)
           mileage.data.forEach((entry: any) => {
-            mileageCosts += (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
+            mileageCosts += mileageEntryCost(entry)
           })
           console.log('Total mileage costs calculated:', mileageCosts)
         }
@@ -294,7 +294,7 @@ export default function DashboardPage() {
 
     let mileageCosts = 0
     filteredMileage.forEach((entry: any) => {
-      mileageCosts += (entry.miles_driven || 0) * (entry.reimbursement_rate || 0.65)
+      mileageCosts += mileageEntryCost(entry)
     })
 
     const totalExpenses = filteredExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
@@ -587,7 +587,7 @@ export default function DashboardPage() {
             }, 0)
           const mileageForProject = (allData.mileage || [])
             .filter((m: any) => m.project_id === p.id)
-            .reduce((sum: number, m: any) => sum + (m.miles_driven || 0) * (m.reimbursement_rate || 0.65), 0)
+            .reduce((sum: number, m: any) => sum + mileageEntryCost(m), 0)
           return {
             name: p.project_name,
             budget: p.revised_contract_value || p.contract_budget || 0,
