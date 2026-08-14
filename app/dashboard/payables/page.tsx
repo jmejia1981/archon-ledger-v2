@@ -180,6 +180,22 @@ function BillForm({ data, onChange, onSave, onCancel, title, projects, vendors, 
             <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="amount_paid">Amount Paid</label>
             <input id="amount_paid" name="amount_paid" type="number" step="0.01" min="0" className={inputClass} style={inputStyle}
               value={data.amount_paid} onChange={(e) => onChange({ ...data, amount_paid: e.target.value })} />
+            {/* Entering the full amount here leaves nothing outstanding, which is how
+                all 33 existing bills came to sit at a zero balance and Accounts
+                Payable at $0. Show the consequence while it can still be corrected. */}
+            {(() => {
+              const amt = parseFloat(data.amount) || 0
+              const paid = parseFloat(data.amount_paid) || 0
+              if (amt <= 0) return null
+              const balance = amt - paid
+              return (
+                <p className="text-xs mt-1" style={{ color: balance > 0 ? 'var(--color-muted)' : '#b45309' }}>
+                  {balance > 0
+                    ? `Balance owed: ${fmt(balance)}`
+                    : 'Fully paid — this bill will not appear in Accounts Payable'}
+                </p>
+              )
+            })()}
           </div>
           <div>
             <label className={labelClass} style={{ color: 'var(--color-navy)' }} htmlFor="tax_category">IRS Schedule C</label>
