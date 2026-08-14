@@ -335,6 +335,21 @@ export default function PayablesPage() {
     return b.status === 'paid' && due.getMonth() === now.getMonth() && due.getFullYear() === now.getFullYear()
   }).reduce((s, b) => s + b.amount_paid, 0)
 
+  // Year to date. Counts every dollar paid, including part-payments on bills still
+  // carrying a balance — unlike the month card, which only counts bills marked
+  // fully paid and so understates money actually out the door.
+  //
+  // Dated by issue_date because vendor_bills records no payment date; a bill paid
+  // in a later year than it was issued lands in the wrong bucket. Matches how the
+  // P&L filters bills.
+  const currentYear = new Date().getFullYear()
+  const paidThisYear = bills.reduce((s, b) => {
+    const raw = b.issue_date || b.due_date
+    if (!raw) return s
+    const d = new Date(raw + (String(raw).includes('T') ? '' : 'T00:00:00'))
+    return d.getFullYear() === currentYear ? s + (b.amount_paid || 0) : s
+  }, 0)
+
   const handleSave = async () => {
     setSaving(true)
     setSaveError(null)
@@ -467,12 +482,13 @@ CREATE POLICY "Org members can read bills" ON vendor_bills FOR SELECT USING (org
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: 'Total Payable', value: fmt(totalPayable), icon: DollarSign, color: 'var(--color-navy)' },
           { label: 'Overdue', value: fmt(totalOverdue), icon: AlertCircle, color: '#dc2626' },
           { label: 'Due This Week', value: fmt(dueThisWeek), icon: Clock, color: '#f59e0b' },
           { label: 'Paid This Month', value: fmt(paidThisMonth), icon: CheckCircle, color: '#10b981' },
+          { label: `Total Paid ${currentYear}`, value: fmt(paidThisYear), icon: CheckCircle, color: '#059669' },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white rounded-xl p-4 shadow-sm" style={{ border: '1px solid var(--color-border)' }}>
             <div className="flex items-center gap-2 mb-2">
