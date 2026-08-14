@@ -342,6 +342,11 @@ export default function PayablesPage() {
   // Dated by issue_date because vendor_bills records no payment date; a bill paid
   // in a later year than it was issued lands in the wrong bucket. Matches how the
   // P&L filters bills.
+  // Gross value of every bill on record, whatever its payment state. Total Payable
+  // is only the unpaid remainder, which reads $0 while every bill is settled — the
+  // total is what shows the volume behind that zero.
+  const totalBilled = bills.reduce((s, b) => s + (b.amount || 0), 0)
+
   const currentYear = new Date().getFullYear()
   const paidThisYear = bills.reduce((s, b) => {
     const raw = b.issue_date || b.due_date
@@ -482,20 +487,26 @@ CREATE POLICY "Org members can read bills" ON vendor_bills FOR SELECT USING (org
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Six cards, two rows of three. Fitting them on one row leaves each card too
+          narrow for a currency value plus its sub-line. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: 'Total Payable', value: fmt(totalPayable), icon: DollarSign, color: 'var(--color-navy)' },
+          { label: 'Total Billed', value: fmt(totalBilled), icon: DollarSign, color: 'var(--color-navy)',
+            sub: `${bills.length} bill${bills.length === 1 ? '' : 's'} on record` },
+          { label: 'Total Payable', value: fmt(totalPayable), icon: DollarSign, color: 'var(--color-navy)',
+            sub: `${fmt(totalBilled - totalPayable)} already paid` },
           { label: 'Overdue', value: fmt(totalOverdue), icon: AlertCircle, color: '#dc2626' },
           { label: 'Due This Week', value: fmt(dueThisWeek), icon: Clock, color: '#f59e0b' },
           { label: 'Paid This Month', value: fmt(paidThisMonth), icon: CheckCircle, color: '#10b981' },
           { label: `Total Paid ${currentYear}`, value: fmt(paidThisYear), icon: CheckCircle, color: '#059669' },
-        ].map(({ label, value, icon: Icon, color }) => (
+        ].map(({ label, value, icon: Icon, color, sub }) => (
           <div key={label} className="bg-white rounded-xl p-4 shadow-sm" style={{ border: '1px solid var(--color-border)' }}>
             <div className="flex items-center gap-2 mb-2">
               <Icon className="w-4 h-4" style={{ color }} />
               <span className="text-xs font-medium" style={{ color: 'var(--color-muted)' }}>{label}</span>
             </div>
             <p className="text-xl font-bold" style={{ color: 'var(--color-navy)' }}>{value}</p>
+            {sub && <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>{sub}</p>}
           </div>
         ))}
       </div>
