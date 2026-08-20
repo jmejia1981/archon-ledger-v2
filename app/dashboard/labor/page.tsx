@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, CheckCircle, Clock, X, List, CalendarDays } from 'lucide-react'
+import { Plus, Search, Trash2, CheckCircle, Clock, X, List, CalendarDays, FileDown } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 interface LaborEntry {
   id: string
@@ -451,6 +453,119 @@ export default function LaborPage() {
   }, {})
 
   const sortedWeekKeys = Object.keys(groupedByWeek).sort((a, b) => b.localeCompare(a))
+
+  // Weekly payroll report: one row per employee with hours and pay for that week.
+  // Pay is the same regular + overtime x1.5 valuation the on-screen rows use, so
+  // the PDF and the page can never disagree.
+  const exportWeekPDF = (weekKey: string) => {
+    const weekEntries = groupedByWeek[weekKey] || []
+    if (weekEntries.length === 0) return
+
+    const byEmployee: Record<string, LaborEntry[]> = {}
+    weekEntries.forEach((e) => {
+      if (!byEmployee[e.employee_id]) byEmployee[e.employee_id] = []
+      byEmployee[e.employee_id].push(e)
+    })
+
+    const rows = Object.entries(byEmployee)
+      .map(([empId, empEntries]) => {
+        const regular = empEntries.reduce((s, e) => s + e.regular_hours, 0)
+        const overtime = empEntries.reduce((s, e) => s + e.overtime_hours, 0)
+        const pay = empEntries.reduce((s, e) => s + calculateLaborCost(e), 0)
+        return {
+          name: getEmployeeName(empId),
+          rate: getEmployeeRate(empId),
+          regular,
+          overtime,
+          total: regular + overtime,
+          pay,
+          approved: empEntries.every((e) => e.status === 'approved'),
+        }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+
+    const totals = rows.reduce(
+      (acc, r) => ({
+        regular: acc.regular + r.regular,
+        overtime: acc.overtime + r.overtime,
+        total: acc.total + r.total,
+        pay: acc.pay + r.pay,
+      }),
+      { regular: 0, overtime: 0, total: 0, pay: 0 },
+    )
+
+    const money = (v: number) =>
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v)
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 15
+    let y = 20
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.setTextColor(26, 58, 107)
+    doc.text('Archon Construction LLC', pageWidth / 2, y, { align: 'center' })
+    y += 8
+    doc.setFontSize(12)
+    doc.text('Weekly Labor Report', pageWidth / 2, y, { align: 'center' })
+    y += 6
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(60)
+    doc.text(formatWeekRange(weekKey), pageWidth / 2, y, { align: 'center' })
+    y += 5
+    doc.setFontSize(9)
+    doc.setTextColor(120)
+    doc.text(
+      `Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      pageWidth / 2, y, { align: 'center' },
+    )
+    y += 10
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Employee', 'Rate', 'Regular', 'OT', 'Total Hrs', 'Pay', 'Status']],
+      body: rows.map((r) => [
+        r.name,
+        money(r.rate),
+        r.regular.toFixed(1),
+        r.overtime.toFixed(1),
+        r.total.toFixed(1),
+        money(r.pay),
+        r.approved ? 'Approved' : 'Pending',
+      ]),
+      foot: [[
+        'TOTAL',
+        '',
+        totals.regular.toFixed(1),
+        totals.overtime.toFixed(1),
+        totals.total.toFixed(1),
+        money(totals.pay),
+        '',
+      ]],
+      headStyles: { fillColor: [26, 58, 107], textColor: 255, fontSize: 9, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 9, textColor: [33, 47, 61] },
+      footStyles: { fillColor: [240, 238, 233], textColor: [26, 58, 107], fontSize: 9, fontStyle: 'bold' },
+      columnStyles: {
+        1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' },
+        4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'center' },
+      },
+      theme: 'striped',
+    })
+    y = (doc as any).lastAutoTable.finalY + 10
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(120)
+    doc.text(
+      'Pay shown is gross contract labor: regular hours at rate plus overtime at 1.5x. No employer tax is withheld.',
+      margin, y, { maxWidth: pageWidth - margin * 2 },
+    )
+
+    doc.save(`labor-report-${weekKey}.pdf`)
+  }
 
   const formatWeekRange = (weekStart: string) => {
     const start = new Date(weekStart + 'T00:00:00')
@@ -1020,6 +1135,14 @@ export default function LaborPage() {
                     <span className="text-white opacity-75">OT: <strong className="opacity-100">{weekOvertime.toFixed(1)}h</strong></span>
                     <span className="text-white opacity-75">Total: <strong className="opacity-100">{(weekRegular + weekOvertime).toFixed(1)}h</strong></span>
                     <span className="text-white opacity-75">Cost: <strong className="opacity-100">{formatCurrency(weekCost)}</strong></span>
+                    <button
+                      onClick={() => exportWeekPDF(weekKey)}
+                      title="Download this week as a PDF"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'white' }}
+                    >
+                      <FileDown className="w-3.5 h-3.5" /> PDF
+                    </button>
                   </div>
                 </div>
 
