@@ -188,8 +188,6 @@ export default function InvoiceDetailPage() {
       return
     }
 
-    const newAmountPaid = (invoice.amount_paid || 0) + amount
-    const newStatus = newAmountPaid >= (invoice.invoice_amount || 0) ? 'paid' : 'partial'
 
     // Insert into payments table so Payment Tracking page reflects it
     const { error: paymentError } = await supabase
@@ -207,6 +205,24 @@ export default function InvoiceDetailPage() {
       alert('Failed to record payment: ' + (paymentError.message || JSON.stringify(paymentError)))
       return
     }
+
+    // Derive amount_paid from the payments ledger instead of incrementing it.
+    // This path had no outstanding-balance guard at all, so recording a payment
+    // against an already-paid invoice doubled amount_paid — how INV-003 and
+    // INV-005 came to exceed their own invoice totals. Recomputing is idempotent.
+    const { data: ledger, error: ledgerError } = await supabase
+      .from('payments')
+      .select('amount')
+      .eq('invoice_id', invoiceId)
+    if (ledgerError) {
+      console.error('Ledger read error:', ledgerError)
+      alert('Payment recorded but the invoice total could not be recalculated: ' + ledgerError.message)
+      return
+    }
+    const newAmountPaid = (ledger || []).reduce((s: number, r: any) => s + (r.amount || 0), 0)
+    const newStatus = newAmountPaid >= (invoice.invoice_amount || 0)
+      ? 'paid'
+      : newAmountPaid > 0 ? 'partial' : 'unpaid'
 
     // Update invoice amount_paid and status
     const { error: invoiceError } = await supabase

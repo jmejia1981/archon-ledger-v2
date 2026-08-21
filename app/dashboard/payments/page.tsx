@@ -210,9 +210,21 @@ export default function PaymentsPage() {
 
       if (paymentError) throw paymentError
 
-      // Update invoice amount_paid and status
-      const newAmountPaid = (selectedInvoice.amount_paid || 0) + paymentAmount
-      const newStatus = newAmountPaid >= (selectedInvoice.invoice_amount || 0) ? 'paid' : 'partial'
+      // Derive amount_paid from the payments ledger instead of incrementing it.
+      // Incrementing double-counted whenever an invoice already carried a balance
+      // from having been marked paid directly — INV-003 and INV-005 both ended at
+      // exactly twice their invoice amount that way — and let a double-submit
+      // inflate the invoice as well as the ledger. Recomputing is idempotent: it
+      // self-corrects instead of compounding.
+      const { data: ledger, error: ledgerError } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('invoice_id', formData.invoice_id)
+      if (ledgerError) throw ledgerError
+      const newAmountPaid = (ledger || []).reduce((s: number, r: any) => s + (r.amount || 0), 0)
+      const newStatus = newAmountPaid >= (selectedInvoice.invoice_amount || 0)
+        ? 'paid'
+        : newAmountPaid > 0 ? 'partial' : 'unpaid'
       const { error: invoiceError } = await supabase
         .from('invoices')
         .update({ amount_paid: newAmountPaid, status: newStatus })
