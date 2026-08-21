@@ -42,3 +42,26 @@ update invoices i
 commit;
 
 -- Result: 23 payments totalling $124,050.00; no invoice claims more than it billed.
+
+-- ── Backfill, same date ─────────────────────────────────────────────────────
+-- The five invoices left alone above (INV-004, 006, 007, 009, 010 — $24,900) were
+-- marked paid directly on the invoice, so Payment Tracking had nothing to show.
+-- Owner confirmed they were paid by check and approved using each invoice's own
+-- date as the payment date. That is an approximation: payment normally follows
+-- invoicing, so these run slightly early. The notes field records that on every
+-- row so it is not mistaken for an observed date.
+
+begin;
+
+insert into payments (invoice_id, amount, payment_date, payment_method, status, notes)
+select i.id, i.amount_paid, i.invoice_date, 'check', 'completed',
+       'Backfilled 2026-08-21: invoice was marked paid without a payment record. Date assumed to be the invoice date.'
+from invoices i
+where not exists (select 1 from payments p where p.invoice_id = i.id)
+  and coalesce(i.amount_paid, 0) > 0;
+
+commit;
+
+-- Result: 28 payments totalling $148,950.00, matching invoice amount_paid exactly.
+-- Invoiced $148,950.00, collected $148,950.00, outstanding $0.00, none overpaid,
+-- none paid without a record.
