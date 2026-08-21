@@ -59,6 +59,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('all')
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState<PaymentFormData>(initialFormData)
@@ -73,6 +74,7 @@ export default function PaymentsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
+      setLoadError(null)
 
       // Fetch payments
       const { data: paymentsData, error: paymentsError } = await supabase
@@ -125,8 +127,12 @@ export default function PaymentsPage() {
 
       if (invoicesError) throw invoicesError
       setInvoices(invoicesData || [])
-    } catch (error) {
+    } catch (error: any) {
+      // Only console.error'd before. The select asked for payments.status, which did
+      // not exist, so PostgREST rejected the whole query and the list rendered empty
+      // with no indication anything had failed.
       console.error('Error fetching data:', error)
+      setLoadError(error?.message || 'Failed to load payments.')
     } finally {
       setLoading(false)
     }
@@ -199,6 +205,7 @@ export default function PaymentsPage() {
           payment_date: formData.payment_date,
           payment_method: formData.payment_method,
           notes: formData.notes || null,
+          status: 'completed',
         }])
 
       if (paymentError) throw paymentError
@@ -304,6 +311,13 @@ export default function PaymentsPage() {
           <p className="text-xs text-gray-500 mt-2">Awaiting confirmation</p>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-6 rounded-lg px-4 py-3" style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca' }}>
+          <p className="text-sm font-medium" style={{ color: '#991b1b' }}>Could not load payments</p>
+          <p className="text-xs mt-1" style={{ color: '#991b1b' }}>{loadError}</p>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="mb-6 flex flex-col md:flex-row gap-4">
