@@ -48,7 +48,7 @@ export default function ReportsPage() {
   useEffect(() => {
     const loadReportsData = async () => {
       try {
-        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes, payrollRes, paymentsRes] = await Promise.all([
+        const [expensesRes, invoicesRes, laborRes, projectsRes, employeesRes, mileageRes, payrollRes, paymentsRes, vendorsRes] = await Promise.all([
           supabase.from('expenses').select('*'),
           supabase.from('invoices').select('*'),
           supabase.from('labor_entries').select('*'),
@@ -57,7 +57,8 @@ export default function ReportsPage() {
           supabase.from('employees').select('id, name, first_name, last_name, hourly_rate, department'),
           supabase.from('mileage_entries').select('*'),
           supabase.from('payroll').select('*'),
-          supabase.from('payments').select('id, invoice_id, amount, payment_date'),
+          supabase.from('payments').select('id, invoice_id, amount, payment_date, notes'),
+          supabase.from('vendors').select('id, name, is_1099_required, w9_on_file'),
         ])
 
         let expenses = expensesRes.data || []
@@ -281,11 +282,21 @@ export default function ReportsPage() {
         // otherwise clean-looking totals.
         const flags: ReviewFlag[] = []
 
-        if (Math.abs(laborVariance) > 1) {
+        // Severity scales with how big the gap is, not merely that one exists. A
+        // flat threshold reported a 0.8% difference as CRITICAL alongside genuinely
+        // material problems, which trains the reader to ignore the panel. A small
+        // residue is expected and benign: timesheets are revalued at each
+        // employee's current hourly rate, while payroll holds the gross actually
+        // paid at the time, so any later rate change shows up here forever.
+        const laborVariancePct = laborCosts > 0 ? Math.abs(laborVariance) / laborCosts * 100 : 0
+        if (Math.abs(laborVariance) >= 100 && laborVariancePct >= 0.5) {
+          const material = Math.abs(laborVariance) >= 5000 || laborVariancePct >= 10
           flags.push({
-            severity: 'critical',
+            severity: material ? 'critical' : laborVariancePct >= 2 ? 'high' : 'medium',
             title: 'Timesheet labor does not match payroll',
-            detail: `Timesheets value labor at ${fmt(laborImputed)}; payroll records ${fmt(laborCosts)}. The P&L uses payroll. Reconcile the difference — one of the two is wrong.`,
+            detail: material
+              ? `Timesheets value labor at ${fmt(laborImputed)}; payroll records ${fmt(laborCosts)} — a ${laborVariancePct.toFixed(1)}% gap. The P&L uses payroll. A difference this size usually means payroll was never run for some weeks.`
+              : `Timesheets value labor at ${fmt(laborImputed)}; payroll records ${fmt(laborCosts)}, a ${laborVariancePct.toFixed(1)}% difference. Small gaps like this normally mean an hourly rate was edited after payroll ran, which restates the timesheet valuation but not the pay. Worth confirming rather than correcting.`,
             amount: laborVariance,
           })
         }
@@ -389,6 +400,43 @@ export default function ReportsPage() {
             title: 'Meals reported at 50%',
             detail: `${fmt(mealsDisallowed)} of meal cost is excluded from the deduction. Employee-event meals may qualify at 100% — confirm the tagging with your CPA.`,
             amount: mealsDisallowed,
+          })
+        }
+
+        // Vendors are a separate 1099 population from the payroll crew, and were
+        // not represented here at all.
+        const vendors1099 = (vendorsRes.data || []).filter((v: any) => v.is_1099_required)
+        const vendorsNoW9 = vendors1099.filter((v: any) => !v.w9_on_file)
+        if (vendorsNoW9.length > 0) {
+          flags.push({
+            severity: 'high',
+            title: `${vendorsNoW9.length} vendor${vendorsNoW9.length > 1 ? 's' : ''} flagged for 1099 without a W-9`,
+            detail: `${vendorsNoW9.map((v: any) => v.name).join(', ')}. A W-9 is needed before a 1099-NEC can be filed, and is far harder to obtain after the working relationship ends.`,
+          })
+        }
+
+        // Payment dates that were assumed rather than observed. They drive
+        // cash-basis timing, so the accountant should know which are which.
+        const backfilled = (paymentsRes.data || []).filter((p: any) => String(p.notes || '').startsWith('Backfilled'))
+        if (backfilled.length > 0) {
+          flags.push({
+            severity: 'medium',
+            title: `${backfilled.length} payment${backfilled.length > 1 ? 's' : ''} carry an assumed date`,
+            detail: 'These invoices were marked paid without a payment record, so the invoice date was used as the payment date. The amounts are correct; the dates are approximations and run slightly early.',
+            amount: backfilled.reduce((s: number, p: any) => s + (p.amount || 0), 0),
+          })
+        }
+
+        // Every bill entered as already settled means accounts payable is
+        // structurally zero — a cash-basis pattern the accountant must be told
+        // about, since it makes the payables balance meaningless rather than good.
+        const allBills = vendorBillsRes.data || []
+        const settledOnEntry = allBills.filter((b: any) => (b.amount_paid || 0) >= (b.amount || 0))
+        if (allBills.length > 0 && settledOnEntry.length === allBills.length) {
+          flags.push({
+            severity: 'medium',
+            title: 'Every vendor bill is recorded as fully paid',
+            detail: `All ${allBills.length} bills carry no outstanding balance, so accounts payable is always zero. That usually means bills are entered only once settled, which is a cash-basis treatment. Confirm it matches the accounting method on the return.`,
           })
         }
 
