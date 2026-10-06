@@ -26,6 +26,17 @@ interface DashboardMetrics {
   totalContractedRevenue: number
   revisedContractValue: number
   totalExpenses: number
+  // The combined card's parts, kept separately so clicking it can break the figure
+  // down for whichever project is selected rather than sending the user to a page
+  // that ignores the filter.
+  directExpenses: number
+  billsTotal: number
+  expenseCount: number
+  billCount: number
+  mileageCount: number
+  // Cost carrying no project_id. It belongs to no project view, so the per-project
+  // breakdowns cannot sum to the company total without it stated somewhere.
+  unassignedTotal: number
   laborCosts: number
   mileageCosts: number
   totalInvoiced: number
@@ -50,6 +61,12 @@ export default function DashboardPage() {
     totalContractedRevenue: 0,
     revisedContractValue: 0,
     totalExpenses: 0,
+    directExpenses: 0,
+    billsTotal: 0,
+    expenseCount: 0,
+    billCount: 0,
+    mileageCount: 0,
+    unassignedTotal: 0,
     laborCosts: 0,
     mileageCosts: 0,
     totalInvoiced: 0,
@@ -144,7 +161,12 @@ export default function DashboardPage() {
           console.log('Total mileage costs calculated:', mileageCosts)
         }
 
-        const totalExpenses = (expenses.data?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0) + billsTotal + mileageCosts
+        const directExpensesTotal = expenses.data?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0
+        const unassignedTotal =
+          (expenses.data || []).filter((e: any) => !e.project_id).reduce((sum: number, e: any) => sum + (e.amount || 0), 0) +
+          (billsRes.data || []).filter((b: any) => !b.project_id).reduce((sum: number, b: any) => sum + (b.amount_paid || 0), 0) +
+          (mileage.data || []).filter((m: any) => !m.project_id).reduce((sum: number, m: any) => sum + mileageEntryCost(m), 0)
+        const totalExpenses = directExpensesTotal + billsTotal + mileageCosts
         console.log('Total expenses (incl. mileage):', totalExpenses)
 
         const totalInvoiced = invoices.data?.reduce((sum, inv) => sum + (inv.invoice_amount || inv.amount || 0), 0) || 0
@@ -240,6 +262,12 @@ export default function DashboardPage() {
           totalContractedRevenue,
           revisedContractValue,
           totalExpenses,
+          directExpenses: directExpensesTotal,
+          billsTotal,
+          expenseCount: expenses.data?.length || 0,
+          billCount: billsRes.data?.length || 0,
+          mileageCount: mileage.data?.length || 0,
+          unassignedTotal,
           laborCosts,
           mileageCosts,
           totalInvoiced,
@@ -297,9 +325,9 @@ export default function DashboardPage() {
       mileageCosts += mileageEntryCost(entry)
     })
 
-    const totalExpenses = filteredExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
-      + filteredBills.reduce((sum: number, b: any) => sum + (b.amount_paid || 0), 0)
-      + mileageCosts
+    const directExpensesTotal = filteredExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
+    const billsTotal = filteredBills.reduce((sum: number, b: any) => sum + (b.amount_paid || 0), 0)
+    const totalExpenses = directExpensesTotal + billsTotal + mileageCosts
 
     const totalInvoiced = filteredInvoices.reduce((sum: number, inv: any) => sum + (inv.invoice_amount || inv.amount || 0), 0)
     const totalCollected = filteredInvoices.reduce((sum: number, inv: any) => {
@@ -338,6 +366,15 @@ export default function DashboardPage() {
       totalContractedRevenue,
       revisedContractValue,
       totalExpenses,
+      directExpenses: directExpensesTotal,
+      billsTotal,
+      expenseCount: filteredExpenses.length,
+      billCount: filteredBills.length,
+      mileageCount: filteredMileage.length,
+      unassignedTotal:
+        (allData.expenses || []).filter((e: any) => !e.project_id).reduce((sum: number, e: any) => sum + (e.amount || 0), 0) +
+        (allData.bills || []).filter((b: any) => !b.project_id).reduce((sum: number, b: any) => sum + (b.amount_paid || 0), 0) +
+        (allData.mileage || []).filter((m: any) => !m.project_id).reduce((sum: number, m: any) => sum + mileageEntryCost(m), 0),
       laborCosts,
       mileageCosts,
       totalInvoiced,
@@ -360,6 +397,10 @@ export default function DashboardPage() {
     }).format(value)
   }
 
+  const selectedProjectName = selectedProjectId === 'all'
+    ? 'All Projects'
+    : projects.find((p) => p.id === selectedProjectId)?.project_name || 'Selected Project'
+
   const openDetail = (title: string, rows: { label: string; value: string; sub?: string }[]) => {
     setDetailModal({ title, rows })
   }
@@ -371,7 +412,31 @@ export default function DashboardPage() {
     // and excludes labour, which has its own card. Labelling it as a grand total
     // while linking to the expenses page invited the obvious comparison against
     // that page's much smaller direct-expenses figure.
-    { label: 'Expenses + Bills + Mileage', key: 'totalExpenses', icon: AlertCircle, color: 'text-red-600', href: '/dashboard/expenses' },
+    {
+      label: 'Expenses + Bills + Mileage', key: 'totalExpenses', icon: AlertCircle, color: 'text-red-600',
+      // Opens a breakdown rather than linking to /dashboard/expenses. That page
+      // shows every expense company-wide and ignores the project filter, so
+      // clicking this card while a project was selected gave a number that did not
+      // match the card you clicked.
+      onDetail: () => openDetail(
+        selectedProjectId === 'all'
+          ? 'Expenses + Bills + Mileage — All Projects'
+          : `Expenses + Bills + Mileage — ${selectedProjectName}`,
+        [
+          { label: 'Direct Expenses', value: formatCurrency(metrics.directExpenses), sub: `${metrics.expenseCount} ${metrics.expenseCount === 1 ? 'entry' : 'entries'}` },
+          { label: 'Vendor Bills (paid)', value: formatCurrency(metrics.billsTotal), sub: `${metrics.billCount} ${metrics.billCount === 1 ? 'bill' : 'bills'}` },
+          { label: 'Mileage', value: formatCurrency(metrics.mileageCosts), sub: `${metrics.mileageCount} ${metrics.mileageCount === 1 ? 'trip' : 'trips'} at the IRS rate` },
+          { label: 'Total', value: formatCurrency(metrics.totalExpenses), sub: 'Labor is tracked separately on its own card' },
+          ...(metrics.unassignedTotal > 0 ? [{
+            label: 'Not assigned to any project',
+            value: formatCurrency(metrics.unassignedTotal),
+            sub: selectedProjectId === 'all'
+              ? 'Included in the total above, but invisible in every per-project view'
+              : 'Company-wide, and excluded from this project — tag these to see them here',
+          }] : []),
+        ],
+      ),
+    },
     { label: 'Labor Costs', key: 'laborCosts', icon: Users, color: 'text-orange-600', href: '/dashboard/labor' },
     { label: 'Mileage Costs', key: 'mileageCosts', icon: Clock, color: 'text-purple-600', href: '/dashboard/mileage' },
     { label: 'Total Invoiced', key: 'totalInvoiced', icon: Briefcase, color: 'text-indigo-600', href: '/dashboard/invoices' },
