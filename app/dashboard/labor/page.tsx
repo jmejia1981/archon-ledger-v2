@@ -69,6 +69,10 @@ export default function LaborPage() {
   })
 
   const [weekStartDate, setWeekStartDate] = useState(getSaturday(new Date()))
+  // Week mode logs a crew, not one person: the same week's grid is applied to every
+  // selected employee, one labor_entries row each. Single-day mode still uses
+  // formData.employee_id.
+  const [weekEmployeeIds, setWeekEmployeeIds] = useState<string[]>([])
   const [weeklyData, setWeeklyData] = useState<Record<string, WeeklyDayEntry>>({
     sat: { hours: '' },
     sun: { hours: '' },
@@ -164,8 +168,17 @@ export default function LaborPage() {
   // Handle create labor entry
   const handleCreateLaborEntry = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.employee_id || !formData.project_id) {
-      alert('Employee and project are required')
+    if (!formData.project_id) {
+      alert('Project is required')
+      return
+    }
+    if (formMode === 'week') {
+      if (weekEmployeeIds.length === 0) {
+        alert('Select at least one employee')
+        return
+      }
+    } else if (!formData.employee_id) {
+      alert('Employee is required')
       return
     }
 
@@ -224,8 +237,10 @@ export default function LaborPage() {
         weekEnd.setDate(weekEnd.getDate() + 6)
         const weekEndDateString = weekEnd.toISOString().split('T')[0]
 
-        const weeklyEntry = {
-          employee_id: formData.employee_id,
+        // One row per selected employee, all sharing the week's grid. Inserted in a
+        // single call so a partial failure cannot leave half the crew logged.
+        const weeklyEntries = weekEmployeeIds.map((employeeId) => ({
+          employee_id: employeeId,
           project_id: formData.project_id,
           date: weekStartDate,
           week_start_date: weekStartDate,
@@ -234,12 +249,12 @@ export default function LaborPage() {
           overtime_hours: 0,
           task_description: formData.task_description,
           status: formData.status,
-        }
+        }))
 
-        console.log('Creating single weekly entry:', weeklyEntry)
+        console.log(`Creating ${weeklyEntries.length} weekly entries:`, weeklyEntries)
         const { data, error } = await supabase
           .from('labor_entries')
-          .insert([weeklyEntry])
+          .insert(weeklyEntries)
           .select()
 
         if (error) {
@@ -247,9 +262,10 @@ export default function LaborPage() {
           throw new Error(`Failed to create: ${error.message}`)
         }
 
-        console.log('Weekly entry created successfully:', data)
+        console.log('Weekly entries created successfully:', data)
         if (data) {
           setLaborEntries([...laborEntries, ...data])
+          setWeekEmployeeIds([])
           setFormData({
             employee_id: '',
             project_id: '',
@@ -765,25 +781,71 @@ export default function LaborPage() {
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-navy)' }}>
-                          Employee
-                        </label>
-                        <select
-                          id="labor-week-employee_id"
-                          name="employee_id"
-                          value={formData.employee_id}
-                          onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                          className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
-                          required
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-sm font-medium" style={{ color: 'var(--color-navy)' }}>
+                            Employees {weekEmployeeIds.length > 0 && `(${weekEmployeeIds.length} selected)`}
+                          </label>
+                          <div className="flex gap-2 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => setWeekEmployeeIds(employees.map((e) => e.id))}
+                              className="font-medium"
+                              style={{ color: 'var(--color-primary, #0066cc)' }}
+                            >
+                              All
+                            </button>
+                            <span style={{ color: 'var(--color-border)' }}>|</span>
+                            <button
+                              type="button"
+                              onClick={() => setWeekEmployeeIds([])}
+                              className="font-medium"
+                              style={{ color: 'var(--color-muted)' }}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          className="rounded-lg border overflow-y-auto"
+                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', maxHeight: '11rem' }}
                         >
-                          <option value="">Select employee</option>
-                          {employees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name} (${emp.hourly_rate}/hr)
-                            </option>
-                          ))}
-                        </select>
+                          {employees.length === 0 ? (
+                            <p className="px-3 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>No employees yet.</p>
+                          ) : (
+                            employees.map((emp) => {
+                              const checked = weekEmployeeIds.includes(emp.id)
+                              return (
+                                <label
+                                  key={emp.id}
+                                  className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50"
+                                  style={{ borderBottom: '1px solid var(--color-border)' }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    name="week_employee_ids"
+                                    value={emp.id}
+                                    checked={checked}
+                                    onChange={() =>
+                                      setWeekEmployeeIds((prev) =>
+                                        prev.includes(emp.id) ? prev.filter((id) => id !== emp.id) : [...prev, emp.id],
+                                      )
+                                    }
+                                    className="w-4 h-4"
+                                  />
+                                  <span className="text-sm" style={{ color: 'var(--color-navy)' }}>
+                                    {emp.name}
+                                  </span>
+                                  <span className="text-xs ml-auto" style={{ color: 'var(--color-muted)' }}>
+                                    ${emp.hourly_rate}/hr
+                                  </span>
+                                </label>
+                              )
+                            })
+                          )}
+                        </div>
+                        <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                          The hours below apply to everyone selected — adjust individuals afterward if they differ.
+                        </p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-navy)' }}>
@@ -865,7 +927,16 @@ export default function LaborPage() {
                     </div>
 
                     <div className="text-right" style={{ color: 'var(--color-navy)' }}>
-                      <p className="text-sm">Total: {totalWeeklyHours.toFixed(1)}h</p>
+                      <p className="text-sm">Total: {totalWeeklyHours.toFixed(1)}h each</p>
+                      {weekEmployeeIds.length > 1 && (
+                        <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                          {weekEmployeeIds.length} employees — {(totalWeeklyHours * weekEmployeeIds.length).toFixed(1)}h total,{' '}
+                          {formatCurrency(
+                            weekEmployeeIds.reduce((sum, id) => sum + totalWeeklyHours * getEmployeeRate(id), 0),
+                          )}{' '}
+                          at their rates
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -899,6 +970,7 @@ export default function LaborPage() {
                         style={{ backgroundColor: 'var(--color-navy)' }}
                       >
                         Save {totalWeeklyHours.toFixed(1)}h
+                        {weekEmployeeIds.length > 1 ? ` x ${weekEmployeeIds.length}` : ''}
                       </button>
                     </div>
                   </>
