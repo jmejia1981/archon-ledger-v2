@@ -37,6 +37,9 @@ interface DashboardMetrics {
   // Cost carrying no project_id. It belongs to no project view, so the per-project
   // breakdowns cannot sum to the company total without it stated somewhere.
   unassignedTotal: number
+  /** Logged hours with no payroll run — real work that carries no cost yet. */
+  unpaidLaborHours: number
+  unpaidLaborValue: number
   laborCosts: number
   mileageCosts: number
   totalInvoiced: number
@@ -67,6 +70,8 @@ export default function DashboardPage() {
     billCount: 0,
     mileageCount: 0,
     unassignedTotal: 0,
+    unpaidLaborHours: 0,
+    unpaidLaborValue: 0,
     laborCosts: 0,
     mileageCosts: 0,
     totalInvoiced: 0,
@@ -149,7 +154,7 @@ export default function DashboardPage() {
         // previously re-derived cost as hours x rate, which is an estimate: it read
         // $49,607 against $24,874 of recorded payroll until payroll was reconciled,
         // and nothing stopped it drifting again.
-        const payrollAllocation = allocatePayrollToEntries(payrollRes.data || [], labor.data || [])
+        const payrollAllocation = allocatePayrollToEntries(payrollRes.data || [], labor.data || [], employees)
         const laborCosts = payrollAllocation.total
 
         let mileageCosts = 0
@@ -268,6 +273,8 @@ export default function DashboardPage() {
           billCount: billsRes.data?.length || 0,
           mileageCount: mileage.data?.length || 0,
           unassignedTotal,
+          unpaidLaborHours: payrollAllocation.unpaidHours,
+          unpaidLaborValue: payrollAllocation.unpaidValue,
           laborCosts,
           mileageCosts,
           totalInvoiced,
@@ -315,7 +322,7 @@ export default function DashboardPage() {
     // only that project's share of each pay week; showing every project returns the
     // full payroll, including weeks whose pay no timesheet claims and which
     // therefore belong to no project.
-    const allocation = allocatePayrollToEntries(allData.payroll || [], allData.labor || [])
+    const allocation = allocatePayrollToEntries(allData.payroll || [], allData.labor || [], allData.employees || [])
     const laborCosts = selectedProjectId === 'all'
       ? allocation.total
       : filteredLabor.reduce((sum: number, entry: any) => sum + (allocation.byEntryId.get(entry.id) || 0), 0)
@@ -375,6 +382,8 @@ export default function DashboardPage() {
         (allData.expenses || []).filter((e: any) => !e.project_id).reduce((sum: number, e: any) => sum + (e.amount || 0), 0) +
         (allData.bills || []).filter((b: any) => !b.project_id).reduce((sum: number, b: any) => sum + (b.amount_paid || 0), 0) +
         (allData.mileage || []).filter((m: any) => !m.project_id).reduce((sum: number, m: any) => sum + mileageEntryCost(m), 0),
+      unpaidLaborHours: allocation.unpaidHours,
+      unpaidLaborValue: allocation.unpaidValue,
       laborCosts,
       mileageCosts,
       totalInvoiced,
@@ -538,6 +547,33 @@ export default function DashboardPage() {
         })}
       </div>
 
+      {/* Logged hours that payroll has not picked up yet. The P&L takes labour from
+          payroll, so these hours move neither profit nor the tax figure below until
+          payroll is run — which looks like the entries were ignored. */}
+      {metrics.unpaidLaborValue > 0 && (
+        <div className="rounded-lg p-4" style={{ backgroundColor: '#fef3c7', border: '1px solid #fcd34d' }}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: '#92400e' }}>
+                {metrics.unpaidLaborHours.toFixed(1)} hours logged with no payroll run
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: '#92400e' }}>
+                Worth about {formatCurrency(metrics.unpaidLaborValue)} at current rates. Net profit and the tax
+                estimate below take labor from payroll, so this work is not costed yet. Run payroll for those weeks to
+                include it.
+              </p>
+            </div>
+            <button
+              onClick={() => router.push('/dashboard/payroll')}
+              className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap self-start sm:self-auto"
+              style={{ backgroundColor: '#92400e', color: 'white' }}
+            >
+              Go to Payroll
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tax Estimate */}
       <div
         onClick={() => openDetail('Estimated Taxes Breakdown', [
@@ -545,6 +581,11 @@ export default function DashboardPage() {
           { label: 'Tax Rate', value: '30%' },
           { label: 'Estimated Tax', value: formatCurrency(Math.max(metrics.netProfit * 0.3, 0)), sub: 'Set aside this amount' },
           { label: 'After-Tax Profit', value: formatCurrency(Math.max(metrics.netProfit * 0.7, 0)) },
+          ...(metrics.unpaidLaborValue > 0 ? [{
+            label: 'Labor logged but not yet paid',
+            value: formatCurrency(metrics.unpaidLaborValue),
+            sub: 'Not in net profit above — running payroll for those weeks would reduce this estimate',
+          }] : []),
         ])}
         className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition cursor-pointer group"
         style={{ border: `1px solid var(--color-border)` }}

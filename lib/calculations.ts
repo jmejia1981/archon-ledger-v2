@@ -98,9 +98,22 @@ export interface PayrollAllocation {
   unallocated: number
   /** Every payroll row in scope: allocated + unallocated. */
   total: number
+  /**
+   * Timesheet hours in employee-weeks with no payroll row at all, and what they
+   * would be worth at the stored rates. The P&L takes labour from payroll, so this
+   * work carries no cost yet: logging hours moves neither profit nor tax until
+   * payroll is run for the week. Reporting it keeps that silence from looking like
+   * the hours were ignored.
+   */
+  unpaidHours: number
+  unpaidValue: number
 }
 
-export function allocatePayrollToEntries(payroll: any[], laborEntries: any[]): PayrollAllocation {
+export function allocatePayrollToEntries(
+  payroll: any[],
+  laborEntries: any[],
+  employees: any[] = [],
+): PayrollAllocation {
   const key = (employeeId: string, week: string) => `${employeeId}|${week}`
 
   const payByEmpWeek = new Map<string, number>()
@@ -137,7 +150,19 @@ export function allocatePayrollToEntries(payroll: any[], laborEntries: any[]): P
     if (!weightByEmpWeek.get(k)) unallocated += pay
   }
 
-  return { byEntryId, unallocated, total }
+  // Hours logged against an employee-week that was never run through payroll.
+  let unpaidHours = 0
+  let unpaidValue = 0
+  for (const e of laborEntries) {
+    if (!e.date) continue
+    const k = key(e.employee_id, payWeekStart(String(e.date)))
+    if (payByEmpWeek.has(k)) continue
+    const rate = employees.find((emp: any) => emp.id === e.employee_id)?.hourly_rate || 0
+    unpaidHours += (e.regular_hours || 0) + (e.overtime_hours || 0)
+    unpaidValue += entryWeight(e) * rate
+  }
+
+  return { byEntryId, unallocated, total, unpaidHours, unpaidValue }
 }
 
 // ── IRS standard mileage rates ──────────────────────────────────────────────
