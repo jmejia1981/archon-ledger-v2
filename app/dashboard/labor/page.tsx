@@ -387,21 +387,28 @@ export default function LaborPage() {
     }
   }
 
-  // Handle approve labor entry
-  const handleApproveLaborEntry = async (id: string) => {
+  // Set an entry's approval state. Takes the target status rather than hardcoding
+  // 'approved', so an approved entry can be sent back to pending and a rejected one
+  // can be approved — neither was reachable when the only control appeared on
+  // entries already in 'pending'.
+  const handleSetLaborStatus = async (id: string, status: 'pending' | 'approved') => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('labor_entries')
-        .update({ status: 'approved' })
+        .update({ status })
         .eq('id', id)
+      if (error) throw error
 
       setLaborEntries(
         laborEntries.map((e) =>
-          e.id === id ? { ...e, status: 'approved' } : e
+          e.id === id ? { ...e, status } : e
         )
       )
-    } catch (error) {
-      console.error('Error approving labor entry:', error)
+    } catch (error: any) {
+      // Swallowing this left the badge unchanged with no explanation, which reads
+      // as the click not registering.
+      console.error('Error updating labor entry status:', error)
+      alert('Failed to update status: ' + (error?.message || JSON.stringify(error)))
     }
   }
 
@@ -1095,11 +1102,21 @@ export default function LaborPage() {
                     {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
                   </span>
                   <div className="flex gap-1">
-                    {entry.status === 'pending' && (
+                    {entry.status === 'approved' ? (
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleApproveLaborEntry(entry.id) }}
+                        onClick={(e) => { e.stopPropagation(); handleSetLaborStatus(entry.id, 'pending') }}
+                        className="p-1.5 rounded hover:bg-yellow-50 transition"
+                        style={{ color: 'var(--color-muted)' }}
+                        title="Move back to pending"
+                      >
+                        <Clock className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleSetLaborStatus(entry.id, 'approved') }}
                         className="p-1.5 rounded hover:bg-green-50 transition"
                         style={{ color: 'var(--color-success)' }}
+                        title="Approve"
                       >
                         <CheckCircle className="w-4 h-4" />
                       </button>
@@ -1154,9 +1171,18 @@ export default function LaborPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm flex gap-2">
-                      {entry.status === 'pending' && (
+                      {entry.status === 'approved' ? (
                         <button
-                          onClick={() => handleApproveLaborEntry(entry.id)}
+                          onClick={() => handleSetLaborStatus(entry.id, 'pending')}
+                          style={{ color: 'var(--color-muted)' }}
+                          className="hover:opacity-80 transition"
+                          title="Move back to pending"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleSetLaborStatus(entry.id, 'approved')}
                           style={{ color: 'var(--color-success)' }}
                           className="hover:opacity-80 transition"
                           title="Approve"
@@ -1270,8 +1296,12 @@ export default function LaborPage() {
                                 </td>
                                 <td className="px-4 py-2.5 w-16">
                                   <div className="flex items-center gap-1">
-                                    {entry.status === 'pending' && (
-                                      <button onClick={() => handleApproveLaborEntry(entry.id)} style={{ color: 'var(--color-success)' }} className="hover:opacity-80 transition" title="Approve">
+                                    {entry.status === 'approved' ? (
+                                      <button onClick={() => handleSetLaborStatus(entry.id, 'pending')} style={{ color: 'var(--color-muted)' }} className="hover:opacity-80 transition" title="Move back to pending">
+                                        <Clock className="w-4 h-4" />
+                                      </button>
+                                    ) : (
+                                      <button onClick={() => handleSetLaborStatus(entry.id, 'approved')} style={{ color: 'var(--color-success)' }} className="hover:opacity-80 transition" title="Approve">
                                         <CheckCircle className="w-4 h-4" />
                                       </button>
                                     )}
