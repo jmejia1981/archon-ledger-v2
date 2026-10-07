@@ -21,6 +21,8 @@ interface Invoice {
   notes?: string
   status: string
   payment_terms: string
+  // Returned by select('*'); used only as a tiebreaker when two invoices share a number.
+  created_at?: string
 }
 
 interface Client {
@@ -117,7 +119,21 @@ export default function InvoicesPage() {
       )
     }
 
-    setFilteredInvoices(filtered)
+    // Newest invoice number first. Sorted on the numeric part rather than the string:
+    // the numbers are zero-padded to three digits, so a text sort holds only until
+    // INV-1000, after which "INV-999" would outrank it. Anything without digits sorts
+    // last, and ties fall back to creation time.
+    const sorted = [...filtered].sort((a, b) => {
+      const seq = (n: string) => {
+        const m = String(n || '').match(/(\d+)/)
+        return m ? parseInt(m[1], 10) : -1
+      }
+      const diff = seq(b.invoice_number) - seq(a.invoice_number)
+      if (diff !== 0) return diff
+      return String(b.created_at || '').localeCompare(String(a.created_at || ''))
+    })
+
+    setFilteredInvoices(sorted)
   }, [invoices, statusFilter, searchTerm])
 
   // Generate next invoice number
