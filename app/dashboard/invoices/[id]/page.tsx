@@ -30,6 +30,10 @@ export default function InvoiceDetailPage() {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [recordingPayment, setRecordingPayment] = useState(false)
+  // Guards the insert while it is in flight. Without it a double-click fired two
+  // inserts: INV-042 carries two identical $1,800 rows created 0.49s apart, and
+  // INV-015 had the same before it was cleaned up.
+  const [savingPayment, setSavingPayment] = useState(false)
   const [emailingInvoice, setEmailingInvoice] = useState(false)
   const [downloadingPDF, setDownloadingPDF] = useState(false)
 
@@ -182,12 +186,28 @@ export default function InvoiceDetailPage() {
   }
 
   const handleRecordPayment = async () => {
+    if (savingPayment) return
     const amount = parseFloat(paymentData.amount)
     if (!invoice || !amount || amount <= 0) {
       alert('Please enter a valid payment amount greater than 0')
       return
     }
 
+    // The payments page already refuses to exceed the balance; this path did not,
+    // which let a fully paid invoice be paid again. INV-039 was re-entered 15 days
+    // later and reached twice its invoice amount that way.
+    const outstanding = Math.max(0, (invoice.invoice_amount || 0) - (invoice.amount_paid || 0))
+    if (amount > outstanding + 0.005) {
+      alert(
+        outstanding <= 0
+          ? 'This invoice is already fully paid. Recording another payment would exceed the invoice amount.'
+          : `Payment cannot exceed the outstanding balance of ${formatCurrency(outstanding)}.`,
+      )
+      return
+    }
+
+    setSavingPayment(true)
+    try {
 
     // Insert into payments table so Payment Tracking page reflects it
     const { error: paymentError } = await supabase
@@ -236,10 +256,14 @@ export default function InvoiceDetailPage() {
       return
     }
 
-    setInvoice({ ...invoice, amount_paid: newAmountPaid, status: newStatus })
-    setPaymentData({ amount: '', payment_date: new Date().toISOString().split('T')[0], payment_method: 'check', notes: '' })
-    setRecordingPayment(false)
-    alert('Payment recorded successfully!')
+      setInvoice({ ...invoice, amount_paid: newAmountPaid, status: newStatus })
+      setPaymentData({ amount: '', payment_date: new Date().toISOString().split('T')[0], payment_method: 'check', notes: '' })
+      setRecordingPayment(false)
+      alert('Payment recorded successfully!')
+    } finally {
+      // Every early return above lands here, so a failed attempt re-enables the button.
+      setSavingPayment(false)
+    }
   }
 
   const handleDownloadPDF = async () => {
@@ -884,10 +908,11 @@ export default function InvoiceDetailPage() {
             </button>
             <button
               onClick={handleRecordPayment}
-              className="flex-1 px-4 py-2 text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
+              disabled={savingPayment}
+              className="flex-1 px-4 py-2 text-white rounded-lg hover:opacity-90 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: 'var(--color-navy)' }}
             >
-              Record Payment
+              {savingPayment ? 'Recording...' : 'Record Payment'}
             </button>
           </div>
         </div>
