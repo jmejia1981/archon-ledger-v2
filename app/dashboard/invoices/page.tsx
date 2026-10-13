@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, Trash2, Eye, Download, FileDown } from 'lucide-react'
 import { SkeletonTable } from '@/app/components/skeleton-loader'
 import { downloadInvoicePDF } from '@/lib/pdf-invoice'
+import { downloadInvoiceLedgerPDF } from '@/lib/pdf-invoice-ledger'
 
 interface Invoice {
   id: string
@@ -397,6 +398,33 @@ export default function InvoicesPage() {
     const raw = String(value ?? '')
     const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw
     return `"${safe.replace(/"/g, '""')}"`
+  }
+
+  // Prints whatever the filters currently show, so the ledger and the screen agree.
+  // Says so in the subtitle, since a ledger that silently omitted filtered-out
+  // invoices would not foot against the full account.
+  const exportLedgerPDF = () => {
+    const scope: string[] = []
+    if (statusFilter !== 'all') scope.push(`status: ${statusFilter}`)
+    if (searchTerm) scope.push(`search: "${searchTerm}"`)
+
+    downloadInvoiceLedgerPDF(
+      filteredInvoices.map((inv) => ({
+        invoiceNumber: inv.invoice_number,
+        invoiceDate: inv.invoice_date,
+        dueDate: inv.due_date,
+        reference: getClientName(inv.client_id),
+        amount: inv.invoice_amount || 0,
+        paid: inv.amount_paid || 0,
+        status: inv.status,
+      })),
+      {
+        title: 'Invoice Ledger',
+        subtitle: scope.length > 0 ? `Filtered — ${scope.join(', ')}` : 'All invoices',
+        referenceHeading: 'Client',
+        filename: `invoice-ledger-${new Date().toISOString().split('T')[0]}.pdf`,
+      },
+    )
   }
 
   const exportToCSV = () => {
@@ -805,6 +833,17 @@ export default function InvoicesPage() {
             <option value="overdue">Overdue</option>
           </select>
         </div>
+
+        <button
+          onClick={exportLedgerPDF}
+          disabled={filteredInvoices.length === 0}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: 'var(--color-navy)', color: 'white' }}
+          title="Print a ledger of the invoices shown"
+        >
+          <FileDown className="w-4 h-4" />
+          Ledger PDF
+        </button>
 
         <button
           onClick={exportToCSV}

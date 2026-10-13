@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Edit2, Save, X, ArrowLeft } from 'lucide-react'
+import { Edit2, Save, X, ArrowLeft, FileDown } from 'lucide-react'
+import { downloadInvoiceLedgerPDF } from '@/lib/pdf-invoice-ledger'
 
 interface Project {
   id: string
@@ -33,6 +34,8 @@ interface Invoice {
   invoice_amount: number
   amount_paid: number
   status: string
+  invoice_date?: string
+  due_date?: string
 }
 
 interface Expense {
@@ -118,7 +121,7 @@ export default function ProjectDetailPage() {
           employeesRes,
         ] = await Promise.all([
           supabase.from('projects').select('*').eq('id', projectId).single(),
-          supabase.from('invoices').select('id, invoice_number, invoice_amount, amount_paid, status').eq('project_id', projectId),
+          supabase.from('invoices').select('id, invoice_number, invoice_amount, amount_paid, status, invoice_date, due_date').eq('project_id', projectId),
           supabase.from('expenses').select('id, amount, category, description, created_at').eq('project_id', projectId),
           supabase.from('vendor_bills').select('id, vendor, amount, description, tax_category, created_at').eq('project_id', projectId),
           supabase.from('labor_entries').select('id, employee_id, regular_hours, overtime_hours, date').eq('project_id', projectId),
@@ -219,6 +222,37 @@ export default function ProjectDetailPage() {
   }
 
   // ── Calculations ──────────────────────────────────────────────
+  // Every invoice raised against this project, as a printable statement. Same
+  // generator the invoices list uses, so a project ledger and the full ledger foot
+  // identically for the rows they share.
+  const exportProjectLedger = () => {
+    if (!project || invoices.length === 0) return
+    const label = project.project_number
+      ? `${project.project_number} — ${project.project_name}`
+      : project.project_name
+
+    downloadInvoiceLedgerPDF(
+      invoices.map((inv) => ({
+        invoiceNumber: inv.invoice_number,
+        invoiceDate: inv.invoice_date,
+        dueDate: inv.due_date,
+        reference: client?.name || '—',
+        amount: inv.invoice_amount || 0,
+        paid: inv.amount_paid || 0,
+        status: inv.status,
+      })),
+      {
+        title: 'Project Invoice Ledger',
+        subtitle: label,
+        referenceHeading: 'Client',
+        filename: `invoice-ledger-${(project.project_number || project.project_name)
+          .replace(/[^a-z0-9]+/gi, '-')
+          .replace(/^-|-$/g, '')
+          .toLowerCase()}.pdf`,
+      },
+    )
+  }
+
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.invoice_amount || 0), 0)
   const totalPaid = invoices.reduce((sum, inv) => {
     const invoiceAmt = inv.invoice_amount || 0
@@ -396,9 +430,21 @@ export default function ProjectDetailPage() {
 
           {/* Invoices */}
           <div className="bg-white rounded-lg p-6" style={{ border: '1px solid var(--color-border)' }}>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>
-              Invoices ({invoices.length})
-            </h3>
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--color-navy)' }}>
+                Invoices ({invoices.length})
+              </h3>
+              <button
+                onClick={exportProjectLedger}
+                disabled={invoices.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ backgroundColor: 'var(--color-navy)', color: 'white' }}
+                title="Print a ledger of this project's invoices"
+              >
+                <FileDown className="w-3.5 h-3.5" />
+                Ledger PDF
+              </button>
+            </div>
             {invoices.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--color-muted)' }}>No invoices for this project yet</p>
             ) : (
