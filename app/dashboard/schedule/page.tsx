@@ -52,6 +52,10 @@ export default function SchedulePage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [weekStart, setWeekStart] = useState(getSaturday())
+  const [activeTab, setActiveTab] = useState<'schedule' | 'payroll'>('schedule')
+  // What payroll has actually recorded for the week, so the projection can be shown
+  // against it rather than in isolation.
+  const [payrollRows, setPayrollRows] = useState<any[]>([])
 
   // Bulk assignment: a crew, a project, a set of days.
   const [crew, setCrew] = useState<string[]>([])
@@ -65,14 +69,17 @@ export default function SchedulePage() {
   const loadData = useCallback(async () => {
     try {
       setError(null)
-      const [empRes, projRes, schedRes] = await Promise.all([
+      const [empRes, projRes, schedRes, payRes] = await Promise.all([
         supabase.from('employees').select('id, name, first_name, last_name, hourly_rate, status'),
         supabase.from('projects').select('id, project_name, status'),
         supabase.from('schedule_entries').select('*'),
+        supabase.from('payroll').select('employee_id, payroll_period_start, gross_pay, taxes, benefits'),
       ])
       if (empRes.error) throw empRes.error
       if (projRes.error) throw projRes.error
       if (schedRes.error) throw schedRes.error
+      if (payRes.error) throw payRes.error
+      setPayrollRows(payRes.data || [])
 
       setEmployees(
         (empRes.data || [])
@@ -117,6 +124,40 @@ export default function SchedulePage() {
 
   const fmt = (v: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v)
+  const fmtCents = (v: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v)
+
+  // End-of-week payroll as the schedule currently stands: every scheduled and
+  // approved day priced at that person's own rate. It is a projection, not a
+  // liability — nothing is owed from a schedule row, and the figure only becomes
+  // cost once payroll is run for the week.
+  const weekPayrollRecorded = payrollRows.filter((p) => p.payroll_period_start === weekStart)
+  const recordedFor = (empId: string) =>
+    weekPayrollRecorded
+      .filter((p) => p.employee_id === empId)
+      .reduce((s2, p) => s2 + Number(p.gross_pay || 0) + Number(p.taxes || 0) + Number(p.benefits || 0), 0)
+
+  const payrollPreview = employees
+    .filter((emp) => weekEntries.some((e) => e.employee_id === emp.id))
+    .map((emp) => {
+      const mine = weekEntries.filter((e) => e.employee_id === emp.id)
+      const scheduledHours = mine.filter((e) => e.status === 'scheduled').reduce((s2, e) => s2 + Number(e.planned_hours || 0), 0)
+      const approvedHours = mine.filter((e) => e.status === 'approved').reduce((s2, e) => s2 + Number(e.planned_hours || 0), 0)
+      const hours = scheduledHours + approvedHours
+      return {
+        emp,
+        scheduledHours,
+        approvedHours,
+        hours,
+        amount: hours * emp.hourly_rate,
+        recorded: recordedFor(emp.id),
+      }
+    })
+    .sort((a, b) => b.amount - a.amount)
+
+  const projectedTotal = payrollPreview.reduce((s2, r) => s2 + r.amount, 0)
+  const recordedTotal = payrollPreview.reduce((s2, r) => s2 + r.recorded, 0)
+  const notYetRun = projectedTotal - recordedTotal
 
   const handleBulkAssign = async () => {
     setError(null)
@@ -289,6 +330,28 @@ export default function SchedulePage() {
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="flex gap-6 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        {([
+          ['schedule', 'Schedule'],
+          ['payroll', `End-of-Week Payroll${projectedTotal > 0 ? ` — ${fmt(projectedTotal)}` : ''}`],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className="px-1 py-3 text-sm font-medium whitespace-nowrap"
+            style={{
+              color: activeTab === key ? (key === 'payroll' ? '#dc2626' : 'var(--color-navy)') : 'var(--color-muted)',
+              borderBottom: activeTab === key
+                ? `2px solid ${key === 'payroll' ? '#dc2626' : 'var(--color-navy)'}`
+                : '2px solid transparent',
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -304,6 +367,8 @@ export default function SchedulePage() {
         ))}
       </div>
 
+      {activeTab === 'schedule' && (
+      <>
       {/* Bulk assign */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
         <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
@@ -516,6 +581,111 @@ export default function SchedulePage() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {activeTab === 'payroll' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            <div
+              className="px-6 py-5 flex flex-col sm:flex-row sm:items-end justify-between gap-3"
+              style={{ borderBottom: '1px solid var(--color-border)' }}
+            >
+              <div>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                  End-of-Week Payroll — Sat {weekStart.slice(5)} to Fri {weekEnd.slice(5)}
+                </h2>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                  Every scheduled and approved day priced at each person&apos;s own rate. A projection of what the week
+                  will cost, not a balance owed.
+                </p>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-3xl font-bold" style={{ color: '#dc2626' }}>{fmtCents(projectedTotal)}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
+                  {plannedHours.toFixed(1)} hours · {payrollPreview.length} {payrollPreview.length === 1 ? 'person' : 'people'}
+                </p>
+              </div>
+            </div>
+
+            {payrollPreview.length === 0 ? (
+              <div className="px-6 py-14 text-center">
+                <p className="text-sm text-gray-400">Nothing scheduled this week, so there is nothing to pay.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px]">
+                  <thead style={{ backgroundColor: 'var(--color-linen)' }}>
+                    <tr>
+                      {['Employee', 'Rate', 'Scheduled', 'Approved', 'Total Hrs', 'Amount', 'Payroll Run'].map((h, i) => (
+                        <th
+                          key={h}
+                          className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide ${i === 0 ? 'text-left' : 'text-right'}`}
+                          style={{ color: 'var(--color-navy)' }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payrollPreview.map((r) => (
+                      <tr key={r.emp.id} style={{ borderTop: '1px solid var(--color-border)' }} className="hover:bg-gray-50">
+                        <td className="px-4 py-2.5 text-sm font-medium whitespace-nowrap" style={{ color: 'var(--color-navy)' }}>{r.emp.name}</td>
+                        <td className="px-4 py-2.5 text-sm text-right" style={{ color: 'var(--color-muted)' }}>{fmtCents(r.emp.hourly_rate)}</td>
+                        <td className="px-4 py-2.5 text-sm text-right" style={{ color: 'var(--color-muted)' }}>{r.scheduledHours.toFixed(1)}</td>
+                        <td className="px-4 py-2.5 text-sm text-right" style={{ color: r.approvedHours > 0 ? '#065f46' : 'var(--color-muted)' }}>{r.approvedHours.toFixed(1)}</td>
+                        <td className="px-4 py-2.5 text-sm text-right font-medium" style={{ color: 'var(--color-navy)' }}>{r.hours.toFixed(1)}</td>
+                        <td className="px-4 py-2.5 text-sm text-right font-semibold" style={{ color: '#dc2626' }}>{fmtCents(r.amount)}</td>
+                        <td className="px-4 py-2.5 text-sm text-right" style={{ color: 'var(--color-muted)' }}>
+                          {r.recorded > 0 ? fmtCents(r.recorded) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ backgroundColor: 'var(--color-linen)', borderTop: '2px solid var(--color-border)' }}>
+                      <td className="px-4 py-3 text-sm font-bold" style={{ color: 'var(--color-navy)' }}>TOTAL</td>
+                      <td />
+                      <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: 'var(--color-navy)' }}>
+                        {payrollPreview.reduce((s2, r) => s2 + r.scheduledHours, 0).toFixed(1)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: 'var(--color-navy)' }}>
+                        {payrollPreview.reduce((s2, r) => s2 + r.approvedHours, 0).toFixed(1)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-bold" style={{ color: 'var(--color-navy)' }}>{plannedHours.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-base text-right font-bold" style={{ color: '#dc2626' }}>{fmtCents(projectedTotal)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: 'var(--color-muted)' }}>
+                        {recordedTotal > 0 ? fmtCents(recordedTotal) : '—'}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {payrollPreview.length > 0 && (
+            <div
+              className="rounded-lg px-4 py-3"
+              style={notYetRun > 0.005
+                ? { backgroundColor: '#fef3c7', border: '1px solid #fcd34d' }
+                : { backgroundColor: '#d1fae5', border: '1px solid #a7f3d0' }}
+            >
+              <p className="text-sm font-medium" style={{ color: notYetRun > 0.005 ? '#92400e' : '#065f46' }}>
+                {notYetRun > 0.005
+                  ? `${fmtCents(notYetRun)} of this week is not yet in payroll`
+                  : 'Payroll for this week matches the schedule'}
+              </p>
+              <p className="text-xs mt-1" style={{ color: notYetRun > 0.005 ? '#92400e' : '#065f46' }}>
+                {notYetRun > 0.005
+                  ? 'Approve the week to create labor hours, then run payroll for it. Until payroll runs, none of this reaches the P&L or the tax estimate.'
+                  : 'The payroll table holds the full amount for these days, so it is costed in the P&L.'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
