@@ -21,6 +21,7 @@ interface Employee {
   id: string
   name: string
   hourly_rate: number
+  status?: string | null
 }
 
 interface Project {
@@ -122,7 +123,7 @@ export default function LaborPage() {
       try {
         const [laborData, employeesData, projectsData] = await Promise.all([
           supabase.from('labor_entries').select('*'),
-          supabase.from('employees').select('id, name, first_name, last_name, hourly_rate'),
+          supabase.from('employees').select('id, name, first_name, last_name, hourly_rate, status'),
           supabase.from('projects').select('id, project_name'),
         ])
 
@@ -131,6 +132,7 @@ export default function LaborPage() {
           id: emp.id,
           name: emp.name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim(),
           hourly_rate: emp.hourly_rate,
+          status: emp.status,
         }))
 
         setLaborEntries(laborData.data || [])
@@ -687,7 +689,7 @@ export default function LaborPage() {
                           required
                         >
                           <option value="">Select employee</option>
-                          {employees.map((emp) => (
+                          {employees.filter((e) => e.status !== 'inactive').map((emp) => (
                             <option key={emp.id} value={emp.id}>
                               {emp.name} (${emp.hourly_rate}/hr)
                             </option>
@@ -795,7 +797,7 @@ export default function LaborPage() {
                           <div className="flex gap-2 text-xs">
                             <button
                               type="button"
-                              onClick={() => setWeekEmployeeIds(employees.map((e) => e.id))}
+                              onClick={() => setWeekEmployeeIds(employees.filter((e) => e.status !== 'inactive').map((e) => e.id))}
                               className="font-medium"
                               style={{ color: 'var(--color-primary, #0066cc)' }}
                             >
@@ -819,7 +821,7 @@ export default function LaborPage() {
                           {employees.length === 0 ? (
                             <p className="px-3 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>No employees yet.</p>
                           ) : (
-                            employees.map((emp) => {
+                            employees.filter((e) => e.status !== 'inactive').map((emp) => {
                               const checked = weekEmployeeIds.includes(emp.id)
                               return (
                                 <label

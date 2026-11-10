@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Trash2, Plus, AlertCircle } from 'lucide-react'
 
-interface Employee { id: string; name: string; hourly_rate: number }
+interface Employee { id: string; name: string; hourly_rate: number; status?: string | null }
 interface Project { id: string; project_name: string; status?: string }
 interface ScheduleEntry {
   id: string
@@ -87,6 +87,7 @@ export default function SchedulePage() {
             id: e.id,
             name: e.name || `${e.first_name || ''} ${e.last_name || ''}`.trim() || 'Unnamed',
             hourly_rate: e.hourly_rate || 0,
+            status: e.status,
           }))
           .sort((a: Employee, b: Employee) => a.name.localeCompare(b.name)),
       )
@@ -384,7 +385,7 @@ export default function SchedulePage() {
                 Crew {crew.length > 0 && `(${crew.length})`}
               </label>
               <div className="flex gap-2 text-xs">
-                <button type="button" onClick={() => setCrew(employees.map((e) => e.id))} className="font-medium" style={{ color: '#0066cc' }}>All</button>
+                <button type="button" onClick={() => setCrew(employees.filter((e) => e.status !== 'inactive').map((e) => e.id))} className="font-medium" style={{ color: '#0066cc' }}>All</button>
                 <span style={{ color: 'var(--color-border)' }}>|</span>
                 <button type="button" onClick={() => setCrew([])} className="font-medium" style={{ color: 'var(--color-muted)' }}>Clear</button>
               </div>
@@ -392,7 +393,7 @@ export default function SchedulePage() {
             <div className="rounded-lg overflow-y-auto" style={{ border: '1px solid var(--color-border)', maxHeight: '11rem' }}>
               {employees.length === 0 ? (
                 <p className="px-3 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>No employees yet.</p>
-              ) : employees.map((emp) => (
+              ) : employees.filter((e) => e.status !== 'inactive').map((emp) => (
                 <label key={emp.id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50" style={{ borderBottom: '1px solid var(--color-border)' }}>
                   <input
                     type="checkbox"

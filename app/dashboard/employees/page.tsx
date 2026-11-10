@@ -9,6 +9,8 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  UserX,
+  UserCheck,
   AlertCircle,
   CheckCircle,
   X,
@@ -244,6 +246,24 @@ export default function EmployeesPage() {
     }
   }
 
+  // Deactivating keeps the record and its history; deleting would orphan the
+  // person's labor, payroll and mileage rows. Anything not already inactive goes to
+  // inactive, so 'on-leave' deactivates in one step too.
+  const handleToggleActive = async (employee: Employee) => {
+    const next = employee.status === 'inactive' ? 'active' : 'inactive'
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({ status: next })
+        .eq('id', employee.id)
+      if (error) throw error
+      await fetchEmployees()
+    } catch (error: any) {
+      console.error('Error updating employee status:', error)
+      alert('Failed to update status: ' + (error?.message || JSON.stringify(error)))
+    }
+  }
+
   const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase.from('employees').delete().eq('id', id)
@@ -447,6 +467,15 @@ export default function EmployeesPage() {
                           <Edit className="w-4 h-4 text-blue-600" />
                         </button>
                         <button
+                          onClick={() => handleToggleActive(employee)}
+                          className="p-2 rounded-lg hover:bg-gray-100 transition"
+                          title={employee.status === 'inactive' ? 'Mark active' : 'Mark inactive'}
+                        >
+                          {employee.status === 'inactive'
+                            ? <UserCheck className="w-4 h-4 text-green-600" />
+                            : <UserX className="w-4 h-4 text-gray-500" />}
+                        </button>
+                        <button
                           onClick={() => setDeleteConfirm(employee.id)}
                           className="p-2 rounded-lg hover:bg-red-50 transition"
                         >
@@ -554,6 +583,17 @@ export default function EmployeesPage() {
                   >
                     <Edit className="w-4 h-4 inline mr-2" />
                     Edit
+                  </button>
+                  <button
+                    onClick={() => handleToggleActive(employee)}
+                    className="flex-1 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition"
+                    style={{ color: employee.status === 'inactive' ? '#059669' : 'var(--color-muted)' }}
+                  >
+                    {employee.status === 'inactive' ? (
+                      <><UserCheck className="w-4 h-4 inline mr-2" />Reactivate</>
+                    ) : (
+                      <><UserX className="w-4 h-4 inline mr-2" />Deactivate</>
+                    )}
                   </button>
                   <button
                     onClick={() => setDeleteConfirm(employee.id)}
