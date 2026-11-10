@@ -27,6 +27,7 @@ import {
   ClipboardList,
   Building2,
   Shield,
+  CalendarDays,
 } from 'lucide-react'
 
 const supabase = createClient()
@@ -150,6 +151,7 @@ export default function DashboardLayout({
     { icon: Building2, label: 'Vendors', href: '/dashboard/vendors' },
     { icon: ClipboardList, label: '1099 Tracking', href: '/dashboard/1099' },
     { icon: CreditCard, label: 'Payroll', href: '/dashboard/payroll' },
+    { icon: CalendarDays, label: 'Schedule', href: '/dashboard/schedule' },
     { icon: Clock3, label: 'Labor Hours', href: '/dashboard/labor' },
     { icon: Navigation, label: 'Mileage', href: '/dashboard/mileage' },
     { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
