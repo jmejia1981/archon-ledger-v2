@@ -107,6 +107,13 @@ export default function SchedulePage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // The page lists active people only. The full roster stays loaded so names still
+  // resolve for anyone deactivated after their days were recorded — and such a
+  // person is kept visible where they already have days this week, since silently
+  // dropping them would hide real assignments and understate the week's cost.
+  const activeEmployees = employees.filter((e) => e.status !== 'inactive')
+  const isInactive = (id: string) => employees.find((e) => e.id === id)?.status === 'inactive'
+
   const weekEntries = entries.filter((e) => e.date >= weekStart && e.date <= weekEnd)
   const cellEntries = (empId: string, date: string) =>
     weekEntries.filter((e) => e.employee_id === empId && e.date === date)
@@ -385,15 +392,15 @@ export default function SchedulePage() {
                 Crew {crew.length > 0 && `(${crew.length})`}
               </label>
               <div className="flex gap-2 text-xs">
-                <button type="button" onClick={() => setCrew(employees.filter((e) => e.status !== 'inactive').map((e) => e.id))} className="font-medium" style={{ color: '#0066cc' }}>All</button>
+                <button type="button" onClick={() => setCrew(activeEmployees.map((e) => e.id))} className="font-medium" style={{ color: '#0066cc' }}>All</button>
                 <span style={{ color: 'var(--color-border)' }}>|</span>
                 <button type="button" onClick={() => setCrew([])} className="font-medium" style={{ color: 'var(--color-muted)' }}>Clear</button>
               </div>
             </div>
             <div className="rounded-lg overflow-y-auto" style={{ border: '1px solid var(--color-border)', maxHeight: '11rem' }}>
-              {employees.length === 0 ? (
-                <p className="px-3 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>No employees yet.</p>
-              ) : employees.filter((e) => e.status !== 'inactive').map((emp) => (
+              {activeEmployees.length === 0 ? (
+                <p className="px-3 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>No active employees.</p>
+              ) : activeEmployees.map((emp) => (
                 <label key={emp.id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50" style={{ borderBottom: '1px solid var(--color-border)' }}>
                   <input
                     type="checkbox"
@@ -520,7 +527,13 @@ export default function SchedulePage() {
                       .reduce((s, e) => s + Number(e.planned_hours || 0), 0)
                     return (
                       <tr key={emp.id} style={{ borderTop: '1px solid var(--color-border)' }}>
-                        <td className="px-4 py-2 text-sm font-medium whitespace-nowrap" style={{ color: 'var(--color-navy)' }}>{emp.name}</td>
+                        <td className="px-4 py-2 text-sm font-medium whitespace-nowrap" style={{ color: 'var(--color-navy)' }}>
+                          {emp.name}
+                          {isInactive(emp.id) && (
+                            <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-normal"
+                              style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>inactive</span>
+                          )}
+                        </td>
                         {days.map((d) => {
                           const cell = cellEntries(emp.id, d)
                           return (
@@ -632,7 +645,13 @@ export default function SchedulePage() {
                   <tbody>
                     {payrollPreview.map((r) => (
                       <tr key={r.emp.id} style={{ borderTop: '1px solid var(--color-border)' }} className="hover:bg-gray-50">
-                        <td className="px-4 py-2.5 text-sm font-medium whitespace-nowrap" style={{ color: 'var(--color-navy)' }}>{r.emp.name}</td>
+                        <td className="px-4 py-2.5 text-sm font-medium whitespace-nowrap" style={{ color: 'var(--color-navy)' }}>
+                          {r.emp.name}
+                          {isInactive(r.emp.id) && (
+                            <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-normal"
+                              style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>inactive</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-sm text-right" style={{ color: 'var(--color-muted)' }}>{fmtCents(r.emp.hourly_rate)}</td>
                         <td className="px-4 py-2.5 text-sm text-right" style={{ color: 'var(--color-muted)' }}>{r.scheduledHours.toFixed(1)}</td>
                         <td className="px-4 py-2.5 text-sm text-right" style={{ color: r.approvedHours > 0 ? '#065f46' : 'var(--color-muted)' }}>{r.approvedHours.toFixed(1)}</td>
