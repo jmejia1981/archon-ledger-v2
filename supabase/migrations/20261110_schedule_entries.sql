@@ -34,10 +34,15 @@ alter table schedule_entries add constraint schedule_entries_status_check
   check (status in ('scheduled', 'approved'));
 
 -- A person can split a day between sites, but cannot be booked onto the same site
--- twice in one day. coalesce gives unassigned days a stable key, since NULL would
--- not collide with itself and the guard would not hold for overhead days.
+-- twice in one day.
+--
+-- NULLS NOT DISTINCT rather than coalesce over project_id. Both make unassigned
+-- days collide, but an expression index cannot satisfy ON CONFLICT (date,
+-- employee_id, project_id): that clause needs an index on exactly those columns, so
+-- the page's upsert failed with "no unique or exclusion constraint matching the ON
+-- CONFLICT specification". Requires Postgres 15 or later; this database is 17.
 create unique index if not exists schedule_entries_unique_assignment
-  on schedule_entries (date, employee_id, coalesce(project_id, '00000000-0000-0000-0000-000000000000'::uuid));
+  on schedule_entries (date, employee_id, project_id) nulls not distinct;
 
 create index if not exists idx_schedule_entries_date on schedule_entries(date);
 create index if not exists idx_schedule_entries_status on schedule_entries(status);
@@ -53,4 +58,9 @@ commit;
 -- Verified end to end against live data: 3 crew x 5 days scheduled as 15 rows and
 -- 120 hours; re-running the same assignment added nothing; approval produced 15
 -- linked labor entries with none unlinked; payroll then reported 40 hours each for
--- the three at their own rates. Test rows were removed afterwards.
+-- the three at their own rates.
+--
+-- The index was then re-tested with the qualified ON CONFLICT the page actually
+-- issues, which the first version could not match: a repeated assignment adds
+-- nothing, two overhead days with a null project collapse to one, and a day split
+-- between two sites still yields two rows. Test rows were removed afterwards.
