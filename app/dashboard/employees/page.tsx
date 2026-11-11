@@ -18,6 +18,13 @@ import {
 import { Breadcrumbs } from '@/app/components/breadcrumbs'
 import { SkeletonTable } from '@/app/components/skeleton-loader'
 
+interface EmployeeEarnings {
+  gross: number
+  hours: number
+  runs: number
+  lastPaid: string | null
+}
+
 interface Employee {
   id: string
   first_name: string
@@ -85,6 +92,7 @@ const supabase = createClient()
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [earnings, setEarnings] = useState<Map<string, EmployeeEarnings>>(new Map())
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'on-leave'>('all')
@@ -104,20 +112,42 @@ export default function EmployeesPage() {
   const fetchEmployees = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const [empRes, payRes] = await Promise.all([
+        supabase.from('employees').select('*').order('created_at', { ascending: false }),
+        // Earnings come from payroll, not from timesheets: this is money paid, not
+        // work valued. Someone can carry logged hours that no payroll run has costed
+        // yet, and that is not earnings.
+        supabase.from('payroll').select('employee_id, gross_pay, regular_hours, overtime_hours, payroll_period_start'),
+      ])
 
-      if (error) throw error
+      if (empRes.error) throw empRes.error
+      if (payRes.error) throw payRes.error
 
-      setEmployees(data || [])
+      setEmployees(empRes.data || [])
+
+      const totals = new Map<string, EmployeeEarnings>()
+      for (const row of payRes.data || []) {
+        const current = totals.get(row.employee_id) || { gross: 0, hours: 0, runs: 0, lastPaid: null }
+        current.gross += Number(row.gross_pay || 0)
+        current.hours += Number(row.regular_hours || 0) + Number(row.overtime_hours || 0)
+        current.runs += 1
+        const wk = row.payroll_period_start as string | null
+        if (wk && (!current.lastPaid || wk > current.lastPaid)) current.lastPaid = wk
+        totals.set(row.employee_id, current)
+      }
+      setEarnings(totals)
     } catch (error) {
       console.error('Error fetching employees:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  const earningsFor = (id: string): EmployeeEarnings =>
+    earnings.get(id) || { gross: 0, hours: 0, runs: 0, lastPaid: null }
+
+  const formatMoney = (value: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value || 0)
 
   const filteredEmployees = employees.filter(employee => {
     const fullName = `${employee.first_name} ${employee.last_name}`.toLowerCase()
@@ -130,6 +160,31 @@ export default function EmployeesPage() {
 
     return matchesSearch && matchesStatus
   })
+    // Highest earner first. Creation order said nothing useful; this puts the people
+    // carrying the most cost at the top, and anyone never paid at the bottom where
+    // the gap is obvious.
+    .sort((a, b) => {
+      const diff = earningsFor(b.id).gross - earningsFor(a.id).gross
+      if (diff !== 0) return diff
+      return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+    })
+
+  const crewTotals = employees.reduce(
+    (acc, e) => {
+      const paid = earningsFor(e.id)
+      return {
+        gross: acc.gross + paid.gross,
+        hours: acc.hours + paid.hours,
+        rateSum: acc.rateSum + (e.hourly_rate || 0),
+        rateCount: acc.rateCount + (e.hourly_rate ? 1 : 0),
+      }
+    },
+    { gross: 0, hours: 0, rateSum: 0, rateCount: 0 },
+  )
+  const crewSummary = {
+    ...crewTotals,
+    avgRate: crewTotals.rateCount > 0 ? crewTotals.rateSum / crewTotals.rateCount : 0,
+  }
 
   const handleOpenForm = (employee?: Employee) => {
     if (employee) {
@@ -306,10 +361,10 @@ export default function EmployeesPage() {
       <div className="mt-8 mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>
+            <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-navy)' }}>
               Employees
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="hidden sm:block text-gray-600 mt-1">
               Manage employee information and employment records
             </p>
           </div>
@@ -323,6 +378,23 @@ export default function EmployeesPage() {
             Add Employee
           </button>
         </div>
+      </div>
+
+      {/* Payroll at a glance. Paid-to-date rather than this year, because payroll
+          here only begins in April 2026 and a year label would imply a boundary the
+          data does not have. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        {[
+          { label: 'Active Crew', value: String(employees.filter((e) => e.status === 'active').length) },
+          { label: 'Total Paid', value: formatMoney(crewSummary.gross) },
+          { label: 'Hours Paid', value: crewSummary.hours.toFixed(1) },
+          { label: 'Average Rate', value: crewSummary.avgRate > 0 ? `${formatMoney(crewSummary.avgRate)}/hr` : '—' },
+        ].map(({ label, value }) => (
+          <div key={label} className="bg-white rounded-xl p-3 sm:p-4 shadow-sm" style={{ border: '1px solid var(--color-border)' }}>
+            <p className="text-[10px] sm:text-xs font-medium uppercase tracking-tight sm:tracking-wide mb-1 leading-snug" style={{ color: 'var(--color-muted)' }}>{label}</p>
+            <p className="text-lg sm:text-xl font-bold" style={{ color: 'var(--color-navy)' }}>{value}</p>
+          </div>
+        ))}
       </div>
 
       {/* Controls */}
@@ -399,8 +471,14 @@ export default function EmployeesPage() {
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
                   Job Title
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
-                  Email
+                <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                  Rate
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                  Hours Paid
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                  Total Earned
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
                   Status
@@ -416,7 +494,7 @@ export default function EmployeesPage() {
             <tbody>
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                     {searchTerm || statusFilter !== 'all'
                       ? 'No employees match your filters'
                       : 'No employees yet. Add one to get started.'}
@@ -431,8 +509,25 @@ export default function EmployeesPage() {
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {employee.job_title}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {employee.email ?? '—'}
+                    <td className="px-6 py-4 text-sm text-right text-gray-600">
+                      {employee.hourly_rate ? `${formatMoney(employee.hourly_rate)}/hr` : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-right text-gray-600">
+                      {earningsFor(employee.id).hours > 0 ? earningsFor(employee.id).hours.toFixed(1) : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-right">
+                      {earningsFor(employee.id).gross > 0 ? (
+                        <>
+                          <span className="font-semibold" style={{ color: 'var(--color-navy)' }}>
+                            {formatMoney(earningsFor(employee.id).gross)}
+                          </span>
+                          <span className="block text-xs" style={{ color: 'var(--color-muted)' }}>
+                            {earningsFor(employee.id).runs} pay run{earningsFor(employee.id).runs === 1 ? '' : 's'}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--color-muted)' }}>Never paid</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
@@ -535,13 +630,34 @@ export default function EmployeesPage() {
                   </span>
                 </div>
 
-                <div className="space-y-2 mb-4 text-sm text-gray-600">
-                  <p>
-                    <span className="font-medium" style={{ color: 'var(--color-navy)' }}>
-                      Email:
-                    </span>{' '}
-                    {employee.email}
+                {/* Earnings lead the card. Rate and hours are the working detail;
+                    what the person has actually been paid is the headline. */}
+                <div className="rounded-lg px-3 py-2.5 mb-4" style={{ backgroundColor: 'var(--color-linen)' }}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+                      Total earned
+                    </span>
+                    <span className="text-xl font-bold" style={{ color: 'var(--color-navy)' }}>
+                      {formatMoney(earningsFor(employee.id).gross)}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                    {earningsFor(employee.id).runs > 0
+                      ? `${earningsFor(employee.id).hours.toFixed(1)} h over ${earningsFor(employee.id).runs} pay run${earningsFor(employee.id).runs === 1 ? '' : 's'}`
+                        + (earningsFor(employee.id).lastPaid ? ` · last ${formatDate(earningsFor(employee.id).lastPaid as string)}` : '')
+                      : 'No payroll recorded yet'}
                   </p>
+                </div>
+
+                <div className="space-y-2 mb-4 text-sm text-gray-600">
+                  {employee.email && (
+                    <p>
+                      <span className="font-medium" style={{ color: 'var(--color-navy)' }}>
+                        Email:
+                      </span>{' '}
+                      {employee.email}
+                    </p>
+                  )}
                   {employee.phone && (
                     <p>
                       <span className="font-medium" style={{ color: 'var(--color-navy)' }}>
