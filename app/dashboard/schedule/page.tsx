@@ -203,7 +203,15 @@ export default function SchedulePage() {
       await loadData()
     } catch (err: any) {
       console.error('Error scheduling:', err)
-      setError(err?.message || 'Failed to save the assignments.')
+      const msg = String(err?.message || '')
+      // schedule_entries is the only table on this page with row security, so an
+      // expired session loads the page fine from the open tables and then fails only
+      // on save. The raw policy message does not suggest signing in again.
+      setError(
+        /row-level security|42501/i.test(msg)
+          ? 'Could not save — your session may have expired. Sign in again and retry.'
+          : msg || 'Failed to save the assignments.',
+      )
     } finally {
       setSaving(false)
     }
@@ -518,7 +526,7 @@ export default function SchedulePage() {
 
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-muted)' }}>
-              Days {assignDays.length > 0 && `(${assignDays.length})`}
+              Days to schedule {assignDays.length > 0 && `(${assignDays.length})`}
             </label>
             <div className="grid grid-cols-2 gap-1.5">
               {days.map((d, i) => {
@@ -538,15 +546,31 @@ export default function SchedulePage() {
                 )
               })}
             </div>
+            {/* Says what is missing instead of refusing silently. The page-level error
+                banner sits far above this button, so a validation failure here was
+                invisible from where it was triggered — the click simply looked
+                ignored. There are also two sets of day buttons on this page, this
+                one and the share panel's, which makes picking the wrong set easy. */}
             <button
               onClick={handleBulkAssign}
-              disabled={saving}
-              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              disabled={saving || crew.length === 0 || assignDays.length === 0}
+              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: 'var(--color-navy)', color: 'white' }}
             >
               <Plus className="w-4 h-4" />
-              {saving ? 'Scheduling...' : crew.length * assignDays.length > 0 ? `Schedule ${crew.length * assignDays.length}` : 'Schedule'}
+              {saving
+                ? 'Scheduling...'
+                : crew.length === 0 && assignDays.length === 0
+                ? 'Pick crew and days'
+                : crew.length === 0
+                ? 'Pick at least one person'
+                : assignDays.length === 0
+                ? 'Pick at least one day'
+                : `Schedule ${crew.length * assignDays.length}`}
             </button>
+            {error && (
+              <p className="text-xs mt-2" style={{ color: '#991b1b' }}>{error}</p>
+            )}
           </div>
         </div>
       </div>
