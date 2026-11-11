@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Trash2, Plus, AlertCircle } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Trash2, Plus, AlertCircle, Send, Copy } from 'lucide-react'
 
 interface Employee { id: string; name: string; hourly_rate: number; status?: string | null }
 interface Project { id: string; project_name: string; status?: string }
@@ -53,6 +53,8 @@ export default function SchedulePage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [weekStart, setWeekStart] = useState(getSaturday())
   const [activeTab, setActiveTab] = useState<'schedule' | 'payroll'>('schedule')
+  const [shareDay, setShareDay] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   // What payroll has actually recorded for the week, so the projection can be shown
   // against it rather than in isolation.
   const [payrollRows, setPayrollRows] = useState<any[]>([])
@@ -289,6 +291,71 @@ export default function SchedulePage() {
     }
   }
 
+  // Crews are told where to go, not what it costs — the message carries first names
+  // under each project and nothing else. Names come from the roster rather than the
+  // picker so someone deactivated mid-week still appears on a day they are on.
+  const firstName = (full: string) => String(full || '').trim().split(/\s+/)[0] || full
+
+  const dayLabel = (date: string) =>
+    new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+    })
+
+  const buildDayMessage = (date: string) => {
+    const forDay = weekEntries.filter((e) => e.date === date)
+    if (forDay.length === 0) return ''
+
+    const byProject = new Map<string, string[]>()
+    for (const e of forDay) {
+      const label = projectName(e.project_id)
+      const name = firstName(employees.find((x) => x.id === e.employee_id)?.name || '')
+      if (!name) continue
+      const list = byProject.get(label) || []
+      if (!list.includes(name)) list.push(name)
+      byProject.set(label, list)
+    }
+
+    // Unassigned last; it is the exception, not a site.
+    const blocks = [...byProject.entries()]
+      .sort((a, b) => {
+        if (a[0] === 'Unassigned') return 1
+        if (b[0] === 'Unassigned') return -1
+        return a[0].localeCompare(b[0])
+      })
+      .map(([proj, names]) => {
+        // Asterisks are WhatsApp's bold markers, so each site reads as a heading.
+        const roster = names.sort((a, b) => a.localeCompare(b)).map((n) => `• ${n}`).join('\n')
+        return `*${proj}*\n${roster}`
+      })
+
+    return `*${dayLabel(date)}*\n\n${blocks.join('\n\n')}`
+  }
+
+  const shareDate = shareDay && days.includes(shareDay)
+    ? shareDay
+    : days.find((d) => weekEntries.some((e) => e.date === d)) || days[0]
+  const shareMessage = buildDayMessage(shareDate)
+
+  const handleCopyDay = async () => {
+    if (!shareMessage) return
+    try {
+      await navigator.clipboard.writeText(shareMessage)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard access needs a secure context and can be refused outright. Falling
+      // back to a prompt keeps the text reachable instead of failing silently.
+      window.prompt('Copy the schedule below:', shareMessage)
+    }
+  }
+
+  const handleWhatsApp = () => {
+    if (!shareMessage) return
+    // wa.me opens the share sheet so the group can be chosen there; a group cannot be
+    // addressed directly without its invite link.
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, '_blank', 'noopener,noreferrer')
+  }
+
   const inputStyle = { border: '1px solid var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }
 
   if (loading) {
@@ -481,6 +548,78 @@ export default function SchedulePage() {
               {saving ? 'Scheduling...' : crew.length * assignDays.length > 0 ? `Schedule ${crew.length * assignDays.length}` : 'Schedule'}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Send the day to the crew. Ordered before the grid because on a phone this is
+          the reason to open the page: the grid needs sideways scrolling, this does not. */}
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+        <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Send the Day to the Crew</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
+            First names grouped by project — nothing about rates or hours
+          </p>
+        </div>
+
+        <div className="p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+            {days.map((d, i) => {
+              const count = weekEntries.filter((e) => e.date === d).length
+              const on = d === shareDate
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setShareDay(d)}
+                  className="px-2 py-2 rounded-lg text-xs font-medium"
+                  style={on
+                    ? { backgroundColor: 'var(--color-navy)', color: 'white' }
+                    : { border: '1px solid var(--color-border)', color: count > 0 ? 'var(--color-navy)' : 'var(--color-muted)', backgroundColor: 'white' }}
+                >
+                  <span className="block">{DAY_LABELS[i]}</span>
+                  <span className="block text-xs font-normal opacity-70">{count > 0 ? `${count}` : '—'}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {shareMessage ? (
+            <>
+              {/* Shows the exact text that will be sent — no surprises after tapping. */}
+              <pre
+                className="text-sm whitespace-pre-wrap rounded-lg p-4 font-sans"
+                style={{ backgroundColor: 'var(--color-linen)', color: 'var(--color-navy)', margin: 0 }}
+              >
+                {shareMessage.replace(/\*/g, '')}
+              </pre>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={handleWhatsApp}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold"
+                  style={{ backgroundColor: '#25D366', color: 'white' }}
+                >
+                  <Send className="w-4 h-4" />
+                  Send on WhatsApp
+                </button>
+                <button
+                  onClick={handleCopyDay}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold"
+                  style={{ border: '1px solid var(--color-border)', color: 'var(--color-navy)', backgroundColor: 'white' }}
+                >
+                  {copied ? <CheckCircle className="w-4 h-4" style={{ color: '#059669' }} /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                WhatsApp opens with the message ready — pick the group there.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm py-4 text-center" style={{ color: 'var(--color-muted)' }}>
+              Nobody scheduled on {dayLabel(shareDate)}.
+            </p>
+          )}
         </div>
       </div>
 
