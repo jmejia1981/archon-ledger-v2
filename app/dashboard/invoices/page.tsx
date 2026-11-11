@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, Eye, Download, FileDown } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Download, FileDown, Mail, Loader2 } from 'lucide-react'
 import { SkeletonTable } from '@/app/components/skeleton-loader'
-import { downloadInvoicePDF } from '@/lib/pdf-invoice'
+import { downloadInvoicePDF, generateInvoicePDFBlob } from '@/lib/pdf-invoice'
 import { downloadInvoiceLedgerPDF } from '@/lib/pdf-invoice-ledger'
 
 interface Invoice {
@@ -48,6 +48,10 @@ export default function InvoicesPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [emailing, setEmailing] = useState(false)
+  const [emailNotice, setEmailNotice] = useState<string | null>(null)
+  const logoCache = useRef<string | undefined>(undefined)
   const [statusFilter, setStatusFilter] = useState('all')
   const [showNewInvoiceForm, setShowNewInvoiceForm] = useState(false)
   const [formData, setFormData] = useState({
@@ -292,6 +296,87 @@ export default function InvoicesPage() {
     router.push(`/dashboard/invoices/${invoice.id}`)
   }
 
+  // "INV-057_Garden State Plaza - Roof Replacement.pdf". Characters Windows and
+  // macOS reject in filenames are replaced rather than stripped, so two projects
+  // differing only by a slash cannot collapse onto the same name.
+  const safeFilePart = (value: string) =>
+    String(value || '')
+      .replace(/[\\/:*?"<>|]/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const invoicePdfName = (invoice: Invoice) => {
+    const project = getProjectName(invoice.project_id)
+    const base = project && project !== 'N/A'
+      ? `${invoice.invoice_number}_${project}`
+      : invoice.invoice_number
+    return `${safeFilePart(base)}.pdf`
+  }
+
+  // The header image is the same on every invoice, so it is fetched once per batch
+  // instead of once per PDF.
+  const loadLogo = async (): Promise<string | undefined> => {
+    if (logoCache.current !== undefined) return logoCache.current || undefined
+    try {
+      const response = await fetch('/images/archon-header.png')
+      const blob = await response.blob()
+      const reader = new FileReader()
+      const data = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
+      logoCache.current = data
+      return data
+    } catch (error) {
+      console.error('Error loading header image:', error)
+      logoCache.current = ''
+      return undefined
+    }
+  }
+
+  const buildInvoicePdfData = async (invoice: Invoice, logoImage?: string) => {
+    const clientData = clients.find((c) => c.id === invoice.client_id)
+
+    let projectData: any = null
+    if (invoice.project_id) {
+      const { data } = await supabase.from('projects').select('*').eq('id', invoice.project_id).single()
+      projectData = data
+    }
+
+    const { data: itemsData } = await supabase
+      .from('line_items')
+      .select('*')
+      .eq('invoice_id', invoice.id)
+
+    const items = itemsData || []
+    const total = invoice.invoice_amount + (invoice.tax || 0)
+
+    return {
+      invoiceNumber: invoice.invoice_number,
+      invoiceDate: invoice.invoice_date,
+      dueDate: invoice.due_date,
+      clientName: clientData?.name || 'Unknown',
+      clientEmail: clientData?.email,
+      clientPhone: clientData?.phone,
+      projectName: projectData?.project_name,
+      projectAddress: projectData?.project_address,
+      logoImage,
+      lineItems: items.map((item: any) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        amount: item.amount,
+      })),
+      subtotal: invoice.invoice_amount,
+      tax: invoice.tax,
+      retainage: invoice.retainage,
+      amountPaid: invoice.amount_paid,
+      remainingBalance: total - invoice.amount_paid,
+      notes: invoice.notes,
+      paymentTerms: invoice.payment_terms,
+    }
+  }
+
   const handleDownloadInvoicePDF = async (invoice: Invoice) => {
     try {
       // Get client data
@@ -356,11 +441,88 @@ export default function InvoicesPage() {
           notes: invoice.notes,
           paymentTerms: invoice.payment_terms,
         },
-        `${invoice.invoice_number}.pdf`
+        invoicePdfName(invoice)
       )
     } catch (error) {
       console.error('Error downloading invoice PDF:', error)
       alert('Failed to download PDF')
+    }
+  }
+
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+
+  const selectedInvoices = filteredInvoices.filter((inv) => selectedIds.includes(inv.id))
+
+  // Email the selected invoices.
+  //
+  // mailto: cannot carry an attachment — that is a limitation of the scheme, not of
+  // this code. So: where the browser can share files (phones, and Edge on Windows)
+  // the PDFs are handed to the share sheet and Outlook is picked there, which is a
+  // genuine attachment. Everywhere else the PDFs are downloaded under their proper
+  // names and Outlook opens with the draft written, for the user to attach.
+  const handleEmailSelected = async () => {
+    if (selectedInvoices.length === 0) return
+    setEmailing(true)
+    setEmailNotice(null)
+    try {
+      const logoImage = await loadLogo()
+      const files: File[] = []
+      for (const invoice of selectedInvoices) {
+        const data = await buildInvoicePdfData(invoice, logoImage)
+        const blob = await generateInvoicePDFBlob(data)
+        files.push(new File([blob], invoicePdfName(invoice), { type: 'application/pdf' }))
+      }
+
+      const numbers = selectedInvoices.map((i) => i.invoice_number).join(', ')
+      const subject = selectedInvoices.length === 1
+        ? `Invoice ${numbers}`
+        : `Invoices ${numbers}`
+      const lines = selectedInvoices.map(
+        (i) => `${i.invoice_number} — ${getProjectName(i.project_id)} — ${formatCurrency(i.invoice_amount)}`,
+      )
+      const body = `Please find attached:\n\n${lines.join('\n')}\n\nThank you,\nArchon Construction`
+
+      // Only prefill a recipient when every invoice belongs to one client; guessing
+      // across clients would address the mail to the wrong one.
+      const clientIds = [...new Set(selectedInvoices.map((i) => i.client_id))]
+      const to = clientIds.length === 1
+        ? clients.find((c) => c.id === clientIds[0])?.email || ''
+        : ''
+
+      const canShareFiles =
+        typeof navigator !== 'undefined' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files })
+
+      if (canShareFiles) {
+        await navigator.share({ files, title: subject, text: body })
+        setEmailNotice(`Shared ${files.length} PDF${files.length === 1 ? '' : 's'}.`)
+      } else {
+        files.forEach((file) => {
+          const url = URL.createObjectURL(file)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = file.name
+          a.click()
+          URL.revokeObjectURL(url)
+        })
+        const compose =
+          `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}` +
+          `&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+        window.open(compose, '_blank', 'noopener,noreferrer')
+        setEmailNotice(
+          `${files.length} PDF${files.length === 1 ? '' : 's'} downloaded and Outlook opened. ` +
+          `Attach them from your downloads — a mail link cannot carry attachments itself.`,
+        )
+      }
+    } catch (err: any) {
+      // Dismissing the share sheet throws AbortError; that is a choice, not a fault.
+      if (err?.name === 'AbortError') return
+      console.error('Error emailing invoices:', err)
+      setEmailNotice(`Failed to prepare the email: ${err?.message || 'unknown error'}`)
+    } finally {
+      setEmailing(false)
     }
   }
 
@@ -801,6 +963,54 @@ export default function InvoicesPage() {
       )}
 
       {/* Controls */}
+      {/* Selection bar. Appears only with a selection, so it costs no space the rest
+          of the time, and sits above the list where the tapping happens. */}
+      {selectedIds.length > 0 && (
+        <div
+          className="rounded-xl p-3 flex flex-col sm:flex-row sm:items-center gap-3"
+          style={{ backgroundColor: 'var(--color-navy)' }}
+        >
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-sm font-semibold text-white">
+              {selectedIds.length} selected
+            </span>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="text-xs font-medium underline"
+              style={{ color: 'rgba(255,255,255,0.8)' }}
+            >
+              Clear
+            </button>
+            {selectedIds.length < filteredInvoices.length && (
+              <button
+                onClick={() => setSelectedIds(filteredInvoices.map((i) => i.id))}
+                className="text-xs font-medium underline"
+                style={{ color: 'rgba(255,255,255,0.8)' }}
+              >
+                Select all {filteredInvoices.length}
+              </button>
+            )}
+          </div>
+          <button
+            onClick={handleEmailSelected}
+            disabled={emailing}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+            style={{ backgroundColor: 'white', color: 'var(--color-navy)' }}
+          >
+            {emailing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+            {emailing
+              ? 'Preparing PDFs...'
+              : `Email ${selectedIds.length} PDF${selectedIds.length === 1 ? '' : 's'}`}
+          </button>
+        </div>
+      )}
+
+      {emailNotice && (
+        <div className="rounded-lg px-4 py-3" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
+          <p className="text-sm" style={{ color: '#1e40af' }}>{emailNotice}</p>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 sm:gap-4 items-center">
         <div className="w-full sm:flex-1 relative order-first sm:order-none">
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
@@ -874,10 +1084,28 @@ export default function InvoicesPage() {
               <div
                 key={invoice.id}
                 className="bg-white rounded-xl p-4 active:opacity-75"
-                style={{ border: `1px solid var(--color-border)` }}
+                style={{
+                  border: selectedIds.includes(invoice.id)
+                    ? '1px solid var(--color-navy)'
+                    : `1px solid var(--color-border)`,
+                }}
                 onClick={() => handleViewInvoice(invoice)}
               >
                 <div className="flex items-start justify-between gap-3">
+                  {/* stopPropagation so ticking the box does not open the invoice */}
+                  <label
+                    className="flex items-center pt-1 -ml-1 pr-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      name="selectedInvoices"
+                      value={invoice.id}
+                      checked={selectedIds.includes(invoice.id)}
+                      onChange={() => toggleSelected(invoice.id)}
+                      className="w-5 h-5"
+                    />
+                  </label>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm" style={{ color: 'var(--color-navy)' }}>{invoice.invoice_number}</p>
                     <p className="font-semibold text-base mt-0.5 truncate" style={{ color: 'var(--color-navy)' }}>{getClientName(invoice.client_id)}</p>
@@ -923,6 +1151,18 @@ export default function InvoicesPage() {
             <table className="w-full min-w-[640px]">
               <thead style={{ backgroundColor: 'var(--color-linen)', borderBottom: `1px solid var(--color-border)` }}>
                 <tr>
+                  <th className="pl-4 pr-2 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      name="selectAllInvoices"
+                      aria-label="Select all invoices"
+                      className="w-4 h-4"
+                      checked={filteredInvoices.length > 0 && selectedIds.length === filteredInvoices.length}
+                      // Indeterminate cannot be set in JSX; the ref is the only way.
+                      ref={(el) => { if (el) el.indeterminate = selectedIds.length > 0 && selectedIds.length < filteredInvoices.length }}
+                      onChange={(e) => setSelectedIds(e.target.checked ? filteredInvoices.map((i) => i.id) : [])}
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Invoice #</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Client</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Project</th>
@@ -942,6 +1182,17 @@ export default function InvoicesPage() {
                     className="hover:opacity-75"
                     onDoubleClick={() => handleViewInvoice(invoice)}
                   >
+                    <td className="pl-4 pr-2 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        name="selectedInvoices"
+                        value={invoice.id}
+                        aria-label={`Select ${invoice.invoice_number}`}
+                        className="w-4 h-4"
+                        checked={selectedIds.includes(invoice.id)}
+                        onChange={() => toggleSelected(invoice.id)}
+                      />
+                    </td>
                     <td className="px-6 py-4 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>{invoice.invoice_number}</td>
                     <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getClientName(invoice.client_id)}</td>
                     <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-muted)' }}>{getProjectName(invoice.project_id)}</td>
