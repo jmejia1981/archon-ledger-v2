@@ -483,15 +483,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 sm:space-y-8">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-playfair font-bold mb-1 sm:mb-2" style={{ color: 'var(--color-navy)' }}>Dashboard</h1>
-          <p style={{ color: 'var(--color-muted)' }}>Executive overview of your construction business</p>
+          <h1 className="text-2xl sm:text-4xl font-playfair font-bold mb-1 sm:mb-2" style={{ color: 'var(--color-navy)' }}>Dashboard</h1>
+          <p className="hidden sm:block" style={{ color: 'var(--color-muted)' }}>Executive overview of your construction business</p>
         </div>
         <div className="w-full sm:w-72 flex-shrink-0">
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-muted)' }}>
+          <label className="hidden sm:block text-sm font-medium mb-2" style={{ color: 'var(--color-muted)' }}>
             View by Project
           </label>
           <select
@@ -511,7 +511,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {kpiCards.map((kpi, idx) => {
           const Icon = kpi.icon
           const metricValue = metrics[kpi.key as keyof DashboardMetrics] as number || 0
@@ -527,13 +527,13 @@ export default function DashboardPage() {
           }
 
           return (
-            <div key={idx} onClick={handleClick} className="bg-white rounded-lg p-5 shadow-sm hover:shadow-md hover:border-opacity-60 transition cursor-pointer group" style={{ border: `1px solid var(--color-border)` }}>
+            <div key={idx} onClick={handleClick} className="bg-white rounded-lg p-3 sm:p-5 shadow-sm hover:shadow-md hover:border-opacity-60 transition cursor-pointer group" style={{ border: `1px solid var(--color-border)` }}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--color-muted)' }}>
+                  <p className="text-[10px] sm:text-xs font-medium uppercase tracking-tight sm:tracking-wide mb-1 leading-snug" style={{ color: 'var(--color-muted)' }}>
                     {kpi.label}
                   </p>
-                  <p className={`text-2xl font-bold ${kpi.color}`} style={{ color: 'var(--color-navy)' }}>
+                  <p className={`text-xl sm:text-2xl font-bold ${kpi.color}`} style={{ color: 'var(--color-navy)' }}>
                     {displayValue}
                   </p>
                 </div>

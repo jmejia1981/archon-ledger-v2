@@ -375,7 +375,7 @@ export default function SchedulePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-navy)' }}>Schedule</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>
+          <p className="hidden sm:block text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>
             Assign crew to projects day by day, then approve the week to create labor hours
           </p>
         </div>
@@ -451,9 +451,9 @@ export default function SchedulePage() {
       </div>
 
       {activeTab === 'schedule' && (
-      <>
+      <div className="flex flex-col gap-6">
       {/* Bulk assign */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+      <div className="order-2 sm:order-1 bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
         <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
           <h2 className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Assign Crew</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
@@ -577,7 +577,7 @@ export default function SchedulePage() {
 
       {/* Send the day to the crew. Ordered before the grid because on a phone this is
           the reason to open the page: the grid needs sideways scrolling, this does not. */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+      <div className="order-1 sm:order-2 bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
         <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-linen)' }}>
           <h2 className="text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>Send the Day to the Crew</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
@@ -648,7 +648,7 @@ export default function SchedulePage() {
       </div>
 
       {/* Week grid */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+      <div className="order-3 bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
         <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ backgroundColor: 'var(--color-navy)' }}>
           <span className="font-bold text-sm text-white">Sat {weekStart.slice(5)} – Fri {weekEnd.slice(5)}</span>
           <button
@@ -758,7 +758,7 @@ export default function SchedulePage() {
           </div>
         )}
       </div>
-      </>
+      </div>
       )}
 
       {activeTab === 'payroll' && (

@@ -160,9 +160,13 @@ export default function DashboardLayout({
     { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
   ]
 
+  // Ordered by how much this gets used on a phone: dashboard, schedule, invoices.
+  // Schedule sat under More despite being the second most-used page, and is the one
+  // thing opened from a van rather than a desk. Projects moves to More — it is a
+  // reference page, reached more often by tapping through from elsewhere.
   const bottomNavItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    { icon: Folder, label: 'Projects', href: '/dashboard/projects' },
+    { icon: CalendarDays, label: 'Schedule', href: '/dashboard/schedule' },
     { icon: DollarSign, label: 'Invoices', href: '/dashboard/invoices' },
     { icon: FileText, label: 'Expenses', href: '/dashboard/expenses' },
     { icon: Menu, label: 'More', href: null },

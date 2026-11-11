@@ -467,8 +467,8 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-playfair font-bold mb-1" style={{ color: 'var(--color-navy)' }}>Invoices</h1>
-          <p style={{ color: 'var(--color-muted)' }}>Create and manage client invoices</p>
+          <h1 className="text-2xl sm:text-3xl font-playfair font-bold mb-1" style={{ color: 'var(--color-navy)' }}>Invoices</h1>
+          <p className="hidden sm:block" style={{ color: 'var(--color-muted)' }}>Create and manage client invoices</p>
         </div>
         <button
           onClick={handleOpenNewInvoiceForm}
@@ -801,8 +801,8 @@ export default function InvoicesPage() {
       )}
 
       {/* Controls */}
-      <div className="flex gap-4 items-center">
-        <div className="flex-1 relative">
+      <div className="flex flex-wrap gap-2 sm:gap-4 items-center">
+        <div className="w-full sm:flex-1 relative order-first sm:order-none">
           <Search className="absolute left-3 top-3 w-5 h-5" style={{ color: 'var(--color-muted)' }} />
           <input
             type="text"
