@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Fragment } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, Trash2, X, Save, CheckCircle, AlertCircle, Clock, DollarSign } from 'lucide-react'
 
@@ -345,6 +345,39 @@ export default function PayablesPage() {
   // Gross value of every bill on record, whatever its payment state. Total Payable
   // is only the unpaid remainder, which reads $0 while every bill is settled — the
   // total is what shows the volume behind that zero.
+  // Bills grouped into the month they were issued, newest month first. Falls back to
+  // the due date when no issue date was entered, which is how a few early rows came
+  // in; without the fallback those would collect under a single "unknown" heading.
+  const monthGroups = (() => {
+    const map = new Map<string, VendorBill[]>()
+    for (const bill of filtered) {
+      const raw = bill.issue_date || bill.due_date
+      const key = raw ? String(raw).slice(0, 7) : 'unknown'
+      const list = map.get(key) || []
+      list.push(bill)
+      map.set(key, list)
+    }
+    return [...map.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([month, rows]) => {
+        const sorted = [...rows].sort((a, b) =>
+          String(b.issue_date || b.due_date || '').localeCompare(String(a.issue_date || a.due_date || '')),
+        )
+        const billed = sorted.reduce((t, b) => t + (b.amount || 0), 0)
+        const paid = sorted.reduce((t, b) => t + (b.amount_paid || 0), 0)
+        return {
+          month,
+          label: month === 'unknown'
+            ? 'No date'
+            : new Date(month + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          bills: sorted,
+          billed,
+          paid,
+          due: billed - paid,
+        }
+      })
+  })()
+
   const totalBilled = bills.reduce((s, b) => s + (b.amount || 0), 0)
 
   const currentYear = new Date().getFullYear()
@@ -560,7 +593,20 @@ CREATE POLICY "Org members can read bills" ON vendor_bills FOR SELECT USING (org
                     No vendor bills found
                   </td>
                 </tr>
-              ) : filtered.map((bill) => (
+              ) : monthGroups.map((group) => (
+                <Fragment key={group.month}>
+                  <tr style={{ backgroundColor: 'var(--color-linen)' }}>
+                    <td colSpan={9} className="px-4 py-2">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <span className="text-sm font-bold" style={{ color: 'var(--color-navy)' }}>{group.label}</span>
+                        <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                          {group.bills.length} bill{group.bills.length === 1 ? '' : 's'} · {fmt(group.billed)} billed
+                          {group.due > 0 ? ` · ${fmt(group.due)} due` : ' · settled'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                  {group.bills.map((bill) => (
                 <tr
                   key={bill.id}
                   className="border-t hover:bg-gray-50 transition-colors cursor-pointer"
@@ -624,6 +670,8 @@ CREATE POLICY "Org members can read bills" ON vendor_bills FOR SELECT USING (org
                     </div>
                   </td>
                 </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
