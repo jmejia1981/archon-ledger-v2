@@ -393,6 +393,14 @@ export default function SchedulePage() {
       setError('That day is already approved and has become labor hours. Remove it from Labor Hours instead.')
       return
     }
+    // Asked for because the button now sits permanently beside the hours box on a
+    // phone, within a thumb's width of a field meant to be tapped into.
+    const who = employees.find((emp) => emp.id === entry.employee_id)?.name || 'this person'
+    if (!confirm(
+      `Remove ${who} from ${projectName(entry.project_id)} on ${entry.date}?\n\n` +
+      `${Number(entry.planned_hours || 0).toFixed(1)} scheduled hours are dropped from the week.`,
+    )) return
+
     setError(null)
     try {
       const { error: delErr } = await supabase.from('schedule_entries').delete().eq('id', entry.id)
@@ -1079,10 +1087,13 @@ export default function SchedulePage() {
                                       <button
                                         onClick={() => handleRemove(e)}
                                         title="Remove"
-                                        className="opacity-0 group-hover:opacity-100 transition flex-shrink-0"
+                                        aria-label={`Remove ${emp.name} from ${projectName(e.project_id)} on ${d}`}
+                                        // Always visible on a phone: there is no hover to reveal it
+                                        // with, so the control was simply unreachable there.
+                                        className="p-1 -m-0.5 sm:p-0 sm:m-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition flex-shrink-0"
                                         style={{ color: '#dc2626' }}
                                       >
-                                        <Trash2 className="w-3 h-3" />
+                                        <Trash2 className="w-4 h-4 sm:w-3 sm:h-3" />
                                       </button>
                                     )}
                                   </div>
