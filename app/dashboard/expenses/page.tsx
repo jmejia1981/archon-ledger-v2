@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Trash2, X, Save, RefreshCw, Camera } from 'lucide-react'
+import { Plus, Search, Trash2, X, Save, RefreshCw, Camera, CheckCircle, Clock } from 'lucide-react'
 
 interface Expense {
   id: string
@@ -48,6 +48,7 @@ export default function ExpensesPage() {
   const [saving, setSaving] = useState(false)
   const [recordingId, setRecordingId] = useState<string | null>(null)
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
+  const [approvingAll, setApprovingAll] = useState(false)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     vendor: '',
@@ -167,6 +168,56 @@ export default function ExpensesPage() {
   }
 
   // Handle delete expense
+  // Takes the target status rather than hardcoding 'approved', so an approved expense
+  // can go back to pending. Changing it previously meant opening the expense and
+  // using a dropdown, which is a lot of clicks for 85 imported rows.
+  const pendingInView = filteredExpenses.filter((e) => e.approval_status === 'pending')
+
+  const handleApproveAllPending = async () => {
+    if (pendingInView.length === 0) return
+    const total = pendingInView.reduce((sum, e) => sum + (e.amount || 0), 0)
+    if (!confirm(
+      `Approve ${pendingInView.length} expense${pendingInView.length === 1 ? '' : 's'} totalling ` +
+      `${formatCurrency(total)}?
+
+Only the expenses currently shown are affected.`,
+    )) return
+
+    setApprovingAll(true)
+    try {
+      const ids = pendingInView.map((e) => e.id)
+      // One statement rather than a request per row; a partial pass would leave the
+      // list half-approved with no way to tell where it stopped.
+      const { error } = await supabase
+        .from('expenses')
+        .update({ approval_status: 'approved' })
+        .in('id', ids)
+      if (error) throw error
+      setExpenses((prev) =>
+        prev.map((e) => (ids.includes(e.id) ? { ...e, approval_status: 'approved' as const } : e)),
+      )
+    } catch (err: any) {
+      console.error('Error approving expenses:', err)
+      alert('Failed to approve: ' + (err?.message || JSON.stringify(err)))
+    } finally {
+      setApprovingAll(false)
+    }
+  }
+
+  const handleSetApproval = async (expense: Expense, next: 'pending' | 'approved') => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({ approval_status: next })
+        .eq('id', expense.id)
+      if (error) throw error
+      setExpenses((prev) => prev.map((e) => (e.id === expense.id ? { ...e, approval_status: next } : e)))
+    } catch (err: any) {
+      console.error('Error updating approval:', err)
+      alert('Failed to update approval: ' + (err?.message || JSON.stringify(err)))
+    }
+  }
+
   const handleDeleteExpense = async (id: string) => {
     if (!confirm('Are you sure you want to delete this expense?')) return
 
@@ -719,6 +770,30 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      {/* Approving 85 imported rows one at a time is not a workflow. Acts only on
+          what the current filters show, and says so, so it cannot quietly approve
+          rows that are off screen. */}
+      {pendingInView.length > 0 && (
+        <div
+          className="rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          style={{ backgroundColor: '#fef3c7', border: '1px solid #fcd34d' }}
+        >
+          <p className="text-sm" style={{ color: '#92400e' }}>
+            <strong>{pendingInView.length}</strong> expense{pendingInView.length === 1 ? '' : 's'} awaiting approval
+            {' '}({formatCurrency(pendingInView.reduce((s, e) => s + (e.amount || 0), 0))})
+          </p>
+          <button
+            onClick={handleApproveAllPending}
+            disabled={approvingAll}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 self-start sm:self-auto"
+            style={{ backgroundColor: '#92400e', color: 'white' }}
+          >
+            <CheckCircle className="w-4 h-4" />
+            {approvingAll ? 'Approving...' : `Approve all ${pendingInView.length} shown`}
+          </button>
+        </div>
+      )}
+
       {/* Expenses List */}
       {loading ? (
         <div className="text-center py-12" style={{ color: 'var(--color-muted)' }}>
@@ -751,9 +826,30 @@ export default function ExpensesPage() {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-lg" style={{ color: 'var(--color-navy)' }}>{formatCurrency(expense.amount)}</p>
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[expense.approval_status]}`}>
-                      {expense.approval_status.charAt(0).toUpperCase() + expense.approval_status.slice(1)}
-                    </span>
+                    <div className="flex items-center justify-end gap-1 mt-1">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[expense.approval_status]}`}>
+                        {expense.approval_status.charAt(0).toUpperCase() + expense.approval_status.slice(1)}
+                      </span>
+                      {expense.approval_status === 'approved' ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSetApproval(expense, 'pending') }}
+                          className="p-1"
+                          style={{ color: 'var(--color-muted)' }}
+                          title="Move back to pending"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSetApproval(expense, 'approved') }}
+                          className="p-1"
+                          style={{ color: '#059669' }}
+                          title="Approve expense"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {expense.tax_category && (
@@ -830,13 +926,34 @@ export default function ExpensesPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteExpense(expense.id) }}
-                      className="hover:opacity-80 transition p-1"
-                      style={{ color: 'var(--color-destructive)' }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {expense.approval_status === 'approved' ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSetApproval(expense, 'pending') }}
+                          className="hover:opacity-80 transition p-1"
+                          style={{ color: 'var(--color-muted)' }}
+                          title="Move back to pending"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSetApproval(expense, 'approved') }}
+                          className="hover:opacity-80 transition p-1"
+                          style={{ color: '#059669' }}
+                          title="Approve expense"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteExpense(expense.id) }}
+                        className="hover:opacity-80 transition p-1"
+                        style={{ color: 'var(--color-destructive)' }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
