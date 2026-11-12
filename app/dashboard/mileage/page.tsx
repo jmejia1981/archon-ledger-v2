@@ -135,6 +135,31 @@ export default function MileagePage() {
   // A labor row carrying week_start_date covers a whole week on one date, so asking
   // for a trip on that exact date would be wrong. Those are matched against any trip
   // to the project within their week; single-day rows match on the day itself.
+  // The drive to a site is the same drive every time: across 85 trips, every project
+  // has exactly one mileage, one start and one destination. So selecting a project
+  // fills the route and the distance from its last recorded trip rather than asking
+  // again. Newest first, so a corrected figure is the one that carries forward.
+  const lastTripForProject = (projectId: string) => {
+    if (!projectId) return null
+    return (
+      [...mileageEntries]
+        .filter((m) => m.project_id === projectId)
+        .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0] || null
+    )
+  }
+
+  const applyProjectDefaults = (projectId: string) => {
+    const last = lastTripForProject(projectId)
+    setFormData((prev) => ({
+      ...prev,
+      project_id: projectId,
+      // Only fills blanks, so anything typed by hand is never overwritten.
+      starting_location: prev.starting_location || last?.starting_location || '',
+      destination: prev.destination || last?.destination || '',
+      miles_driven: prev.miles_driven || (last ? String(last.miles_driven) : ''),
+    }))
+  }
+
   const mileageGaps = (() => {
     const projectName = (id: string | null) =>
       !id ? 'No project' : projects.find((p) => p.id === id)?.project_name || 'Unknown project'
@@ -170,6 +195,11 @@ export default function MileagePage() {
   })()
 
   const gapHours = mileageGaps.reduce((s2, g) => s2 + g.hours, 0)
+
+  const projectMiles = (() => {
+    const last = lastTripForProject(formData.project_id)
+    return last ? Number(last.miles_driven) : null
+  })()
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const weekTotalMiles = weekDays.reduce((sum, d) => sum + (parseFloat(weekMiles[d] || '') || 0), 0)
@@ -509,7 +539,7 @@ export default function MileagePage() {
                   id="mileage-project_id"
                   name="project_id"
                   value={formData.project_id}
-                  onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
+                  onChange={(e) => applyProjectDefaults(e.target.value)}
                   className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
                   style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
                 >
@@ -518,6 +548,11 @@ export default function MileagePage() {
                     <option key={proj.id} value={proj.id}>{proj.project_name}</option>
                   ))}
                 </select>
+                {projectMiles !== null && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                    Last trip to this site: <strong>{projectMiles} mi</strong> — route and distance filled in.
+                  </p>
+                )}
               </div>
 
               {formMode === 'single' ? (
@@ -608,7 +643,7 @@ export default function MileagePage() {
                   {/* Fills every day but Sunday at once; most weeks are the same run repeated. */}
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     <span className="text-xs" style={{ color: 'var(--color-muted)' }}>Fill all:</span>
-                    {[28, 40, 50].map((n) => (
+                    {[...new Set([...(projectMiles ? [projectMiles] : []), 28, 40, 50])].map((n) => (
                       <button
                         key={n}
                         type="button"
