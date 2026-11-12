@@ -131,6 +131,30 @@ export default function PayrollPage() {
     alreadyApproved: boolean
   }
 
+  // Weeks holding labour that no payroll run has costed. The page opens on the
+  // current week, so hours approved for an earlier week are invisible here until the
+  // picker is moved back — and nothing said they existed. That is how four weeks and
+  // $18k of labour sat unnoticed.
+  const unpaidWeeks = (() => {
+    const rate = (id: string) => employees.find(e => e.id === id)?.hourly_rate || 0
+    const byWeek = new Map<string, { hours: number; value: number }>()
+    for (const entry of laborEntries) {
+      if (!entry.date) continue
+      const wk = getWeekStart(new Date(entry.date + 'T00:00:00'))
+      const hours = (entry.regular_hours || 0) + (entry.overtime_hours || 0)
+      const cur = byWeek.get(wk) || { hours: 0, value: 0 }
+      cur.hours += hours
+      cur.value += (entry.regular_hours || 0) * rate(entry.employee_id)
+        + (entry.overtime_hours || 0) * rate(entry.employee_id) * 1.5
+      byWeek.set(wk, cur)
+    }
+    const run = new Set(payrollRecords.map(r => r.payroll_period_start))
+    return [...byWeek.entries()]
+      .filter(([wk]) => !run.has(wk) && wk !== weekStart)
+      .map(([wk, v]) => ({ week: wk, ...v }))
+      .sort((a, b) => b.week.localeCompare(a.week))
+  })()
+
   const weekRows: EmpWeekRow[] = employees
     .map(emp => {
       const entries = weekEntries.filter(e => e.employee_id === emp.id)
@@ -318,6 +342,29 @@ export default function PayrollPage() {
             0% for 1099 contractors — no employer FICA is owed. Set to 7.65% (plus FUTA/SUTA) only for W-2 employees.
           </span>
         </div>
+
+        {unpaidWeeks.length > 0 && (
+          <div className="px-6 py-4" style={{ backgroundColor: '#fef3c7', borderBottom: '1px solid #fcd34d' }}>
+            <p className="text-sm font-semibold mb-1" style={{ color: '#92400e' }}>
+              {unpaidWeeks.length} other week{unpaidWeeks.length === 1 ? '' : 's'} with hours but no payroll run
+            </p>
+            <p className="text-xs mb-2" style={{ color: '#92400e' }}>
+              Labour only becomes cost once payroll runs for its own week. Pick one to process it.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {unpaidWeeks.map(w => (
+                <button
+                  key={w.week}
+                  onClick={() => setWeekStart(w.week)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ backgroundColor: '#92400e', color: 'white' }}
+                >
+                  {fmtDate(w.week)} · {w.hours.toFixed(1)}h · {fmtCurrency(w.value)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {weekRows.length === 0 ? (
           <div className="px-6 py-12 text-center" style={{ color: 'var(--color-muted)' }}>
