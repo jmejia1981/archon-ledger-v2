@@ -29,6 +29,25 @@ interface Project {
 
 const supabase = createClient()
 
+const DAY_LABELS = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+
+function toLocalISODate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function getSaturday(date: Date) {
+  const d = new Date(date)
+  const day = d.getDay()
+  d.setDate(d.getDate() + (day === 6 ? 0 : -(day + 1)))
+  return toLocalISODate(d)
+}
+
+function addDays(dateStr: string, n: number) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + n)
+  return toLocalISODate(d)
+}
+
 export default function MileagePage() {
   const [mileageEntries, setMileageEntries] = useState<MileageEntry[]>([])
   const [filteredEntries, setFilteredEntries] = useState<MileageEntry[]>([])
@@ -40,6 +59,14 @@ export default function MileagePage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editFormData, setEditFormData] = useState<any>(null)
+  // Same route most days, so a week is entered once and the miles vary by day.
+  // Weeks run Saturday–Friday to match the labor and payroll pages, and are formatted
+  // from local calendar parts: toISOString would shift the date west of UTC in the
+  // evening and file a day into the wrong week.
+  const [formMode, setFormMode] = useState<'single' | 'week'>('single')
+  const [weekStart, setWeekStart] = useState(() => getSaturday(new Date()))
+  const [weekMiles, setWeekMiles] = useState<Record<string, string>>({})
+
   const [formData, setFormData] = useState({
     employee_id: '',
     project_id: '',
@@ -97,8 +124,78 @@ export default function MileagePage() {
   }, [mileageEntries, searchTerm])
 
   // Handle create mileage entry
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const weekTotalMiles = weekDays.reduce((sum, d) => sum + (parseFloat(weekMiles[d] || '') || 0), 0)
+  // Each day is priced at the rate in force on that date, so a week spanning a rate
+  // change is costed correctly rather than at one flat rate.
+  const weekTotalValue = weekDays.reduce(
+    (sum, d) => sum + (parseFloat(weekMiles[d] || '') || 0) * irsMileageRate(d),
+    0,
+  )
+
+  const resetForm = () => {
+    const today = toLocalISODate(new Date())
+    setFormData({
+      employee_id: '',
+      project_id: '',
+      date: today,
+      starting_location: '',
+      destination: '',
+      miles_driven: '',
+      reimbursement_rate: String(irsMileageRate(today)),
+      notes: '',
+    })
+    setWeekMiles({})
+  }
+
+  // One row per day with miles against it. Days left blank are skipped rather than
+  // written as zero, so a four-day week does not leave three empty trips behind.
+  const handleCreateWeekMileage = async () => {
+    if (!formData.employee_id) {
+      alert('Employee is required')
+      return
+    }
+    const rows = weekDays
+      .filter((d) => (parseFloat(weekMiles[d] || '') || 0) > 0)
+      .map((d) => ({
+        employee_id: formData.employee_id,
+        project_id: formData.project_id || null,
+        date: d,
+        starting_location: formData.starting_location,
+        destination: formData.destination,
+        miles_driven: parseFloat(weekMiles[d]),
+        reimbursement_rate: irsMileageRate(d),
+        notes: formData.notes,
+      }))
+
+    if (rows.length === 0) {
+      alert('Enter miles for at least one day')
+      return
+    }
+
+    try {
+      const { data, error } = await supabase.from('mileage_entries').insert(rows).select()
+      if (error) throw error
+      if (data) {
+        setMileageEntries(
+          [...mileageEntries, ...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+        )
+        resetForm()
+        setShowNewMileageForm(false)
+        alert(`Recorded ${rows.length} day${rows.length === 1 ? '' : 's'}, ${weekTotalMiles.toFixed(1)} miles.`)
+      }
+    } catch (err: any) {
+      console.error('Error creating weekly mileage:', err)
+      alert('Failed to record the week: ' + (err?.message || JSON.stringify(err)))
+    }
+  }
+
   const handleCreateMileageEntry = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (formMode === 'week') {
+      await handleCreateWeekMileage()
+      return
+    }
     if (!formData.employee_id || !formData.miles_driven) {
       alert('Employee and miles driven are required')
       return
@@ -260,6 +357,23 @@ export default function MileagePage() {
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.05)' }}>
           <div className="bg-white rounded-lg p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ border: `1px solid var(--color-border)` }}>
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-navy)' }}>Record Mileage</h2>
+
+            <div className="flex gap-2 mb-4">
+              {([['single', 'Single Day'], ['week', 'Entire Week']] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setFormMode(mode)}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium"
+                  style={formMode === mode
+                    ? { backgroundColor: 'var(--color-navy)', color: 'white' }
+                    : { border: '1px solid var(--color-border)', color: 'var(--color-navy)', backgroundColor: 'white' }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <form onSubmit={handleCreateMileageEntry} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Employee *</label>
@@ -296,18 +410,36 @@ export default function MileagePage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Date</label>
-                <input
-                  type="date"
-                  id="mileage-date"
-                  name="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
-                />
-              </div>
+              {formMode === 'single' ? (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Date</label>
+                  <input
+                    type="date"
+                    id="mileage-date"
+                    name="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Week starting (Saturday)</label>
+                  <input
+                    type="date"
+                    id="mileage-week-start"
+                    name="weekStart"
+                    value={weekStart}
+                    onChange={(e) => e.target.value && setWeekStart(getSaturday(new Date(e.target.value + 'T00:00:00')))}
+                    className="w-full px-4 py-2 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                    Any date snaps to that week&apos;s Saturday, matching labor and payroll weeks.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Starting Location</label>
@@ -337,6 +469,72 @@ export default function MileagePage() {
                 />
               </div>
 
+              {formMode === 'week' ? (
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-muted)' }}>Miles per day</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {weekDays.map((d, i) => (
+                      <div key={d}>
+                        <label htmlFor={`mileage-day-${d}`} className="block text-xs mb-1" style={{ color: 'var(--color-muted)' }}>
+                          {DAY_LABELS[i]} <span className="opacity-60">{d.slice(8)}</span>
+                        </label>
+                        <input
+                          id={`mileage-day-${d}`}
+                          name={`miles-${d}`}
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          inputMode="decimal"
+                          value={weekMiles[d] || ''}
+                          onChange={(e) => setWeekMiles((prev) => ({ ...prev, [d]: e.target.value }))}
+                          placeholder="0"
+                          className="w-full px-3 py-2 rounded-lg border text-sm focus-visible:outline-none"
+                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Fills every day but Sunday at once; most weeks are the same run repeated. */}
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <span className="text-xs" style={{ color: 'var(--color-muted)' }}>Fill all:</span>
+                    {[28, 40, 50].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setWeekMiles(Object.fromEntries(
+                          weekDays.map((d, i) => [d, i === 1 ? (weekMiles[d] || '') : String(n)]),
+                        ))}
+                        className="px-2.5 py-1 rounded text-xs font-medium"
+                        style={{ border: '1px solid var(--color-border)', color: 'var(--color-navy)' }}
+                      >
+                        {n} mi
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setWeekMiles({})}
+                      className="px-2.5 py-1 rounded text-xs font-medium"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="mt-3 rounded-lg px-3 py-2 flex items-baseline justify-between"
+                    style={{ backgroundColor: 'var(--color-linen)' }}>
+                    <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                      {weekDays.filter((d) => (parseFloat(weekMiles[d] || '') || 0) > 0).length} day(s)
+                    </span>
+                    <span className="text-sm font-bold" style={{ color: 'var(--color-navy)' }}>
+                      {weekTotalMiles.toFixed(1)} mi · {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(weekTotalValue)}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-2" style={{ color: 'var(--color-muted)' }}>
+                    Each day uses the IRS rate for its own date. Blank days are skipped.
+                  </p>
+                </div>
+              ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Miles Driven *</label>
@@ -368,6 +566,7 @@ export default function MileagePage() {
                   />
                 </div>
               </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Notes</label>
