@@ -53,6 +53,8 @@ export default function MileagePage() {
   const [filteredEntries, setFilteredEntries] = useState<MileageEntry[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [laborEntries, setLaborEntries] = useState<any[]>([])
+  const [showGaps, setShowGaps] = useState(false)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showNewMileageForm, setShowNewMileageForm] = useState(false)
@@ -82,10 +84,11 @@ export default function MileagePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [mileageData, employeesData, projectsData] = await Promise.all([
+        const [mileageData, employeesData, projectsData, laborData] = await Promise.all([
           supabase.from('mileage_entries').select('*').order('date', { ascending: false }),
           supabase.from('employees').select('id, name, first_name, last_name'),
           supabase.from('projects').select('id, project_name'),
+          supabase.from('labor_entries').select('date, project_id, regular_hours, overtime_hours, week_start_date, week_end_date'),
         ])
 
         // Map employees to handle both old (name) and new (first_name + last_name) formats
@@ -97,6 +100,7 @@ export default function MileagePage() {
         setMileageEntries(mileageData.data || [])
         setEmployees(formattedEmployees)
         setProjects(projectsData.data || [])
+        setLaborEntries(laborData.data || [])
       } catch (error) {
         console.log('Error loading data - tables may not exist yet')
       } finally {
@@ -124,6 +128,49 @@ export default function MileagePage() {
   }, [mileageEntries, searchTerm])
 
   // Handle create mileage entry
+  // Work recorded against a project with no trip logged for it. Employee is ignored
+  // deliberately: a crew travels together, so the question is whether the site was
+  // driven to that day, not who drove.
+  //
+  // A labor row carrying week_start_date covers a whole week on one date, so asking
+  // for a trip on that exact date would be wrong. Those are matched against any trip
+  // to the project within their week; single-day rows match on the day itself.
+  const mileageGaps = (() => {
+    const projectName = (id: string | null) =>
+      !id ? 'No project' : projects.find((p) => p.id === id)?.project_name || 'Unknown project'
+
+    const hasTrip = (projectId: string | null, from: string, to: string) =>
+      mileageEntries.some(
+        (m) => (m.project_id || null) === (projectId || null) && m.date >= from && m.date <= to,
+      )
+
+    const seen = new Map<string, { key: string; label: string; project: string; hours: number; span: string }>()
+    for (const l of laborEntries) {
+      const weekly = Boolean(l.week_start_date && l.week_end_date)
+      const from = weekly ? String(l.week_start_date).slice(0, 10) : String(l.date).slice(0, 10)
+      const to = weekly ? String(l.week_end_date).slice(0, 10) : from
+      if (!from) continue
+      const key = `${from}|${l.project_id || 'none'}`
+      const hours = Number(l.regular_hours || 0) + Number(l.overtime_hours || 0)
+      const existing = seen.get(key)
+      if (existing) {
+        existing.hours += hours
+        continue
+      }
+      if (hasTrip(l.project_id || null, from, to)) continue
+      seen.set(key, {
+        key,
+        label: from,
+        project: projectName(l.project_id || null),
+        hours,
+        span: weekly ? 'week' : 'day',
+      })
+    }
+    return [...seen.values()].sort((a, b) => b.label.localeCompare(a.label))
+  })()
+
+  const gapHours = mileageGaps.reduce((s2, g) => s2 + g.hours, 0)
+
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const weekTotalMiles = weekDays.reduce((sum, d) => sum + (parseFloat(weekMiles[d] || '') || 0), 0)
   // Each day is priced at the rate in force on that date, so a week spanning a rate
@@ -351,6 +398,69 @@ export default function MileagePage() {
           New Entry
         </button>
       </div>
+
+      {/* Work logged against a project with no trip recorded for it. Mileage is a
+          deduction that has to be claimed to exist, so an unlogged run is money left
+          behind — and it is far harder to reconstruct months later. */}
+      {mileageGaps.length > 0 && (
+        <div className="rounded-lg" style={{ backgroundColor: '#fef3c7', border: '1px solid #fcd34d' }}>
+          <button
+            onClick={() => setShowGaps(!showGaps)}
+            className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left"
+          >
+            <div>
+              <p className="text-sm font-semibold" style={{ color: '#92400e' }}>
+                {mileageGaps.length} project {mileageGaps.length === 1 ? 'period' : 'periods'} with labor but no mileage
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: '#92400e' }}>
+                {gapHours.toFixed(1)} hours worked with no trip logged to that site
+              </p>
+            </div>
+            <span className="text-xs font-medium whitespace-nowrap" style={{ color: '#92400e' }}>
+              {showGaps ? 'Hide' : 'Show'}
+            </span>
+          </button>
+
+          {showGaps && (
+            <div className="px-4 pb-4">
+              <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
+                <table className="w-full">
+                  <thead>
+                    <tr style={{ backgroundColor: 'var(--color-linen)' }}>
+                      {['Date', 'Covers', 'Project', 'Hours'].map((h, i) => (
+                        <th
+                          key={h}
+                          className={`px-3 py-2 text-xs font-semibold uppercase tracking-wide ${i === 3 ? 'text-right' : 'text-left'}`}
+                          style={{ color: 'var(--color-navy)' }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mileageGaps.map((g) => (
+                      <tr key={g.key} style={{ borderTop: '1px solid var(--color-border)' }}>
+                        <td className="px-3 py-2 text-sm whitespace-nowrap" style={{ color: 'var(--color-navy)' }}>
+                          {new Date(g.label + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-muted)' }}>
+                          {g.span === 'week' ? 'that week' : 'that day'}
+                        </td>
+                        <td className="px-3 py-2 text-sm" style={{ color: 'var(--color-muted)' }}>{g.project}</td>
+                        <td className="px-3 py-2 text-sm text-right" style={{ color: 'var(--color-navy)' }}>{g.hours.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs mt-2" style={{ color: '#92400e' }}>
+                Listed, not assumed — a trip is only a deduction if it happened. Record the ones that did.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* New Mileage Entry Form Modal */}
       {showNewMileageForm && (
