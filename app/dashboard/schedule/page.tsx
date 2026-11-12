@@ -2,10 +2,19 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Trash2, Plus, AlertCircle, Send, Copy } from 'lucide-react'
+import { irsMileageRate } from '@/lib/calculations'
+import { CalendarDays, ChevronLeft, ChevronRight, CheckCircle, Trash2, Plus, AlertCircle, Send, Copy, Car } from 'lucide-react'
 
 interface Employee { id: string; name: string; hourly_rate: number; status?: string | null }
 interface Project { id: string; project_name: string; status?: string }
+interface MileageEntry {
+  id: string
+  date: string
+  project_id: string | null
+  miles_driven: number
+  starting_location?: string | null
+  destination?: string | null
+}
 interface ScheduleEntry {
   id: string
   date: string
@@ -58,6 +67,11 @@ export default function SchedulePage() {
   // What payroll has actually recorded for the week, so the projection can be shown
   // against it rather than in isolation.
   const [payrollRows, setPayrollRows] = useState<any[]>([])
+  // Trips already on file, so approval can price each project from its own history
+  // and leave any project day that is already claimed alone.
+  const [mileageEntries, setMileageEntries] = useState<MileageEntry[]>([])
+  const [recordMileage, setRecordMileage] = useState(true)
+  const [mileageMiles, setMileageMiles] = useState<Record<string, string>>({})
 
   // Bulk assignment: a crew, a project, a set of days.
   const [crew, setCrew] = useState<string[]>([])
@@ -71,17 +85,22 @@ export default function SchedulePage() {
   const loadData = useCallback(async () => {
     try {
       setError(null)
-      const [empRes, projRes, schedRes, payRes] = await Promise.all([
+      const [empRes, projRes, schedRes, payRes, milRes] = await Promise.all([
         supabase.from('employees').select('id, name, first_name, last_name, hourly_rate, status'),
         supabase.from('projects').select('id, project_name, status'),
         supabase.from('schedule_entries').select('*'),
         supabase.from('payroll').select('employee_id, payroll_period_start, gross_pay, taxes, benefits'),
+        supabase
+          .from('mileage_entries')
+          .select('id, date, project_id, miles_driven, starting_location, destination'),
       ])
       if (empRes.error) throw empRes.error
       if (projRes.error) throw projRes.error
       if (schedRes.error) throw schedRes.error
       if (payRes.error) throw payRes.error
+      if (milRes.error) throw milRes.error
       setPayrollRows(payRes.data || [])
+      setMileageEntries((milRes.data || []) as MileageEntry[])
 
       setEmployees(
         (empRes.data || [])
@@ -169,6 +188,94 @@ export default function SchedulePage() {
   const recordedTotal = payrollPreview.reduce((s2, r) => s2 + r.recorded, 0)
   const notYetRun = projectedTotal - recordedTotal
 
+  // ---- Mileage on approval -------------------------------------------------
+  // The crew rides together, so a trip belongs to the project day, not to each
+  // person on it: one entry per project per date, whoever is on it. The distance to
+  // a jobsite does not change, so it comes from that project's last recorded trip
+  // and can be corrected per project before approving.
+  const lastTripForProject = (projectId: string) =>
+    [...mileageEntries]
+      .filter((m) => m.project_id === projectId)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0] || null
+
+  const hasTrip = (projectId: string, date: string) =>
+    mileageEntries.some((m) => m.project_id === projectId && m.date === date)
+
+  const mileagePlan = (() => {
+    const seen = new Set<string>()
+    const byProject = new Map<string, { projectId: string; dates: string[] }>()
+    for (const e of pending) {
+      if (!e.project_id) continue
+      const key = `${e.date}|${e.project_id}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      // A day already claimed is left alone — writing it twice would overstate a
+      // deduction, which is exactly how the August duplicates happened.
+      if (hasTrip(e.project_id, e.date)) continue
+      const g = byProject.get(e.project_id) || { projectId: e.project_id, dates: [] }
+      g.dates.push(e.date)
+      byProject.set(e.project_id, g)
+    }
+    return [...byProject.values()]
+      .map((g) => {
+        const last = lastTripForProject(g.projectId)
+        return {
+          projectId: g.projectId,
+          dates: g.dates.sort(),
+          known: last ? Number(last.miles_driven) : null,
+          start: last?.starting_location || '',
+          dest: last?.destination || '',
+        }
+      })
+      .sort((a, b) => projectName(a.projectId).localeCompare(projectName(b.projectId)))
+  })()
+
+  // Typed value wins; an empty box means "don't claim this one"; otherwise the
+  // project's own history fills it.
+  const milesBoxValue = (row: { projectId: string; known: number | null }) => {
+    const raw = mileageMiles[row.projectId]
+    if (raw !== undefined) return raw
+    return row.known != null ? String(row.known) : ''
+  }
+  const milesFor = (row: { projectId: string; known: number | null }) => {
+    const v = parseFloat(milesBoxValue(row))
+    return Number.isFinite(v) && v > 0 ? v : 0
+  }
+
+  const mileageTotals = mileagePlan.reduce(
+    (acc, row) => {
+      const miles = milesFor(row)
+      if (miles <= 0) return { ...acc, missing: acc.missing + 1 }
+      return {
+        trips: acc.trips + row.dates.length,
+        miles: acc.miles + miles * row.dates.length,
+        // Each day is priced at the IRS rate in force on that date, so a week that
+        // straddles a rate change is costed correctly.
+        value: acc.value + row.dates.reduce((s2, d) => s2 + miles * irsMileageRate(d), 0),
+        missing: acc.missing,
+      }
+    },
+    { trips: 0, miles: 0, value: 0, missing: 0 },
+  )
+
+  const mileageSkipped = (() => {
+    const seen = new Set<string>()
+    let covered = 0
+    let unassigned = 0
+    for (const e of pending) {
+      if (!e.project_id) {
+        const k = `u|${e.date}`
+        if (!seen.has(k)) { seen.add(k); unassigned++ }
+        continue
+      }
+      const key = `${e.date}|${e.project_id}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      if (hasTrip(e.project_id, e.date)) covered++
+    }
+    return { covered, unassigned }
+  })()
+
   const handleBulkAssign = async () => {
     setError(null)
     setNotice(null)
@@ -240,10 +347,15 @@ export default function SchedulePage() {
   const handleApproveWeek = async () => {
     if (pending.length === 0) return
     const totalHours = pending.reduce((s, e) => s + Number(e.planned_hours || 0), 0)
+    const willRecordMileage = recordMileage && mileageTotals.trips > 0
     if (!confirm(
       `Approve ${pending.length} scheduled day${pending.length === 1 ? '' : 's'} for the week of ${weekStart}?\n\n` +
       `This creates ${pending.length} labor entr${pending.length === 1 ? 'y' : 'ies'} totalling ` +
-      `${totalHours.toFixed(1)} hours. Run payroll for the week afterwards to cost it.`,
+      `${totalHours.toFixed(1)} hours. Run payroll for the week afterwards to cost it.` +
+      (willRecordMileage
+        ? `\n\nAlso records ${mileageTotals.trips} mileage trip${mileageTotals.trips === 1 ? '' : 's'} ` +
+          `(${mileageTotals.miles.toFixed(0)} miles, ${fmtCents(mileageTotals.value)} deductible).`
+        : ''),
     )) return
 
     setApproving(true)
@@ -286,10 +398,51 @@ export default function SchedulePage() {
         if (updErr) throw updErr
       }
 
+      // Mileage comes last and on its own: the hours are already approved and linked
+      // at this point, so a failure here is reported rather than left to look like a
+      // failed approval. Trips are per project day, with the employee on the row
+      // taken from that day's crew because a trip still has to belong to somebody.
+      let mileageNote = ''
+      if (willRecordMileage) {
+        const mileageRows = mileagePlan.flatMap((row) => {
+          const miles = milesFor(row)
+          if (miles <= 0) return []
+          return row.dates.map((date) => {
+            const crew = pending.filter((e) => e.date === date && e.project_id === row.projectId)
+            return {
+              employee_id: crew[0]?.employee_id || null,
+              project_id: row.projectId,
+              date,
+              starting_location: row.start || 'Office',
+              destination: row.dest || projectName(row.projectId),
+              miles_driven: miles,
+              reimbursement_rate: irsMileageRate(date),
+              notes: `Crew trip recorded on schedule approval — week of ${weekStart}`,
+            }
+          })
+        })
+        if (mileageRows.length > 0) {
+          const { error: milErr } = await supabase.from('mileage_entries').insert(mileageRows)
+          if (milErr) {
+            console.error('Error recording mileage:', milErr)
+            setError(
+              `Hours were approved, but the mileage could not be recorded: ${milErr.message}. ` +
+              `Add those trips on the Mileage page.`,
+            )
+          } else {
+            mileageNote =
+              ` Recorded ${mileageRows.length} mileage trip${mileageRows.length === 1 ? '' : 's'} ` +
+              `(${mileageTotals.miles.toFixed(0)} miles, ${fmtCents(mileageTotals.value)}).`
+          }
+        }
+      }
+
       setNotice(
-        `Approved ${pending.length} day${pending.length === 1 ? '' : 's'} into labor hours. ` +
-        `Run payroll for the week of ${weekStart} to turn it into cost.`,
+        `Approved ${pending.length} day${pending.length === 1 ? '' : 's'} into labor hours.` +
+        mileageNote +
+        ` Run payroll for the week of ${weekStart} to turn it into cost.`,
       )
+      setMileageMiles({})
       await loadData()
     } catch (err: any) {
       console.error('Error approving week:', err)
@@ -661,6 +814,93 @@ export default function SchedulePage() {
             {approving ? 'Approving...' : pending.length === 0 ? 'Nothing to approve' : `Approve week (${pending.length})`}
           </button>
         </div>
+
+        {/* Mileage on approval. One trip per project day, priced from that project's
+            last trip, so the deduction is captured at the same moment the hours are
+            — which is the only time anyone remembers the driving happened. */}
+        {pending.length > 0 && (
+          <div className="px-4 sm:px-6 py-4" style={{ backgroundColor: 'var(--color-linen)', borderBottom: '1px solid var(--color-border)' }}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={recordMileage}
+                onChange={(e) => setRecordMileage(e.target.checked)}
+                className="mt-0.5 w-4 h-4 flex-shrink-0"
+              />
+              <span className="flex-1">
+                <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--color-navy)' }}>
+                  <Car className="w-4 h-4" />
+                  Also record mileage for these days
+                </span>
+                <span className="block text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
+                  {mileagePlan.length === 0
+                    ? 'Every project day this week already has a trip on file.'
+                    : `One trip per project per day — ${mileageTotals.trips} trip${mileageTotals.trips === 1 ? '' : 's'}, ` +
+                      `${mileageTotals.miles.toFixed(0)} miles, ${fmtCents(mileageTotals.value)} deductible.`}
+                </span>
+              </span>
+            </label>
+
+            {recordMileage && mileagePlan.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {mileagePlan.map((row) => {
+                  const miles = milesFor(row)
+                  const value = row.dates.reduce((s, d) => s + miles * irsMileageRate(d), 0)
+                  return (
+                    <div
+                      key={row.projectId}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-white rounded-lg px-3 py-2"
+                      style={{ border: '1px solid var(--color-border)' }}
+                    >
+                      <span className="text-sm font-medium flex-1 min-w-[140px]" style={{ color: 'var(--color-navy)' }}>
+                        {projectName(row.projectId)}
+                        <span className="font-normal opacity-60"> · {row.dates.length} day{row.dates.length === 1 ? '' : 's'}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          inputMode="decimal"
+                          value={milesBoxValue(row)}
+                          onChange={(e) => setMileageMiles((prev) => ({ ...prev, [row.projectId]: e.target.value }))}
+                          placeholder="miles"
+                          className="w-20 px-2 py-1.5 text-sm rounded-lg text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          style={{
+                            border: `1px solid ${miles > 0 ? 'var(--color-border)' : '#f59e0b'}`,
+                            color: 'var(--color-navy)',
+                          }}
+                        />
+                        <span className="text-xs" style={{ color: 'var(--color-muted)' }}>mi/day</span>
+                      </span>
+                      <span className="text-sm font-semibold tabular-nums w-20 text-right" style={{ color: miles > 0 ? 'var(--color-navy)' : '#b45309' }}>
+                        {miles > 0 ? fmtCents(value) : 'skipped'}
+                      </span>
+                    </div>
+                  )
+                })}
+
+                {mileageTotals.missing > 0 && (
+                  <p className="text-xs flex items-start gap-1.5" style={{ color: '#b45309' }}>
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                    {mileageTotals.missing} project{mileageTotals.missing === 1 ? ' has' : 's have'} no distance on
+                    file. Enter the one-way miles to claim {mileageTotals.missing === 1 ? 'it' : 'them'}, or leave
+                    blank and {mileageTotals.missing === 1 ? 'it is' : 'they are'} skipped.
+                  </p>
+                )}
+                {(mileageSkipped.covered > 0 || mileageSkipped.unassigned > 0) && (
+                  <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                    Not listed:
+                    {mileageSkipped.covered > 0 && ` ${mileageSkipped.covered} project day${mileageSkipped.covered === 1 ? '' : 's'} already claimed`}
+                    {mileageSkipped.covered > 0 && mileageSkipped.unassigned > 0 && ','}
+                    {mileageSkipped.unassigned > 0 && ` ${mileageSkipped.unassigned} day${mileageSkipped.unassigned === 1 ? '' : 's'} with nobody on a project`}
+                    .
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {weekEntries.length === 0 ? (
           <div className="px-6 py-14 text-center">
