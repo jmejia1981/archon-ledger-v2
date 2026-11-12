@@ -72,6 +72,9 @@ export default function SchedulePage() {
   const [mileageEntries, setMileageEntries] = useState<MileageEntry[]>([])
   const [recordMileage, setRecordMileage] = useState(true)
   const [mileageMiles, setMileageMiles] = useState<Record<string, string>>({})
+  // Hours typed into the grid but not yet saved, keyed by entry.
+  const [hoursDraft, setHoursDraft] = useState<Record<string, string>>({})
+  const [savingHours, setSavingHours] = useState<string | null>(null)
 
   // Bulk assignment: a crew, a project, a set of days.
   const [crew, setCrew] = useState<string[]>([])
@@ -321,6 +324,67 @@ export default function SchedulePage() {
       )
     } finally {
       setSaving(false)
+    }
+  }
+
+  // A day's hours are edited in place on the grid. Short days are normal — somebody
+  // leaves at noon, a jobsite closes early — and a correction is read across the
+  // week, so the figure is typed where it is shown rather than in a dialog.
+  const discardHoursDraft = (id: string) =>
+    setHoursDraft((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+
+  const hoursValue = (e: ScheduleEntry) =>
+    hoursDraft[e.id] ?? String(Number(e.planned_hours || 0))
+
+  // Saved on blur, not per keystroke: a write per character would hammer the table
+  // and leave a half-typed "1" saved on the way to "10".
+  const commitHours = async (entry: ScheduleEntry) => {
+    const raw = hoursDraft[entry.id]
+    if (raw === undefined) return
+
+    const hours = parseFloat(raw)
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
+      setError('Hours must be more than 0 and no more than 24. That day was left as it was.')
+      discardHoursDraft(entry.id)
+      return
+    }
+    if (hours === Number(entry.planned_hours || 0)) {
+      discardHoursDraft(entry.id)
+      return
+    }
+
+    setError(null)
+    setNotice(null)
+    setSavingHours(entry.id)
+    try {
+      const { error: updErr } = await supabase
+        .from('schedule_entries')
+        .update({ planned_hours: hours, updated_at: new Date().toISOString() })
+        .eq('id', entry.id)
+      if (updErr) throw updErr
+      // Updated in place rather than reloading, so the cursor is free to move to the
+      // next day while the week's hours, cost and payroll projection follow along.
+      setEntries((prev) =>
+        prev.map((e) => (e.id === entry.id ? { ...e, planned_hours: hours } : e)),
+      )
+      discardHoursDraft(entry.id)
+    } catch (err: any) {
+      console.error('Error updating hours:', err)
+      const msg = String(err?.message || '')
+      setError(
+        /row-level security|42501/i.test(msg)
+          ? 'Could not save the hours — your session may have expired. Sign in again and retry.'
+          : msg || 'Failed to update the hours.',
+      )
+      // Falls back to the stored figure, so the grid never shows an unsaved number
+      // as though it were saved.
+      discardHoursDraft(entry.id)
+    } finally {
+      setSavingHours(null)
     }
   }
 
@@ -803,7 +867,12 @@ export default function SchedulePage() {
       {/* Week grid */}
       <div className="order-3 bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
         <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ backgroundColor: 'var(--color-navy)' }}>
-          <span className="font-bold text-sm text-white">Sat {weekStart.slice(5)} – Fri {weekEnd.slice(5)}</span>
+          <span className="flex flex-col">
+            <span className="font-bold text-sm text-white">Sat {weekStart.slice(5)} – Fri {weekEnd.slice(5)}</span>
+            {pending.length > 0 && (
+              <span className="text-xs text-white opacity-70">Change anyone&apos;s hours in the grid below</span>
+            )}
+          </span>
           <button
             onClick={handleApproveWeek}
             disabled={approving || pending.length === 0}
@@ -958,9 +1027,53 @@ export default function SchedulePage() {
                                       >
                                         {projectName(e.project_id)}
                                       </p>
-                                      <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
-                                        {Number(e.planned_hours).toFixed(1)}h{e.status === 'approved' ? ' · approved' : ''}
-                                      </p>
+                                      {e.status === 'approved' ? (
+                                        // Approved days are already labor entries. Changing the
+                                        // schedule row would not move the hours payroll reads, so
+                                        // the correction belongs on Labor Hours instead.
+                                        <p
+                                          className="text-xs"
+                                          style={{ color: 'var(--color-muted)' }}
+                                          title="Approved — change these hours on the Labor Hours page"
+                                        >
+                                          {Number(e.planned_hours).toFixed(1)}h · approved
+                                        </p>
+                                      ) : (
+                                        <span className="flex items-center gap-1">
+                                          <input
+                                            type="number"
+                                            step="0.5"
+                                            min="0"
+                                            max="24"
+                                            inputMode="decimal"
+                                            value={hoursValue(e)}
+                                            onChange={(ev) =>
+                                              setHoursDraft((prev) => ({ ...prev, [e.id]: ev.target.value }))
+                                            }
+                                            onFocus={(ev) => ev.currentTarget.select()}
+                                            onBlur={() => commitHours(e)}
+                                            onKeyDown={(ev) => {
+                                              if (ev.key === 'Enter') ev.currentTarget.blur()
+                                              if (ev.key === 'Escape') {
+                                                discardHoursDraft(e.id)
+                                                ev.currentTarget.blur()
+                                              }
+                                            }}
+                                            disabled={savingHours === e.id}
+                                            aria-label={`Hours for ${emp.name} on ${d}`}
+                                            className="w-12 px-1 py-0.5 text-xs rounded text-right bg-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                            style={{
+                                              border: `1px solid ${
+                                                hoursDraft[e.id] !== undefined ? '#f59e0b' : 'var(--color-border)'
+                                              }`,
+                                              color: 'var(--color-navy)',
+                                            }}
+                                          />
+                                          <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                                            {savingHours === e.id ? '…' : 'h'}
+                                          </span>
+                                        </span>
+                                      )}
                                     </div>
                                     {e.status === 'scheduled' && (
                                       <button
