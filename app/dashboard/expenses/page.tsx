@@ -23,6 +23,7 @@ interface Expense {
 interface Project {
   id: string
   project_name: string
+  status?: string | null
 }
 
 const supabase = createClient()
@@ -70,7 +71,7 @@ export default function ExpensesPage() {
       try {
         const [expensesData, projectsData] = await Promise.all([
           supabase.from('expenses').select('*'),
-          supabase.from('projects').select('id, project_name'),
+          supabase.from('projects').select('id, project_name, status'),
         ])
 
         const signedExpenses = await Promise.all((expensesData.data || []).map(async (expense) => ({
@@ -409,6 +410,23 @@ Only the expenses currently shown are affected.`,
     return projects.find((p) => p.id === projectId)?.project_name || 'Overhead'
   }
 
+  // New spending belongs to a job that is still running, so the picker offers only
+  // those — most of the roster is finished work and coding a fresh receipt to it
+  // would reopen a job that has already been costed. Written as an exclusion rather
+  // than a test for 'active' so a project parked under some other status still
+  // appears instead of silently vanishing from the list.
+  const isOpenProject = (p: Project) => p.status !== 'completed' && p.status !== 'cancelled'
+  const openProjects = projects.filter(isOpenProject)
+
+  // An expense already coded to a finished job keeps that job on its own picker.
+  // Dropping it would blank the field and quietly recode the expense to overhead on
+  // the next save, moving money off a job that is already in the books.
+  const projectOptions = (selectedId: string) => {
+    if (!selectedId || openProjects.some((p) => p.id === selectedId)) return openProjects
+    const current = projects.find((p) => p.id === selectedId)
+    return current ? [current, ...openProjects] : openProjects
+  }
+
   const statusColors: Record<string, string> = {
     approved: 'bg-green-100 text-green-800',
     pending: 'bg-yellow-100 text-yellow-800',
@@ -515,7 +533,7 @@ Only the expenses currently shown are affected.`,
                   style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
                 >
                   <option value="">No project (overhead)</option>
-                  {projects.map((project) => (
+                  {openProjects.map((project) => (
                     <option key={project.id} value={project.id}>{project.project_name}</option>
                   ))}
                 </select>
@@ -999,8 +1017,10 @@ Only the expenses currently shown are affected.`,
                 <select value={editFormData.projectId} onChange={(e) => setEditFormData({ ...editFormData, projectId: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border text-sm bg-white" style={{ borderColor: 'var(--color-border)', color: 'var(--color-navy)' }}>
                   <option value="">No project (overhead)</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.project_name}</option>
+                  {projectOptions(editFormData.projectId).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.project_name}{isOpenProject(p) ? '' : ' (completed)'}
+                    </option>
                   ))}
                 </select>
               </div>
