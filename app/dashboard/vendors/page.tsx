@@ -23,6 +23,25 @@ interface Vendor {
   created_at: string
 }
 
+interface VendorTotals {
+  ytd: number
+  lifetime: number
+  bills: number
+  open: number
+  last: string | null
+}
+
+const TAX_YEAR = String(new Date().getFullYear())
+
+// A payer must file a 1099-NEC once a vendor is past $600 in a calendar year, so
+// the page marks the ones that have crossed it.
+const NEC_THRESHOLD = 600
+
+const money = (n: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+
+const EMPTY_TOTALS: VendorTotals = { ytd: 0, lifetime: 0, bills: 0, open: 0, last: null }
+
 const ENTITY_TYPES = [
   { value: 'individual', label: 'Individual' },
   { value: 'sole_prop', label: 'Sole Proprietor' },
@@ -55,6 +74,7 @@ const supabase = createClient()
 
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<Vendor[]>([])
+  const [totals, setTotals] = useState<Record<string, VendorTotals>>({})
   const [filtered, setFiltered] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -66,8 +86,30 @@ export default function VendorsPage() {
 
   const loadVendors = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase.from('vendors').select('*').order('name')
-    setVendors(data || [])
+    // Every bill carries vendor_id, and no vendor is paid through the expense table,
+    // so bills alone are the whole picture of what a vendor has had.
+    const [vRes, bRes] = await Promise.all([
+      supabase.from('vendors').select('*').order('name'),
+      supabase.from('vendor_bills').select('vendor_id, amount, amount_paid, issue_date'),
+    ])
+    const totals: Record<string, VendorTotals> = {}
+    for (const b of bRes.data || []) {
+      const id = (b as any).vendor_id
+      if (!id) continue
+      const t = (totals[id] ||= { ytd: 0, lifetime: 0, bills: 0, open: 0, last: null })
+      const paid = Number((b as any).amount_paid || 0)
+      const amount = Number((b as any).amount || 0)
+      const date = String((b as any).issue_date || '')
+      t.bills += 1
+      t.lifetime += paid
+      t.open += Math.max(0, amount - paid)
+      // The 1099-NEC threshold is per calendar year, so the year's figure is the one
+      // that decides whether this vendor needs a form.
+      if (date.slice(0, 4) === TAX_YEAR) t.ytd += paid
+      if (date && (!t.last || date > t.last)) t.last = date
+    }
+    setVendors(vRes.data || [])
+    setTotals(totals)
     setLoading(false)
   }, [])
 
@@ -246,7 +288,9 @@ export default function VendorsPage() {
       <div className="sm:hidden space-y-3">
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-sm" style={{ color: 'var(--color-muted)' }}>No vendors found</div>
-        ) : filtered.map(v => (
+        ) : filtered.map(v => {
+          const t = totals[v.id] || EMPTY_TOTALS
+          return (
           <div key={v.id} className="bg-white rounded-xl p-4 active:opacity-75"
             style={{ border: '1px solid var(--color-border)' }}
             onClick={() => openEdit(v)}>
@@ -273,13 +317,29 @@ export default function VendorsPage() {
                   )}
                 </div>
               </div>
-              <button onClick={e => { e.stopPropagation(); handleDelete(v.id) }} className="p-1" style={{ color: 'var(--color-destructive)' }}>
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-start gap-2 flex-shrink-0">
+                <div className="text-right">
+                  <p className="text-base font-bold tabular-nums" style={{ color: t.ytd > 0 ? 'var(--color-navy)' : 'var(--color-muted)' }}>
+                    {money(t.ytd)}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--color-muted)' }}>paid {TAX_YEAR}</p>
+                </div>
+                <button onClick={e => { e.stopPropagation(); handleDelete(v.id) }} className="p-1" style={{ color: 'var(--color-destructive)' }}>
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            {v.ein && <p className="text-xs mt-2" style={{ color: 'var(--color-muted)' }}>EIN: {v.ein}</p>}
+            <div className="flex items-center justify-between gap-2 mt-2">
+              <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                {v.ein ? `EIN: ${v.ein}` : t.bills > 0 ? `${t.bills} bill${t.bills === 1 ? '' : 's'}` : ''}
+              </p>
+              {t.open > 0 && (
+                <p className="text-xs font-medium" style={{ color: '#b45309' }}>{money(t.open)} unpaid</p>
+              )}
+            </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Desktop table */}
@@ -288,17 +348,23 @@ export default function VendorsPage() {
           <table className="w-full">
             <thead style={{ backgroundColor: 'var(--color-linen)' }}>
               <tr>
-                {['Vendor', 'Contact', 'Entity Type', 'EIN / SSN', '1099', 'W-9', ''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>{h}</th>
+                {['Vendor', 'Contact', 'Entity Type', `Paid ${TAX_YEAR}`, 'EIN / SSN', '1099', 'W-9', ''].map(h => (
+                  <th
+                    key={h}
+                    className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide ${h.startsWith('Paid') ? 'text-right' : 'text-left'}`}
+                    style={{ color: 'var(--color-navy)' }}
+                  >{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-sm" style={{ color: 'var(--color-muted)' }}>
+                <tr><td colSpan={8} className="text-center py-12 text-sm" style={{ color: 'var(--color-muted)' }}>
                   No vendors yet — click &quot;Add Vendor&quot; to get started
                 </td></tr>
-              ) : filtered.map(v => (
+              ) : filtered.map(v => {
+                const t = totals[v.id] || EMPTY_TOTALS
+                return (
                 <tr key={v.id} className="border-t cursor-pointer hover:bg-gray-50 transition"
                   style={{ borderColor: 'var(--color-border)' }}
                   onClick={() => openEdit(v)}>
@@ -317,7 +383,23 @@ export default function VendorsPage() {
                     {v.email && <div className="text-xs">{v.email}</div>}
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-muted)' }}>
-                    {ENTITY_TYPES.find(t => t.value === v.entity_type)?.label}
+                    {ENTITY_TYPES.find(e => e.value === v.entity_type)?.label}
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <div className="text-sm font-semibold tabular-nums" style={{ color: t.ytd > 0 ? 'var(--color-navy)' : 'var(--color-muted)' }}>
+                      {money(t.ytd)}
+                    </div>
+                    <div className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                      {t.bills === 0
+                        ? 'no bills'
+                        : `${t.bills} bill${t.bills === 1 ? '' : 's'}`}
+                      {/* Lifetime only earns a line when it differs, so a vendor
+                          billed only this year does not carry a duplicate figure. */}
+                      {t.lifetime !== t.ytd && ` · ${money(t.lifetime)} all time`}
+                    </div>
+                    {t.open > 0 && (
+                      <div className="text-xs font-medium" style={{ color: '#b45309' }}>{money(t.open)} unpaid</div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm font-mono" style={{ color: v.ein ? 'var(--color-navy)' : '#dc2626' }}>
                     {v.ein || (v.is_1099_required ? 'MISSING' : '—')}
@@ -330,6 +412,10 @@ export default function VendorsPage() {
                   <td className="px-4 py-3">
                     {v.w9_on_file
                       ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: '#d1fae5', color: '#065f46' }}>On File</span>
+                      : v.is_1099_required && t.ytd >= NEC_THRESHOLD
+                      // Past the threshold the form is already owed, so this is no
+                      // longer a tidy-up — it says so.
+                      ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}>Overdue</span>
                       : v.is_1099_required
                       ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>Needed</span>
                       : <span className="text-xs" style={{ color: 'var(--color-muted)' }}>—</span>}
@@ -340,7 +426,8 @@ export default function VendorsPage() {
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
