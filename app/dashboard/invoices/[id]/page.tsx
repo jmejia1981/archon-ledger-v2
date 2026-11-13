@@ -56,7 +56,7 @@ export default function InvoiceDetailPage() {
         const [invoiceRes, clientsRes, projectsRes] = await Promise.all([
           supabase.from('invoices').select('*').eq('id', invoiceId).single(),
           supabase.from('clients').select('id, name, email, phone'),
-          supabase.from('projects').select('id, project_name, project_address, external_project_manager'),
+          supabase.from('projects').select('id, project_name, project_address, external_project_manager, status'),
         ])
 
         if (invoiceRes.error) throw invoiceRes.error
@@ -184,6 +184,15 @@ export default function InvoiceDetailPage() {
       setSaving(false)
     }
   }
+
+  const isOpenProject = (p: any) => p?.status !== 'completed' && p?.status !== 'cancelled'
+  const openProjects = projects.filter(isOpenProject)
+  const projectOptions = (() => {
+    const current = formData.project_id
+    if (!current || openProjects.some((p: any) => p.id === current)) return openProjects
+    const assigned = projects.find((p: any) => p.id === current)
+    return assigned ? [assigned, ...openProjects] : openProjects
+  })()
 
   const handleRecordPayment = async () => {
     if (savingPayment) return
@@ -640,8 +649,15 @@ export default function InvoiceDetailPage() {
                 style={{ borderColor: 'var(--color-border)' }}
               >
                 <option value="">— Select project —</option>
-                {projects.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.project_name}</option>
+                {/* Open jobs, plus whatever this invoice already bills. Most billed
+                    work is finished, so dropping completed jobs outright would blank
+                    the field on an existing invoice and strip its project on the next
+                    save — taking the revenue off a job that is already closed out and
+                    out of that project's invoice ledger. */}
+                {projectOptions.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.project_name}{isOpenProject(p) ? '' : ' (completed)'}
+                  </option>
                 ))}
               </select>
             </div>

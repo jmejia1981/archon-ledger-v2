@@ -36,6 +36,7 @@ interface Client {
 interface Project {
   id: string
   project_name: string
+  status?: string | null
 }
 
 const supabase = createClient()
@@ -92,7 +93,7 @@ export default function InvoicesPage() {
         const [invoicesData, clientsData, projectsData] = await Promise.all([
           supabase.from('invoices').select('*'),
           supabase.from('clients').select('id, name'),
-          supabase.from('projects').select('id, project_name'),
+          supabase.from('projects').select('id, project_name, status'),
         ])
 
         setInvoices(invoicesData.data || [])
@@ -534,6 +535,14 @@ export default function InvoicesPage() {
     return projects.find((p) => p.id === projectId)?.project_name || 'N/A'
   }
 
+  // A new invoice bills work still under way, so the picker offers only jobs that
+  // are open — most of the roster is finished and billing against one of those
+  // reopens revenue on a job already closed out. Read as "not completed or
+  // cancelled" so a job held under some other status stays in the list.
+  const openProjects = projects.filter(
+    (p) => p.status !== 'completed' && p.status !== 'cancelled',
+  )
+
   const statusColors: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-800',
     sent: 'bg-blue-100 text-blue-800',
@@ -699,7 +708,7 @@ export default function InvoicesPage() {
                   style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-navy)' }}
                 >
                   <option value="">Select a project</option>
-                  {projects.map((project) => (
+                  {openProjects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.project_name}
                     </option>
