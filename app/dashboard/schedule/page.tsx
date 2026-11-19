@@ -388,6 +388,46 @@ export default function SchedulePage() {
     }
   }
 
+  // Moving a day to another jobsite. Saved on change rather than on blur: unlike
+  // the hours box there is no half-typed state to guard against, and a select that
+  // only commits once focus leaves it reads as though it has not saved.
+  const [savingProject, setSavingProject] = useState<string | null>(null)
+
+  const commitProject = async (entry: ScheduleEntry, raw: string) => {
+    const next = raw || null
+    if (next === (entry.project_id || null)) return
+
+    setError(null)
+    setNotice(null)
+    setSavingProject(entry.id)
+    try {
+      const { error: updErr } = await supabase
+        .from('schedule_entries')
+        .update({ project_id: next, updated_at: new Date().toISOString() })
+        .eq('id', entry.id)
+      if (updErr) throw updErr
+      setEntries((prev) =>
+        prev.map((x) => (x.id === entry.id ? { ...x, project_id: next } : x)),
+      )
+    } catch (err: any) {
+      console.error('Error moving the day:', err)
+      const msg = String(err?.message || '')
+      setError(
+        // The unique index is (date, employee_id, project_id). Moving a day onto a
+        // project the same person is already on that day would collide, and the
+        // index message does not say what the clash was.
+        /duplicate key|23505/i.test(msg)
+          ? `${employees.find((x) => x.id === entry.employee_id)?.name || 'That person'} is already on ` +
+            `${projectName(next)} on ${entry.date}. Remove one of the two days instead of moving this one onto it.`
+          : /row-level security|42501/i.test(msg)
+          ? 'Could not save — your session may have expired. Sign in again and retry.'
+          : msg || 'Failed to move the day.',
+      )
+    } finally {
+      setSavingProject(null)
+    }
+  }
+
   const handleRemove = async (entry: ScheduleEntry) => {
     if (entry.status === 'approved') {
       setError('That day is already approved and has become labor hours. Remove it from Labor Hours instead.')
@@ -1028,13 +1068,33 @@ export default function SchedulePage() {
                                 >
                                   <div className="flex items-start gap-1">
                                     <div className="min-w-0 flex-1">
-                                      <p
-                                        className="text-xs font-medium truncate"
-                                        style={{ color: e.status === 'approved' ? '#065f46' : 'var(--color-navy)' }}
-                                        title={projectName(e.project_id)}
-                                      >
-                                        {projectName(e.project_id)}
-                                      </p>
+                                      {e.status === 'approved' ? (
+                                        <p
+                                          className="text-xs font-medium truncate"
+                                          style={{ color: '#065f46' }}
+                                          title={`${projectName(e.project_id)} — approved; move it on the Labor Hours page`}
+                                        >
+                                          {projectName(e.project_id)}
+                                        </p>
+                                      ) : (
+                                        // A scheduled day can still be moved to another
+                                        // jobsite. The select is the width of the cell and
+                                        // truncates; the full name stays in the tooltip.
+                                        <select
+                                          value={e.project_id || ''}
+                                          onChange={(ev) => commitProject(e, ev.target.value)}
+                                          disabled={savingProject === e.id}
+                                          title={projectName(e.project_id)}
+                                          aria-label={`Project for ${emp.name} on ${d}`}
+                                          className="w-full max-w-full text-xs font-medium bg-transparent border-0 p-0 cursor-pointer truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded disabled:opacity-50"
+                                          style={{ color: 'var(--color-navy)' }}
+                                        >
+                                          <option value="">Unassigned</option>
+                                          {projects.map((p) => (
+                                            <option key={p.id} value={p.id}>{p.project_name}</option>
+                                          ))}
+                                        </select>
+                                      )}
                                       {e.status === 'approved' ? (
                                         // Approved days are already labor entries. Changing the
                                         // schedule row would not move the hours payroll reads, so
