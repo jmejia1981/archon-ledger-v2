@@ -32,6 +32,9 @@ interface PayrollRecord {
   total_employer_cost: number
   status: string
   payment_method: string
+  // The rate this run was costed at. Read from here, never from the employee
+  // record, which moves with raises and would rewrite settled history.
+  hourly_rate: number | null
 }
 
 // Format by local calendar day. toISOString() converts to UTC first, and the date
@@ -202,6 +205,7 @@ export default function PayrollPage() {
       regular_hours: row.regularHours,
       overtime_hours: row.overtimeHours,
       gross_pay: row.grossPay,
+      hourly_rate: row.employee.hourly_rate,
       taxes: employerTax(row.grossPay),
       benefits: 0,
       reimbursements: 0,
@@ -229,6 +233,7 @@ export default function PayrollPage() {
         regular_hours: row.regularHours,
         overtime_hours: row.overtimeHours,
         gross_pay: row.grossPay,
+        hourly_rate: row.employee.hourly_rate,
         taxes: employerTax(row.grossPay),
         benefits: 0,
         reimbursements: 0,
@@ -501,6 +506,7 @@ export default function PayrollPage() {
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Employee</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Pay Period</th>
                   <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Hours</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Rate</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Gross Pay</th>
                   <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Payment</th>
                   <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-navy)' }}>Status</th>
@@ -522,6 +528,32 @@ export default function PayrollPage() {
                         <span className="ml-1 text-xs" style={{ color: '#d97706' }}>
                           ({record.overtime_hours}h OT)
                         </span>
+                      )}
+                    </td>
+                    {/* The rate the run was costed at, so the gross can be checked
+                        against the hours beside it. A later raise shows here as a
+                        difference from the employee's rate today rather than making
+                        the row look wrong. */}
+                    <td className="px-6 py-4 text-sm text-right" style={{ color: 'var(--color-navy)' }}>
+                      {record.hourly_rate == null ? (
+                        <span style={{ color: 'var(--color-muted)' }}>—</span>
+                      ) : (
+                        <>
+                          <span className="tabular-nums">${Number(record.hourly_rate).toFixed(2)}</span>
+                          {(() => {
+                            const now = employees.find(e => e.id === record.employee_id)?.hourly_rate
+                            if (now == null || Number(now) === Number(record.hourly_rate)) return null
+                            return (
+                              <span
+                                className="block text-xs"
+                                style={{ color: 'var(--color-muted)' }}
+                                title={`Paid at $${Number(record.hourly_rate).toFixed(2)}; this employee's rate is now $${Number(now).toFixed(2)}`}
+                              >
+                                now ${Number(now).toFixed(2)}
+                              </span>
+                            )
+                          })()}
+                        </>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-right" style={{ color: 'var(--color-navy)' }}>
