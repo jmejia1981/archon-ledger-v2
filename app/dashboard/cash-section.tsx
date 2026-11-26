@@ -40,7 +40,6 @@ function freshness(asOf: string | null): { days: number | null; label: string; c
 }
 
 const SOURCE_LABEL: Record<string, string> = {
-  truthifi: 'Truthifi',
   csv: 'Statement import',
   plaid: 'Plaid',
   manual: 'Entered by hand',
@@ -346,8 +345,8 @@ export function CashSection() {
           <Landmark className="w-8 h-8 mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-medium" style={{ color: 'var(--color-navy)' }}>No cash accounts yet</p>
           <p className="text-xs mt-1 max-w-md mx-auto" style={{ color: 'var(--color-muted)' }}>
-            Add an account to start tracking cash. Balances can be typed in here, or written in from the Truthifi
-            connector in your assistant — nothing is shown as cash until a real balance is recorded.
+            Connect a bank through Plaid to pull balances automatically, or type one in by hand —
+            nothing is shown as cash until a real balance is recorded.
           </p>
         </div>
       ) : (
