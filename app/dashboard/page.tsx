@@ -22,6 +22,7 @@ import {
 } from '@/app/dashboard/dashboard-charts'
 import { allocatePayrollToEntries, mileageEntryCost } from '@/lib/calculations'
 import { ReceivablesSection, ProjectProfitabilitySection } from './financial-sections'
+import { CashSection } from './cash-section'
 import { buildBacklog, buildProjectPnL, toLocalISODate } from '@/lib/financials'
 
 interface DashboardMetrics {
@@ -816,6 +817,8 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <CashSection />
 
       {allData && (
         <ReceivablesSection
