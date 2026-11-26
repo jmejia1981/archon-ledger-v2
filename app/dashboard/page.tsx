@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -21,6 +21,8 @@ import {
   ProfitTrendChart,
 } from '@/app/dashboard/dashboard-charts'
 import { allocatePayrollToEntries, mileageEntryCost } from '@/lib/calculations'
+import { ReceivablesSection, ProjectProfitabilitySection } from './financial-sections'
+import { buildBacklog, buildProjectPnL, toLocalISODate } from '@/lib/financials'
 
 interface DashboardMetrics {
   totalContractedRevenue: number
@@ -410,6 +412,52 @@ export default function DashboardPage() {
     ? 'All Projects'
     : projects.find((p) => p.id === selectedProjectId)?.project_name || 'Selected Project'
 
+  // Labour split by project. Taken from the same payroll allocation the KPI cards
+  // use rather than recomputed from hours and rates, so the project table and the
+  // Labor Costs card cannot drift apart.
+  const laborByProject = useMemo(() => {
+    const out: Record<string, number> = {}
+    if (!allData) return out
+    const allocation = allocatePayrollToEntries(
+      allData.payroll || [],
+      allData.labor || [],
+      allData.employees || [],
+    )
+    for (const entry of allData.labor || []) {
+      if (!entry.project_id) continue
+      out[entry.project_id] = (out[entry.project_id] || 0) + (allocation.byEntryId.get(entry.id) || 0)
+    }
+    return out
+  }, [allData])
+
+  const backlog = useMemo(
+    () => (allData ? buildBacklog(allData.projects || [], allData.invoices || []) : { projectCount: 0, contract: 0, invoiced: 0, backlog: 0, overbilled: 0 }),
+    [allData],
+  )
+
+  // Company gross profit, summed from the same per-project rows the table shows, so
+  // the card and the table's total are the same number by construction.
+  const grossSummary = useMemo(() => {
+    if (!allData) return { revenue: 0, directCost: 0, grossProfit: 0, grossMargin: null as number | null }
+    const rows = buildProjectPnL(
+      allData.projects || [],
+      allData.invoices || [],
+      allData.expenses || [],
+      allData.bills || [],
+      allData.mileage || [],
+      laborByProject,
+      mileageEntryCost,
+    )
+    const revenue = rows.reduce((s, r) => s + r.invoiced, 0)
+    const directCost = rows.reduce((s, r) => s + r.directCost, 0)
+    return {
+      revenue,
+      directCost,
+      grossProfit: revenue - directCost,
+      grossMargin: revenue > 0 ? ((revenue - directCost) / revenue) * 100 : null,
+    }
+  }, [allData, laborByProject])
+
   const openDetail = (title: string, rows: { label: string; value: string; sub?: string }[]) => {
     setDetailModal({ title, rows })
   }
@@ -729,19 +777,66 @@ export default function DashboardPage() {
         <ProfitTrendChart monthlyRevenueData={chartData} />
       </div>
 
-      {/* Widgets Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {[
-          { title: 'Projects Nearing Budget Limit', count: '0' },
-          { title: 'Overdue Invoices', count: '0' },
-          { title: 'Pending Approvals', count: '0' },
-        ].map((widget, idx) => (
-          <div key={idx} className="bg-white rounded-lg p-6 shadow-sm" style={{ border: `1px solid var(--color-border)` }}>
-            <h3 className="font-semibold mb-4" style={{ color: 'var(--color-navy)' }}>{widget.title}</h3>
-            <p className="text-3xl font-bold" style={{ color: 'var(--color-gold)' }}>{widget.count}</p>
+      {/* Gross profit and backlog. These three sat here as hardcoded zeros under the
+          headings "Projects Nearing Budget Limit", "Overdue Invoices" and "Pending
+          Approvals" — figures that were never computed from anything. */}
+      {allData && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <div className="bg-white rounded-xl p-5 shadow-sm" style={{ border: '1px solid var(--color-border)' }}
+            title="Invoiced revenue minus direct job cost: labour, project expenses, project bills and mileage. Overhead is excluded and comes off net profit instead.">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Gross Profit</p>
+            <p className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--color-navy)' }}>
+              {formatCurrency(grossSummary.grossProfit)}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
+              {formatCurrency(grossSummary.revenue)} invoiced − {formatCurrency(grossSummary.directCost)} direct cost
+            </p>
           </div>
-        ))}
-      </div>
+
+          <div className="bg-white rounded-xl p-5 shadow-sm" style={{ border: '1px solid var(--color-border)' }}
+            title="Gross profit divided by invoiced revenue. Shown as — when nothing has been invoiced, rather than as 0%.">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Gross Margin</p>
+            <p className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--color-navy)' }}>
+              {grossSummary.grossMargin === null ? '—' : `${grossSummary.grossMargin.toFixed(1)}%`}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
+              Before overhead and taxes
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl p-5 shadow-sm" style={{ border: '1px solid var(--color-border)' }}
+            title="Signed contract value not yet invoiced, on jobs that are not completed or cancelled. Unsigned proposals are excluded — they are not contracted work.">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>Signed Backlog</p>
+            <p className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--color-navy)' }}>
+              {formatCurrency(backlog.backlog)}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
+              Left to invoice across {backlog.projectCount} open job{backlog.projectCount === 1 ? '' : 's'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {allData && (
+        <ReceivablesSection
+          invoices={allData.invoices || []}
+          clients={allData.clients || []}
+          projects={allData.projects || []}
+          asOf={toLocalISODate(new Date())}
+        />
+      )}
+
+      {allData && (
+        <ProjectProfitabilitySection
+          projects={allData.projects || []}
+          invoices={allData.invoices || []}
+          expenses={allData.expenses || []}
+          bills={allData.bills || []}
+          mileage={allData.mileage || []}
+          laborByProject={laborByProject}
+          mileageCost={mileageEntryCost}
+        />
+      )}
 
       {/* Detail Modal */}
       {detailModal && (

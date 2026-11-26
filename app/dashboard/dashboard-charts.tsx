@@ -158,7 +158,7 @@ export function BudgetVsActualChart({ budgetVsActualData = [] }: { budgetVsActua
   return (
     <div className="md:col-span-2 bg-white rounded-lg p-6 shadow-sm" style={{ border: '1px solid #D4D0C8' }}>
       <div className="pb-2">
-        <h3 className="text-base font-semibold" style={{ color: '#1A3A6B' }}>Budget vs Actual Spend</h3>
+        <h3 className="text-base font-semibold" style={{ color: '#1A3A6B' }}>Contract Value vs Actual Cost</h3>
       </div>
       <div>
         {/* A fixed 300px held every project, so fourteen of them left each bar about
@@ -199,8 +199,8 @@ export function BudgetVsActualChart({ budgetVsActualData = [] }: { budgetVsActua
                 }}
               />
               <Legend />
-              <Bar dataKey="budget" name="Budget" fill="#E8E6E2" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="actual" name="Actual" fill="#1A3A6B" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="budget" name="Contract value" fill="#E8E6E2" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="actual" name="Actual cost" fill="#1A3A6B" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
