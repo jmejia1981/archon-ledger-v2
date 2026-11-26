@@ -13,11 +13,39 @@ interface BankAccount {
   institution: string | null
   mask: string | null
   account_type: string
+  account_subtype: string | null
   current_balance: number
   available_balance: number | null
   balance_as_of: string | null
   source: string
   is_active: boolean
+}
+
+/** A bank connection, as the server reports it. Never carries a credential. */
+interface PlaidConnection {
+  id: string
+  institution: string | null
+  status: string
+  last_synced_at: string | null
+  last_error: string | null
+}
+
+/**
+ * Why a balance is shown but not counted.
+ *
+ * "other — not counted as cash" told the reader nothing; a CD and a 401k are
+ * excluded for quite different reasons, and a figure excluded without a reason
+ * reads like a bug. The subtype is what the decision was actually made on, so it
+ * is what gets named.
+ */
+function excludedReason(a: BankAccount): string {
+  const sub = (a.account_subtype || '').toLowerCase()
+  if (sub === 'cd') return 'CD — locked until maturity, not cash'
+  if (sub === 'hsa') return 'HSA — restricted to medical use, not cash'
+  if (a.account_type === 'credit') return 'credit — a debt, not cash'
+  if (a.account_type === 'loan') return 'loan — a debt, not cash'
+  if (sub) return `${sub} — not counted as cash`
+  return `${a.account_type} — not counted as cash`
 }
 
 const money = (n: number) =>
@@ -64,6 +92,16 @@ export function CashSection() {
         .order('name')
       if (err) throw err
       setAccounts((data || []) as BankAccount[])
+
+      // Connections live in plaid_items, which the browser cannot read (RLS on,
+      // no policies — it holds access tokens). The server reports their health
+      // without the credentials.
+      try {
+        const res = await fetch('/api/plaid/status')
+        if (res.ok) setConnections(((await res.json())?.connections || []) as PlaidConnection[])
+      } catch {
+        // A connection list we cannot fetch must not blank the balances below it.
+      }
     } catch (err: any) {
       console.error('Error loading cash accounts:', err)
       setError(err?.message || 'Could not load cash accounts.')
@@ -82,6 +120,7 @@ export function CashSection() {
   const [connecting, setConnecting] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncNote, setSyncNote] = useState<string | null>(null)
+  const [connections, setConnections] = useState<PlaidConnection[]>([])
 
   const startConnect = async () => {
     setError(null)
@@ -158,7 +197,10 @@ export function CashSection() {
     }
   }
 
-  const hasPlaidAccount = accounts.some((a) => a.source === 'plaid')
+  // Keyed on the connection, not on the accounts it produced. A link whose
+  // balances failed to store still needs Sync — that is its only way back.
+  const hasConnection = connections.length > 0 || accounts.some((a) => a.source === 'plaid')
+  const brokenConnections = connections.filter((c) => c.status !== 'active')
 
   const active = accounts.filter((a) => a.is_active)
   // Available where the feed reports it, current otherwise — never zero just
@@ -268,7 +310,7 @@ export function CashSection() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {hasPlaidAccount && (
+          {hasConnection && (
             <button
               onClick={syncNow}
               disabled={syncing}
@@ -300,6 +342,23 @@ export function CashSection() {
           </button>
         </div>
       </div>
+
+      {brokenConnections.length > 0 && (
+        <div className="px-5 sm:px-6 py-2.5 text-sm flex items-start gap-2" style={{ backgroundColor: '#fffbeb', color: '#92400e' }}>
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            {brokenConnections.map((c) => (
+              <p key={c.id}>
+                <span className="font-semibold">{c.institution || 'A connected bank'}</span>
+                {c.status === 'login_required'
+                  ? ' needs you to sign in again — press Connect bank to restore it.'
+                  : ` is not syncing${c.last_error ? `: ${c.last_error}` : '.'}`}
+              </p>
+            ))}
+            <p className="mt-0.5 text-xs">Balances below may be out of date until this is cleared.</p>
+          </div>
+        </div>
+      )}
 
       {syncNote && (
         <div className="px-5 sm:px-6 py-2.5 text-sm" style={{ backgroundColor: '#ecfdf5', color: '#065f46' }}>
@@ -388,7 +447,7 @@ export function CashSection() {
                         {a.mask && <span className="font-normal" style={{ color: 'var(--color-muted)' }}> ••{a.mask}</span>}
                         {!isCash && (
                           <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-normal" style={{ backgroundColor: 'var(--color-linen)', color: 'var(--color-muted)' }}>
-                            {a.account_type} — not counted as cash
+                            {excludedReason(a)}
                           </span>
                         )}
                       </p>

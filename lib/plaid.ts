@@ -61,3 +61,31 @@ export function plaidErrorMessage(err: any): string {
   if (d?.error_message) return `${d.error_code || 'PLAID_ERROR'}: ${d.error_message}`
   return err?.message || 'Plaid request failed.'
 }
+
+/**
+ * Plaid's type/subtype onto the coarse bucket the cash maths uses.
+ *
+ * Only 'checking' and 'savings' are treated as spendable. That makes the
+ * depository subtypes the whole question, and the old rule — everything that is
+ * not 'savings' is 'checking' — counted money that cannot be spent:
+ *
+ *   cd   a certificate of deposit, locked until maturity
+ *   hsa  restricted to qualified medical expenses
+ *
+ * Both now fall to 'other', so they still appear in the list with their balance
+ * but never land in Available Cash. Money market and cash management are genuinely
+ * liquid and stay in. An unrecognised subtype is excluded rather than assumed
+ * spendable: overstating cash is the costlier error.
+ */
+export function mapAccountType(type: string, subtype: string | null | undefined): string {
+  const sub = (subtype || '').toLowerCase()
+  if (type === 'depository') {
+    if (sub === 'savings' || sub === 'money market') return 'savings'
+    if (['checking', 'cash management', 'paypal', 'prepaid', 'ebt', 'cash'].includes(sub)) return 'checking'
+    // cd, hsa and anything new Plaid adds.
+    return 'other'
+  }
+  if (type === 'credit') return 'credit'
+  if (type === 'loan') return 'loan'
+  return 'other'
+}

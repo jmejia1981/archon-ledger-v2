@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { AccountBase, RemovedTransaction } from 'plaid/legacy'
 
-import { plaidClient, requireUser, plaidErrorMessage } from '@/lib/plaid'
+import { plaidClient, requireUser, plaidErrorMessage, mapAccountType } from '@/lib/plaid'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -52,7 +52,8 @@ export async function POST() {
         name: a.name || a.official_name || 'Account',
         institution: item.institution_name,
         mask: a.mask || null,
-        account_type: mapType(a.type, a.subtype),
+        account_type: mapAccountType(a.type, a.subtype),
+      account_subtype: a.subtype || null,
         current_balance: a.balances.current ?? 0,
         available_balance: a.balances.available ?? null,
         currency: a.balances.iso_currency_code || 'USD',
@@ -149,9 +150,3 @@ export async function POST() {
   return NextResponse.json({ items: items.length, accounts: accountsUpdated, added, removed, errors })
 }
 
-function mapType(type: string, subtype: string | null | undefined): string {
-  if (type === 'depository') return subtype === 'savings' ? 'savings' : 'checking'
-  if (type === 'credit') return 'credit'
-  if (type === 'loan') return 'loan'
-  return 'other'
-}
