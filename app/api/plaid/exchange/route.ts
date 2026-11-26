@@ -91,7 +91,28 @@ export async function POST(request: Request) {
       const { error: accErr } = await admin
         .from('bank_accounts')
         .upsert(rows, { onConflict: 'external_id' })
-      if (accErr) throw accErr
+
+      // The bank is genuinely connected at this point — the access token is
+      // stored and the Plaid item exists. Failing the whole request here would
+      // tell the user nothing was linked while a live credential sat in the
+      // database, and the retry would be a second connection rather than a
+      // refresh. Report the partial result instead and let Sync finish the job.
+      if (accErr) {
+        console.error('plaid/exchange: accounts write failed:', accErr.message)
+        await admin
+          .from('plaid_items')
+          .update({ last_error: `Balances not stored: ${accErr.message}` })
+          .eq('id', item.id)
+        return NextResponse.json(
+          {
+            linked: 0,
+            institution: institutionName,
+            warning:
+              `Connected to ${institutionName || 'your bank'}, but the balances could not be saved. Press Sync to try again.`,
+          },
+          { status: 207 },
+        )
+      }
     }
 
     return NextResponse.json({ linked: rows.length, institution: institutionName })

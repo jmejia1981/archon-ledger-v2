@@ -109,7 +109,13 @@ export function CashSection() {
         })
         const body = await res.json()
         if (!res.ok) throw new Error(body?.error || 'Could not finish linking the bank.')
-        setSyncNote(`Linked ${body.linked} account${body.linked === 1 ? '' : 's'}${body.institution ? ` at ${body.institution}` : ''}.`)
+        // 207: the bank linked but the balances did not store. Say so plainly
+        // rather than reporting "Linked 0 accounts", which reads as a success.
+        if (body?.warning) {
+          setError(body.warning)
+        } else {
+          setSyncNote(`Linked ${body.linked} account${body.linked === 1 ? '' : 's'}${body.institution ? ` at ${body.institution}` : ''}.`)
+        }
         await load()
       } catch (err: any) {
         setError(err?.message || 'Could not finish linking the bank.')
