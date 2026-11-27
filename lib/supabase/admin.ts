@@ -17,8 +17,11 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
  * This client has no notion of a user and will happily act without one.
  */
 export function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  // Trimmed for the same reason as the Plaid values: a trailing newline picked
+  // up from a dashboard or a pipe would produce an invalid JWT and a 401 that
+  // points nowhere near the real cause.
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
 
   if (!url || !key) {
     throw new Error(

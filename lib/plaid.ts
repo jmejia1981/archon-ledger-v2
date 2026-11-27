@@ -17,9 +17,14 @@ import { createClient } from '@/lib/supabase/server'
  */
 
 export function plaidClient() {
-  const clientId = process.env.PLAID_CLIENT_ID
-  const secret = process.env.PLAID_SECRET
-  const env = (process.env.PLAID_ENV || 'sandbox').toLowerCase()
+  // Trimmed, every one of them. These values get pasted into dashboards and
+  // piped through shells, and both can leave an invisible character on the
+  // end. A Windows pipe left a carriage return on PLAID_ENV in Vercel and the
+  // only symptom was a baffling complaint about a value that looked correct.
+  // A stray space must not break a deploy.
+  const clientId = process.env.PLAID_CLIENT_ID?.trim()
+  const secret = process.env.PLAID_SECRET?.trim()
+  const env = (process.env.PLAID_ENV?.trim() || 'sandbox').toLowerCase()
 
   if (!clientId || !secret) {
     throw new Error(
@@ -28,7 +33,9 @@ export function plaidClient() {
   }
   const basePath = PlaidEnvironments[env as keyof typeof PlaidEnvironments]
   if (!basePath) {
-    throw new Error(`PLAID_ENV must be sandbox or production — got "${env}".`)
+    // JSON.stringify so an invisible character is printed as an escape rather
+    // than as blank space the reader cannot see.
+    throw new Error(`PLAID_ENV must be sandbox or production — got ${JSON.stringify(process.env.PLAID_ENV)}.`)
   }
 
   return new PlaidApi(
