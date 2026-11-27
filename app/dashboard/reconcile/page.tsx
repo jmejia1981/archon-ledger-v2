@@ -51,6 +51,10 @@ export default function ReconcilePage() {
   const [note, setNote] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('review')
   const [open, setOpen] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [feedFilter, setFeedFilter] = useState('')
+  const [bulkCategory, setBulkCategory] = useState('')
+  const [bulkGroup, setBulkGroup] = useState('company-overhead')
 
   // A draft per row, so editing one never disturbs another.
   const [draft, setDraft] = useState<Record<string, { vendor: string; taxCategory: string; group: string; projectId: string }>>({})
@@ -166,6 +170,64 @@ export default function ReconcilePage() {
     }
   }
 
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const bulkDecide = async (kind: 'owner_draw' | 'transfer' | 'ignored') => {
+    const ids = [...selected]
+    if (ids.length === 0) return
+    setBusy('bulk'); setError(null); setNote(null)
+    try {
+      const { error: err } = await supabase.from('bank_transactions').update({
+        matched_kind: kind,
+        matched_at: new Date().toISOString(),
+        matched_note: `Marked as ${kind.replace('_', ' ')} during reconciliation.`,
+      }).in('id', ids)
+      if (err) throw err
+      setTxns((prev) => prev.map((r) => (selected.has(r.id) ? { ...r, matched_kind: kind } : r)))
+      setSelected(new Set())
+      setNote(`${ids.length} marked as ${kind.replace('_', ' ')}.`)
+    } catch (err: any) {
+      setError(err?.message || 'Could not update those.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const bulkBook = async () => {
+    const ids = [...selected]
+    if (ids.length === 0) return
+    if (!bulkCategory) { setError('Pick a Schedule C category for the selected lines.'); return }
+    setBusy('bulk'); setError(null); setNote(null)
+    try {
+      const res = await fetch('/api/reconcile/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: ids.map((id) => ({ id, taxCategory: bulkCategory, group: bulkGroup })),
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error || 'Could not book those.')
+      setSelected(new Set())
+      setNote(
+        `Booked ${body.booked} to ${bulkCategory}` +
+        (body.skipped ? `. ${body.skipped} skipped — already decided elsewhere.` : '.'),
+      )
+      await load()
+    } catch (err: any) {
+      setError(err?.message || 'Could not book those.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const openRow = (t: Txn) => {
     if (open === t.id) { setOpen(null); return }
     const s = suggestFromFeedCategory(t.category)
@@ -182,7 +244,12 @@ export default function ReconcilePage() {
   }
 
   const openProjects = projects.filter((p) => p.status !== 'completed' && p.status !== 'cancelled')
-  const rows = buckets[tab]
+  const rows = buckets[tab].filter((t) => !feedFilter || (t.category || '') === feedFilter)
+
+  // The categories actually present in this tab, so the filter never offers an
+  // option that selects nothing.
+  const feedCategories = [...new Set(buckets[tab].map((t) => t.category || '').filter(Boolean))].sort()
+  const allShownSelected = rows.length > 0 && rows.every((t) => selected.has(t.id))
 
   if (loading) {
     return (
@@ -267,6 +334,82 @@ export default function ReconcilePage() {
         </div>
       )}
 
+      {tab === 'review' && buckets.review.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={feedFilter}
+              onChange={(e) => { setFeedFilter(e.target.value); setSelected(new Set()) }}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ border: '1px solid var(--color-border)', color: 'var(--color-navy)', backgroundColor: 'white' }}
+            >
+              <option value="">All categories</option>
+              {feedCategories.map((c) => (
+                <option key={c} value={c}>{c.toLowerCase().replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setSelected(allShownSelected ? new Set() : new Set(rows.map((t) => t.id)))}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ border: '1px solid var(--color-border)', color: 'var(--color-navy)', backgroundColor: 'white' }}
+            >
+              {allShownSelected ? 'Clear selection' : `Select all ${rows.length} shown`}
+            </button>
+            {selected.size > 0 && (
+              <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                {selected.size} selected ·{' '}
+                {money(rows.filter((t) => selected.has(t.id)).reduce((a, t) => a + Math.abs(Number(t.amount)), 0))}
+              </span>
+            )}
+          </div>
+
+          {selected.size > 0 && (
+            <div className="rounded-lg p-3 flex flex-wrap items-end gap-2" style={{ backgroundColor: 'var(--color-linen)', border: '1px solid var(--color-border)' }}>
+              <label className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                Schedule C category
+                <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}
+                  className="mt-1 block px-2 py-1.5 rounded-lg text-sm" style={{ border: '1px solid var(--color-border)', minWidth: '15rem' }}>
+                  <option value="">Choose…</option>
+                  {TAX_CATEGORY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </label>
+              <label className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                Cost type
+                <select value={bulkGroup} onChange={(e) => setBulkGroup(e.target.value)}
+                  className="mt-1 block px-2 py-1.5 rounded-lg text-sm" style={{ border: '1px solid var(--color-border)' }}>
+                  <option value="company-overhead">Company overhead</option>
+                  <option value="direct-project-costs">Direct project cost</option>
+                </select>
+              </label>
+              <button onClick={bulkBook} disabled={busy === 'bulk'}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                style={{ backgroundColor: '#065f46' }}>
+                {busy === 'bulk' ? 'Working…' : `Book ${selected.size} as expenses`}
+              </button>
+              <button onClick={() => bulkDecide('owner_draw')} disabled={busy === 'bulk'}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                style={{ border: '1px solid var(--color-border)', color: 'var(--color-navy)', backgroundColor: 'white' }}>
+                Owner draw
+              </button>
+              <button onClick={() => bulkDecide('transfer')} disabled={busy === 'bulk'}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                style={{ border: '1px solid var(--color-border)', color: 'var(--color-navy)', backgroundColor: 'white' }}>
+                Transfer
+              </button>
+              <button onClick={() => bulkDecide('ignored')} disabled={busy === 'bulk'}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                style={{ border: '1px solid var(--color-border)', color: 'var(--color-navy)', backgroundColor: 'white' }}>
+                Ignore
+              </button>
+              <p className="text-xs w-full" style={{ color: 'var(--color-muted)' }}>
+                Bulk booking applies one category to every selected line and leaves the project unset. Use a
+                single row when the project matters.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
         {rows.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm" style={{ color: 'var(--color-muted)' }}>
@@ -279,6 +422,15 @@ export default function ReconcilePage() {
           return (
             <div key={t.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
               <div className="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-3">
+                {tab === 'review' && (
+                  <input
+                    type="checkbox"
+                    checked={selected.has(t.id)}
+                    onChange={() => toggle(t.id)}
+                    aria-label={`Select ${t.description || 'payment'}`}
+                    className="w-4 h-4 flex-shrink-0"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-navy)' }}>
                     {t.description || 'Unlabelled payment'}
