@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Search, Trash2, X, Save, RefreshCw, Camera, CheckCircle, Clock } from 'lucide-react'
+import { TAX_CATEGORY_OPTIONS } from '@/lib/tax-categories'
 
 interface Expense {
   id: string
@@ -452,24 +453,7 @@ Only the expenses currently shown are affected.`,
 
   const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0)
 
-  const taxCategoryOptions = [
-    'Advertising (Line 8)',
-    'Car & Truck Expenses (Line 9)',
-    'Contract Labor (Line 11)',
-    'Depreciation (Line 13)',
-    'Insurance (Line 15)',
-    'Legal & Professional Services (Line 17)',
-    'Office Expense (Line 18)',
-    'Rent or Lease (Line 20)',
-    'Repairs & Maintenance (Line 21)',
-    'Supplies & Materials (Line 22)',
-    'Taxes & Licenses (Line 23)',
-    'Travel (Line 24a)',
-    'Meals — 50% deductible (Line 24b)',
-    'Utilities (Line 25)',
-    'Wages (Line 26)',
-    'Other Expense (Line 27a)',
-  ]
+  const taxCategoryOptions = TAX_CATEGORY_OPTIONS
 
   return (
     <div className="space-y-6">
